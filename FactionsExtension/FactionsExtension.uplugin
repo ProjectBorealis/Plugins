@@ -1,0 +1,49 @@
+{
+	"FileVersion": 3,
+	"Version": 17,
+	"VersionName": "1.8",
+	"FriendlyName": "Factions Extension",
+	"Description": "Add factions and relations in your game using C++ or Blueprints",
+	"Category": "Piperift",
+	"CreatedBy": "Piperift",
+	"CreatedByURL": "http://piperift.com/",
+	"DocsURL": "https://piperift.com/FactionsExtension/",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/29a33bd0c38e4b8f9626f495bb47dca8",
+	"SupportURL": "info@piperift.com",
+	"CanContainContent": false,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "Factions",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux",
+				"HTML5",
+				"Android",
+				"PS4",
+				"XboxOne",
+				"Switch",
+				"Mac"
+			]
+		},
+		{
+			"Name": "FactionsEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux",
+				"HTML5",
+				"Android",
+				"PS4",
+				"XboxOne",
+				"Switch",
+				"Mac"
+			]
+		}
+	]
+}

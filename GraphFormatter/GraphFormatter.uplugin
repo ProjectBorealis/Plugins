@@ -1,0 +1,28 @@
+{
+	"FileVersion": 3,
+	"Version": 3,
+	"VersionName": "2.2.3",
+	"FriendlyName": "GraphFormatter",
+	"Description": "Auto arrange graph nodes.",
+	"Category": "Utility",
+	"CreatedBy": "Howaajin",
+	"CreatedByURL": "https://github.com/howaajin/graphformatter",
+	"DocsURL": "https://github.com/howaajin/graphformatter/blob/master/README.md",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/297159d6d3f4425b9c095b18a811a401",
+	"SupportURL": "https://github.com/howaajin/graphformatter/issues",
+	"CanContainContent": false,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "GraphFormatter",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Mac",
+				"Linux"
+			]
+		}
+	]
+}

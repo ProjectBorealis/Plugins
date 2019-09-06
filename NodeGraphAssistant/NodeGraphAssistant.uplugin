@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1.6,
+	"VersionName": "1.6",
+	"FriendlyName": "Node Graph Assistant",
+	"Description": "Introduce new editor features that enable faster node graph creation.",
+	"Category": "Editor",
+	"CreatedBy": "yangxiangyun",
+	"CreatedByURL": "https://github.com/pdlogingithub",
+	"DocsURL": "https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/README.md",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/d9baaaeadeaf41dcb52b3f6e134e9514",
+	"SupportURL": "https://forums.unrealengine.com/unreal-engine/marketplace/1435240-node-graph-assistant",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"Modules": 
+	[
+		{
+			"Name": "NodeGraphAssistant",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": ["Win64"]
+		}
+	]
+}

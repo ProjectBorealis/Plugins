@@ -1,0 +1,27 @@
+{
+	"FileVersion": 3,
+	"Version": 3,
+	"VersionName": "1",
+	"FriendlyName": "DirGravity",
+	"Description": "Direction Gravity provides vector gravity implementation for Pawns.",
+	"Category": "Other",
+	"CreatedBy": "Tefel",
+	"CreatedByURL": "youtube.com/UnrealTefel",
+	"DocsURL": "",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/1e8883ab1e2f44f0984006d4ab67acd4",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "DirGravity",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win32",
+				"Win64",
+				"Mac"
+			]
+		}
+	]
+}

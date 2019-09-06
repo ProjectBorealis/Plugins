@@ -1,0 +1,9 @@
+[submodule "Prefabricator"]
+	path = Prefabricator
+	url = https://github.com/ProjectBorealis/prefabricator-ue4.git
+[submodule "UE4GitPlugin"]
+	path = UE4GitPlugin
+	url = https://github.com/ProjectBorealis/UE4GitPlugin.git
+[submodule "ArcticAnalytics"]
+	path = ArcticAnalytics
+	url = https://github.com/ProjectBorealis/ArcticAnalytics.git

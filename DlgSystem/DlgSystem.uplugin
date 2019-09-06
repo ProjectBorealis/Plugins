@@ -1,0 +1,37 @@
+{
+	"FileVersion": 3,
+	"Version": 6,
+	"VersionName": "6.0",
+	"FriendlyName": "DlgSystem",
+	"Description": "Dialogue system (with text based dialogues) and nice Editor for editing dialogues",
+	"Category": "Editor",
+	"CreatedBy": "Not Yet",
+	"CreatedByURL": "https://www.notyet.eu/",
+	"DocsURL": "https://gitlab.com/NotYetGames/DlgSystem/wikis/home",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/6d0255a60be340dfa1c556503cc57eb3",
+	"SupportURL": "https://gitlab.com/NotYetGames/DlgSystem",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "DlgSystem",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux"
+			]
+		},
+		{
+			"Name": "DlgSystemEditor",
+			"Type": "Developer",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32",
+				"Linux"
+			]
+		}
+	]
+}
