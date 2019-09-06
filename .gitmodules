@@ -7,3 +7,6 @@
 [submodule "ArcticAnalytics"]
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
+[submodule "IAUS"]
+	path = IAUS
+	url = https://github.com/ProjectBorealisAdmin/IAUS.git
