@@ -192,7 +192,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "Search", "Search" ) )
 				]
 			]
@@ -227,7 +226,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "Rename", "Rename" ) )
 				]
 			]
@@ -262,7 +260,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "Save", "Save" ) )
 				]
 			]
@@ -296,8 +293,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				.Padding(4, 0, 0, 0)
 				[
 					SNew( STextBlock )
-					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "Open", "Open" ) )
 				]
 			]
@@ -341,7 +336,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "Remove", "Remove" ) )
 				]
 			]
@@ -376,7 +370,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "Dirty", "Dirty" ) )
 				]
 			]
@@ -411,7 +404,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "AutoConsolidate", "AutoConsolidate" ) )
 				]
 			]
@@ -486,7 +478,6 @@ void FAssetAssistantEditorUISettingCustomization_Modify::CustomizeDetails(IDetai
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 					.Text( LOCTEXT( "Duplicate", "Duplicate" ) )
 				]
 			]

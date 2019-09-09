@@ -237,7 +237,6 @@ void FAssetAssistantEditorUISettingCustomization_Find::CustomizeDetails(IDetailL
 					[
 						SNew(STextBlock)
 						.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
-						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
 						.Text(FEditorFontGlyphs::Search)
 					]
 
@@ -248,7 +247,6 @@ void FAssetAssistantEditorUISettingCustomization_Find::CustomizeDetails(IDetailL
 					[
 						SNew( STextBlock )
 						.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
-						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
 						.Text( LOCTEXT( "FindFiles", "Find files" ) )
 					]
 				]
