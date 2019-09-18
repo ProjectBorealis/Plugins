@@ -3,12 +3,14 @@
 #include "VC_Clouds.h"
 #include "Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h"
 #include "Runtime/Engine/Classes/Kismet/KismetRenderingLibrary.h"
+#include "Components/LightComponent.h" 
 
 #if WITH_EDITOR
 #include "Runtime/Engine/Classes/Components/BillboardComponent.h"
 #include "UnrealEd.h"
 #include "Editor/UnrealEd/Public/EditorViewportClient.h"
 #endif
+
 
 #define CLOUD_GROUND_SHADOWS 0
 
@@ -250,6 +252,7 @@ void AVC_Clouds::SetMaterialScalar(FName Name, float Value)
 			}
 		}
 	}
+#if WITH_EDITOR
 	else
 	{
 		if (CloudsMaterialInstance != NULL)
@@ -262,6 +265,7 @@ void AVC_Clouds::SetMaterialScalar(FName Name, float Value)
 			LightFunctionMaterialInstance->SetScalarParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 		}
 	}
+#endif
 }
 
 /** Setup material instance color vector value.
@@ -285,6 +289,7 @@ void AVC_Clouds::SetMaterialColor(FName Name, FLinearColor Value)
 			}
 		}
 	}
+#if WITH_EDITOR
 	else
 	{
 		if (CloudsMaterialInstance != NULL)
@@ -298,6 +303,7 @@ void AVC_Clouds::SetMaterialColor(FName Name, FLinearColor Value)
 			LightFunctionMaterialInstance->SetVectorParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 		}
 	}
+#endif
 }
 
 /** Setup material instance color vector value.
@@ -320,6 +326,7 @@ void AVC_Clouds::SetMaterialTexture(FName Name, UTexture2D* Value)
 			}
 		}
 	}
+#if WITH_EDITOR
 	else
 	{
 		if (CloudsMaterialInstance != NULL)
@@ -331,6 +338,7 @@ void AVC_Clouds::SetMaterialTexture(FName Name, UTexture2D* Value)
 			ShadowRenderMaterialInstance->SetTextureParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 		}
 	}
+#endif
 }
 
 /** Updates light direction for a sun light */
