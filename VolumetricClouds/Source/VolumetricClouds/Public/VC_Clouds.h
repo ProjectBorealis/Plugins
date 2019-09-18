@@ -77,9 +77,11 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 private:
+#if WITH_EDITORONLY_DATA
 	/** A UBillboardComponent to hold Icon sprite. */
 	UPROPERTY()
 	UBillboardComponent* SpriteComponent;
+#endif
 
 	/** Icon sprite testure. */
 	UTexture2D* SpriteTexture;
