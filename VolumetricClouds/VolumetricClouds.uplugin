@@ -15,7 +15,7 @@
 	"Modules": [
 		{
 			"Name": "VolumetricClouds",
-			"Type": "Developer",
+			"Type": "Runtime",
 			"LoadingPhase": "PreDefault"
 		}
 	]
