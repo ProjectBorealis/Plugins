@@ -2,13 +2,13 @@
 
 #include "VC_Clouds.h"
 #include "Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h"
-#include "Runtime/Engine/Classes/Components/BillboardComponent.h"
-
 #include "Runtime/Engine/Classes/Kismet/KismetRenderingLibrary.h"
 
+#if WITH_EDITOR
+#include "Runtime/Engine/Classes/Components/BillboardComponent.h"
 #include "UnrealEd.h"
 #include "Editor/UnrealEd/Public/EditorViewportClient.h"
-
+#endif
 
 #define CLOUD_GROUND_SHADOWS 0
 
