@@ -26,11 +26,20 @@ public class VolumetricClouds : ModuleRules
 			new string[]
 			{
 				"CoreUObject",
-				"Engine",
-				"Slate",
-				"SlateCore",
-                "UnrealEd",
+				"Engine"
 			}
 		);
+		
+		
+	if (Target.Type == TargetRules.TargetType.Editor)
+        {
+            PublicDependencyModuleNames.AddRange(
+                new string[] {
+					"Slate",
+					"SlateCore",
+					"UnrealEd"
+                }
+            );
+        }
 	}
 }
