@@ -10,6 +10,8 @@
 #include "Editor/UnrealEd/Public/EditorViewportClient.h"
 
 
+#define CLOUD_GROUND_SHADOWS 0
+
 // Sets default values
 AVC_Clouds::AVC_Clouds(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -90,6 +92,7 @@ AVC_Clouds::AVC_Clouds(const FObjectInitializer& ObjectInitializer) : Super(Obje
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	PrimaryActorTick.TickGroup = TG_PostUpdateWork;
 
+#if CLOUD_GROUND_SHADOWS
 	//Find material instance for render cloud shdows.
 	static ConstructorHelpers::FObjectFinder<UMaterialInstanceConstant>ShadowsMaterialInstanceAsset(TEXT("MaterialInstanceConstant'/VolumetricClouds/Materials/MI_GroundShadowRender.MI_GroundShadowRender'"));
 
@@ -116,6 +119,7 @@ AVC_Clouds::AVC_Clouds(const FObjectInitializer& ObjectInitializer) : Super(Obje
 	{
 		LightFunctionMaterialInstance = LightFunctionMaterialInstanceAsset.Object;
 	}
+#endif
 
 	//Find find and load weather map texture.
 	static ConstructorHelpers::FObjectFinder<UTexture2D>WeatherMapTexureAsset(TEXT("Texture2D'/VolumetricClouds/Textures/T_Weather_MA.T_Weather_MA'"));
@@ -235,9 +239,12 @@ void AVC_Clouds::SetMaterialScalar(FName Name, float Value)
 	{
 		if (IsDynamicInGame())
 		{
-			if (CloudsMaterialInstanceDynamic != NULL && ShadowRenderMaterialInstanceDynamic != NULL && LightFunctionMaterialInstanceDynamic != NULL)
+			if (CloudsMaterialInstanceDynamic != NULL)
 			{
 				CloudsMaterialInstanceDynamic->SetScalarParameterValue(Name, Value);
+			}
+			if (ShadowRenderMaterialInstanceDynamic != NULL && LightFunctionMaterialInstanceDynamic != NULL)
+			{
 				ShadowRenderMaterialInstanceDynamic->SetScalarParameterValue(Name, Value);
 				LightFunctionMaterialInstanceDynamic->SetScalarParameterValue(Name, Value);
 			}
@@ -245,9 +252,12 @@ void AVC_Clouds::SetMaterialScalar(FName Name, float Value)
 	}
 	else
 	{
-		if (CloudsMaterialInstance != NULL && ShadowRenderMaterialInstance != NULL && LightFunctionMaterialInstance != NULL)
+		if (CloudsMaterialInstance != NULL)
 		{
 			CloudsMaterialInstance->SetScalarParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
+		}
+		if (ShadowRenderMaterialInstance != NULL && LightFunctionMaterialInstance != NULL)
+		{
 			ShadowRenderMaterialInstance->SetScalarParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 			LightFunctionMaterialInstance->SetScalarParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 		}
@@ -264,9 +274,12 @@ void AVC_Clouds::SetMaterialColor(FName Name, FLinearColor Value)
 	{
 		if (IsDynamicInGame())
 		{
-			if (CloudsMaterialInstanceDynamic != NULL && ShadowRenderMaterialInstanceDynamic != NULL && LightFunctionMaterialInstanceDynamic != NULL)
+			if (CloudsMaterialInstanceDynamic != NULL)
 			{
 				CloudsMaterialInstanceDynamic->SetVectorParameterValue(Name, Value);
+			}
+			if (ShadowRenderMaterialInstanceDynamic != NULL && LightFunctionMaterialInstanceDynamic != NULL)
+			{
 				ShadowRenderMaterialInstanceDynamic->SetVectorParameterValue(Name, Value);
 				LightFunctionMaterialInstanceDynamic->SetVectorParameterValue(Name, Value);
 			}
@@ -274,9 +287,13 @@ void AVC_Clouds::SetMaterialColor(FName Name, FLinearColor Value)
 	}
 	else
 	{
-		if (CloudsMaterialInstance != NULL && ShadowRenderMaterialInstance != NULL && LightFunctionMaterialInstance != NULL)
+		if (CloudsMaterialInstance != NULL)
 		{
 			CloudsMaterialInstance->SetVectorParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
+		}
+		if (ShadowRenderMaterialInstance != NULL && LightFunctionMaterialInstance != NULL)
+		{
+			
 			ShadowRenderMaterialInstance->SetVectorParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 			LightFunctionMaterialInstance->SetVectorParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 		}
@@ -293,18 +310,24 @@ void AVC_Clouds::SetMaterialTexture(FName Name, UTexture2D* Value)
 	{
 		if (IsDynamicInGame())
 		{
-			if (CloudsMaterialInstanceDynamic != NULL && ShadowRenderMaterialInstanceDynamic != NULL)
+			if (CloudsMaterialInstanceDynamic != NULL)
 			{
 				CloudsMaterialInstanceDynamic->SetTextureParameterValue(Name, Value);
+			}
+			if (ShadowRenderMaterialInstanceDynamic != NULL)
+			{
 				ShadowRenderMaterialInstanceDynamic->SetTextureParameterValue(Name, Value);
 			}
 		}
 	}
 	else
 	{
-		if (CloudsMaterialInstance != NULL && ShadowRenderMaterialInstance != NULL)
+		if (CloudsMaterialInstance != NULL)
 		{
 			CloudsMaterialInstance->SetTextureParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
+		}
+		if (ShadowRenderMaterialInstance != NULL)
+		{
 			ShadowRenderMaterialInstance->SetTextureParameterValueEditorOnly(FMaterialParameterInfo(Name), Value);
 		}
 	}
