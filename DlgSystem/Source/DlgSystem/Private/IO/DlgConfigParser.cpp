@@ -7,7 +7,7 @@
 #include "UObject/UnrealType.h"
 #include "UObject/EnumProperty.h"
 #include "UObject/UObjectIterator.h"
-#include "UObject/ObjectMacros.h"
+#include "UObject/TextProperty.h"
 
 DEFINE_LOG_CATEGORY(LogDlgConfigParser);
 
@@ -246,8 +246,8 @@ bool FDlgConfigParser::IsNextWordString() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool FDlgConfigParser::IsActualWordString() const
 {
-	int32 Index = From - 1;
-	return (String.IsValidIndex(Index) && String[Index] == '"');
+	const int32 Index = From - 1;
+	return String.IsValidIndex(Index) && String[Index] == '"';
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -446,7 +446,7 @@ int32 FDlgConfigParser::GetActiveLineNumber() const
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-void FDlgConfigParser::ConstructConfigFileInternal(const UStruct* ReferenceType, const int32 TabCount, void* SourceObject, FString& OutString)
+void FDlgConfigParser::ConstructConfigFileInternal(const UStruct* ReferenceType, int32 TabCount, void* SourceObject, FString& OutString)
 {
 	for (UField* Field = ReferenceType->Children; Field != nullptr; Field = Field->Next)
 	{

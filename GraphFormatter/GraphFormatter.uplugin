@@ -11,7 +11,6 @@
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/297159d6d3f4425b9c095b18a811a401",
 	"SupportURL": "https://github.com/howaajin/graphformatter/issues",
 	"CanContainContent": false,
-	"Installed": true,
 	"Modules": [
 		{
 			"Name": "GraphFormatter",

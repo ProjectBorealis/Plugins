@@ -13,12 +13,11 @@
 	"EnabledByDefault" : false,
 	"CanContainContent" : false,
 	"IsBetaVersion" : false,
-	"Installed" : false,
 	"Modules" :
 	[
 		{
 			"Name" : "Phya",
-			"Type" : "Editor",
+			"Type" : "Runtime",
 			"LoadingPhase" : "Default"
 		}
 	]

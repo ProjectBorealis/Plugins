@@ -2,7 +2,6 @@
 #include "DlgHumanReadableTextCommandlet.h"
 
 #include "Misc/Paths.h"
-#include "Misc/FileHelper.h"
 #include "HAL/PlatformFilemanager.h"
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "UObject/Package.h"
@@ -95,7 +94,7 @@ int32 UDlgHumanReadableTextCommandlet::Main(const FString& Params)
 
 	if (bExport)
 		return Export();
-	else if (bImport)
+	if (bImport)
 		return Import();
 
 	return 0;
@@ -492,7 +491,7 @@ bool UDlgHumanReadableTextCommandlet::ImportHumanReadableFormatIntoDialogue(cons
 	return bModified;
 }
 
-bool UDlgHumanReadableTextCommandlet::SetGraphNodesNewEdgesText(UDialogueGraphNode* GraphNode, const TArray<FDlgEdge_FormatHumanReadable>& Edges, const int32 NodeIndex, const UDlgDialogue* Dialogue)
+bool UDlgHumanReadableTextCommandlet::SetGraphNodesNewEdgesText(UDialogueGraphNode* GraphNode, const TArray<FDlgEdge_FormatHumanReadable>& Edges, int32 NodeIndex, const UDlgDialogue* Dialogue)
 {
 	bool bModified = false;
 

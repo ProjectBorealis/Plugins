@@ -2,9 +2,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Input/Reply.h"
-#include "UObject/WeakObjectPtr.h"
-#include "Containers/Set.h"
 #include "GameFramework/Actor.h"
 
 #include "TreeViewHelpers/DlgTreeViewNode.h"
@@ -56,7 +53,7 @@ class DLGSYSTEM_API FDlgDataDisplayTreeNode : public FDlgTreeViewNode<FDlgDataDi
 	typedef FDlgDataDisplayTreeNode Self;
 	typedef FDlgTreeViewNode Super;
 public:
-	FDlgDataDisplayTreeNode(const FText& InDisplayText, TSharedPtr<Self> InParent);
+	FDlgDataDisplayTreeNode(const FText& InDisplayText, const TSharedPtr<Self>& InParent);
 
 	// Categories
 	EDlgDataDisplayTextTreeNodeType GetTextType() const { return TextType; }
@@ -85,7 +82,7 @@ public:
 
 protected:
 	// FDlgTreeViewNode Interface
-	void PostFilterPathsToNodes(TSharedPtr<Self> Child) override
+	void PostFilterPathsToNodes(const TSharedPtr<Self>& Child) override
 	{
 		Super::PostFilterPathsToNodes(Child);
 
@@ -95,12 +92,12 @@ protected:
 			Child->SetIsVisible(false);
 		}
 	}
-	void PostBuildPathToTopMostParent(TSharedPtr<Self> CurrentParentNode) override
+	void PostBuildPathToTopMostParent(const TSharedPtr<Self>& CurrentParentNode) override
 	{
 		Super::PostBuildPathToTopMostParent(CurrentParentNode);
 		check(!CurrentParentNode->IsSeparator());
 	}
-	bool FilterIsChildVisible(TSharedPtr<Self> GrandChild) override
+	bool FilterIsChildVisible(const TSharedPtr<Self>& GrandChild) override
 	{
 		return !GrandChild->IsSeparator() && !GrandChild->IsCategory() && Super::FilterIsChildVisible(GrandChild);
 	}
@@ -132,7 +129,7 @@ class DLGSYSTEM_API FDlgDataDisplayTreeActorNode : public FDlgDataDisplayTreeNod
 {
 	typedef FDlgDataDisplayTreeNode Super;
 public:
-	FDlgDataDisplayTreeActorNode(const FText& InDisplayText, TSharedPtr<FDlgDataDisplayTreeNode> InParent,
+	FDlgDataDisplayTreeActorNode(const FText& InDisplayText, const TSharedPtr<FDlgDataDisplayTreeNode>& InParent,
 		TWeakObjectPtr<AActor> InActor);
 
 	/** FDlgDataDisplayTreeNode interface */
@@ -150,7 +147,7 @@ class DLGSYSTEM_API FDlgDataDisplayTreeCategoryNode : public FDlgDataDisplayTree
 {
 	typedef FDlgDataDisplayTreeNode Super;
 public:
-	FDlgDataDisplayTreeCategoryNode(const FText& InDisplayText, TSharedPtr<FDlgDataDisplayTreeNode> InParent,
+	FDlgDataDisplayTreeCategoryNode(const FText& InDisplayText, const TSharedPtr<FDlgDataDisplayTreeNode>& InParent,
 		const EDlgDataDisplayCategoryTreeNodeType InCategoryType);
 
 	bool IsText() const override { return false; }
@@ -164,7 +161,7 @@ class DLGSYSTEM_API FDlgDataDisplayTreeVariableNode : public FDlgDataDisplayTree
 	typedef FDlgDataDisplayTreeVariableNode Self;
 	typedef FDlgDataDisplayTreeNode Super;
 public:
-	FDlgDataDisplayTreeVariableNode(const FText& InDisplayText, TSharedPtr<FDlgDataDisplayTreeNode> InParent,
+	FDlgDataDisplayTreeVariableNode(const FText& InDisplayText, const TSharedPtr<FDlgDataDisplayTreeNode>& InParent,
 		const FName& InVariableName, const EDlgDataDisplayVariableTreeNodeType InVariableType);
 
 	// VariableName:

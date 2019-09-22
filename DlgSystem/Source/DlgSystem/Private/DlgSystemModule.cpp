@@ -7,6 +7,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/FileManager.h"
+#include "GameFramework/Actor.h"
 
 #if WITH_GAMEPLAY_DEBUGGER
 #include "GameplayDebugger.h"
@@ -176,9 +177,9 @@ void FDlgSystemModule::DisplayDialogueDataWindow()
 	}
 }
 
-bool FDlgSystemModule::RefreshDisplayDialogueDataWindow(const bool bFocus)
+bool FDlgSystemModule::RefreshDisplayDialogueDataWindow(bool bFocus)
 {
-	TSharedPtr<SDockTab> DlgDisplayDataTab =
+	const TSharedPtr<SDockTab> DlgDisplayDataTab =
 		FGlobalTabmanager::Get()->FindExistingLiveTab(FTabId(DIALOGUE_DATA_DISPLAY_TAB_ID));
 	if (DlgDisplayDataTab.IsValid())
 	{

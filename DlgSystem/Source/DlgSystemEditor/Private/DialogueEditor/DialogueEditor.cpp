@@ -6,7 +6,6 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "ScopedTransaction.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Widgets/Input/SEditableTextBox.h"
 #include "PropertyEditorModule.h"
 #include "GraphEditor.h"
 #include "Toolkits/IToolkitHost.h"
@@ -442,7 +441,7 @@ void FDialogueEditor::BindEditorCommands()
 	{
 		return;
 	}
-	GraphEditorCommands = MakeShareable(new FUICommandList);
+	GraphEditorCommands = MakeShared<FUICommandList>();
 
 	// Graph Editor Commands
 	// Create comment node on graph. Default when you press the "C" key on the keyboard to create a comment.
@@ -544,7 +543,7 @@ void FDialogueEditor::BindEditorCommands()
 
 void FDialogueEditor::ExtendMenu()
 {
-	TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender);
+	TSharedPtr<FExtender> MenuExtender = MakeShared<FExtender>();
 
 	// Extend the Edit menu
 	MenuExtender->AddMenuExtension(
@@ -582,7 +581,7 @@ TSharedRef<SWidget> FDialogueEditor::GeneratePrimarySecondaryEdgesMenu() const
 void FDialogueEditor::ExtendToolbar()
 {
 	// Make toolbar to the right of the Asset Toolbar (Save and Find in content browser buttons).
-	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+	TSharedPtr<FExtender> ToolbarExtender = MakeShared<FExtender>();
 	ToolbarExtender->AddToolBarExtension(
 		"Asset",
 		EExtensionHook::After,

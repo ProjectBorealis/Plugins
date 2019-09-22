@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Piperift. All Rights Reserved.
+﻿// Copyright 2015-2019 Piperift. All Rights Reserved.
 
 #include "Customizations/FactionTableCustomization.h"
 
@@ -113,7 +113,7 @@ private:
 
 	FText GetIdAsText() const { return FText::FromName(Item->GetName()); }
 
-	FReply OnIdNameDoubleClicked(const FGeometry& MyGeometry, const FPointerEvent& PointerEvent);
+	FReply OnIdNameDoubleClicked(const FGeometry&, const FPointerEvent&);
 
 	void OnIdNameCommited(const FText& InText, ETextCommit::Type InCommitType) const;
 
@@ -126,7 +126,7 @@ private:
 };
 
 
-FReply SFactionViewItem::OnIdNameDoubleClicked(const FGeometry& MyGeometry, const FPointerEvent& PointerEvent)
+FReply SFactionViewItem::OnIdNameDoubleClicked(const FGeometry&, const FPointerEvent&)
 {
 	FReply Reply = FReply::Unhandled();
 

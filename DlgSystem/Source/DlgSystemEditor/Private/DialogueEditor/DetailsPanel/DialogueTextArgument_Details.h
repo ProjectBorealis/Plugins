@@ -3,7 +3,6 @@
 
 #include "IPropertyTypeCustomization.h"
 #include "Layout/Visibility.h"
-#include "IDetailPropertyRow.h"
 
 #include "DlgTextArgument.h"
 #include "DialogueDetailsPanelUtils.h"
@@ -19,7 +18,7 @@ class FDialogueTextArgument_Details : public IPropertyTypeCustomization
 	typedef FDialogueTextArgument_Details Self;
 
 public:
-	static TSharedRef<IPropertyTypeCustomization> MakeInstance() { return MakeShareable(new Self); }
+	static TSharedRef<IPropertyTypeCustomization> MakeInstance() { return MakeShared<Self>(); }
 
 	/** IPropertyTypeCustomization interface */
 	/**

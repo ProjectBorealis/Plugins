@@ -8,7 +8,10 @@
 
 DEFINE_LOG_CATEGORY(LogDlgConfigWriter);
 
-const FString FDlgConfigWriter::EOL_String = EOL;
+const TCHAR* FDlgConfigWriter::EOL_LF = TEXT("\n");
+const TCHAR* FDlgConfigWriter::EOL_CRLF = TEXT("\r\n");
+const TCHAR* FDlgConfigWriter::EOL = EOL_LF;
+const FString FDlgConfigWriter::EOL_String{EOL};
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -197,7 +200,7 @@ bool FDlgConfigWriter::WritePrimitiveElementToString(const UProperty* Prop,
 		if (EnumProp != nullptr)
 		{
 			const void* Value = EnumProp->ContainerPtrToValuePtr<uint8>(Object);
-			FName EnumName = EnumProp->GetEnum()->GetNameByIndex(EnumProp->GetUnderlyingProperty()->GetSignedIntPropertyValue(Value));
+			const FName EnumName = EnumProp->GetEnum()->GetNameByIndex(EnumProp->GetUnderlyingProperty()->GetSignedIntPropertyValue(Value));
 			Target += PreS + Prop->GetName() + " " + NameToString(EnumName) + PostS;
 			return true;
 		}
@@ -303,7 +306,7 @@ bool FDlgConfigWriter::WriteComplexElementToString(const UProperty* Property,
 			}
 		};
 
-		if (CanSaveAsReference(ObjectProperty) || bPointerAsRef)
+		if (CanSaveAsReference(ObjectProperty, *ObjPtrPtr) || bPointerAsRef)
 		{
 			WritePathName();
 		}
@@ -422,7 +425,7 @@ bool FDlgConfigWriter::WriteComplexArrayToString(const UProperty* Property,
 		Target += PreString + TypeText + ArrayProp->Inner->GetName() + " {";
 		for (int32 i = 0; i < Helper.Num(); ++i)
 		{
-			WriteComplexElementToString(ArrayProp->Inner, Helper.GetConstRawPtr(i), true, " ", "", CanSaveAsReference(ArrayProp), Target);
+			WriteComplexElementToString(ArrayProp->Inner, Helper.GetConstRawPtr(i), true, " ", "", CanSaveAsReference(ArrayProp, nullptr), Target);
 		}
 		Target += " }" + PostString;
 	}
@@ -436,7 +439,7 @@ bool FDlgConfigWriter::WriteComplexArrayToString(const UProperty* Property,
 			{
 				Target += PreString + "\t// " + FString::FromInt(i) + EOL;
 			}
-			WriteComplexElementToString(ArrayProp->Inner, Helper.GetConstRawPtr(i), true, PreString + "\t", EOL, CanSaveAsReference(ArrayProp), Target);
+			WriteComplexElementToString(ArrayProp->Inner, Helper.GetConstRawPtr(i), true, PreString + "\t", EOL, CanSaveAsReference(ArrayProp, nullptr), Target);
 		}
 		Target += PreString + "}" + EOL;
 	}
@@ -499,8 +502,8 @@ bool FDlgConfigWriter::WriteMapToString(const UProperty* Property,
 				continue;
 			}
 
-			WritePropertyToString(MapProp->KeyProp, Helper.GetPairPtr(i), true, PreString + "\t", EOL, CanSaveAsReference(MapProp), Target);
-			WritePropertyToString(MapProp->ValueProp, Helper.GetPairPtr(i), true, PreString + "\t", EOL, CanSaveAsReference(MapProp), Target);
+			WritePropertyToString(MapProp->KeyProp, Helper.GetPairPtr(i), true, PreString + "\t", EOL, CanSaveAsReference(MapProp, nullptr), Target);
+			WritePropertyToString(MapProp->ValueProp, Helper.GetPairPtr(i), true, PreString + "\t", EOL, CanSaveAsReference(MapProp, nullptr), Target);
 		}
 		Target += PreString + "}" + EOL;
 	}
@@ -689,11 +692,16 @@ bool FDlgConfigWriter::WouldWriteNonPrimitive(const UStruct* StructDefinition, c
 		}
 		else
 		{
-			// Struct or Object
-			if ((Cast<UStructProperty>(Property) != nullptr || Cast<UObjectProperty>(Property) != nullptr) &&
-				!CanSaveAsReference(Property))
+			if (Cast<UStructProperty>(Property) != nullptr)
 			{
 				return true;
+			}
+
+			if (const UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property))
+			{
+				UObject** ObjPtrPtr = ((UObject**)ObjectProperty->ContainerPtrToValuePtr<void>(Owner, 0));
+				if (ObjPtrPtr != nullptr && !CanSaveAsReference(Property, *ObjPtrPtr))
+					return true;
 			}
 		}
 

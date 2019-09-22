@@ -130,13 +130,11 @@ namespace
 // FMultiLineEditableTextBox_CustomRowHelper
 FText FMultiLineEditableTextBox_CustomRowHelper::GetResetToolTip() const
 {
-	FString Tooltip;
-	Tooltip = NSLOCTEXT("PropertyEditor", "ResetToDefaultToolTip", "Reset to Default").ToString();
+	FString Tooltip = NSLOCTEXT("PropertyEditor", "ResetToDefaultToolTip", "Reset to Default").ToString();
 
 	if (PropertyHandle.IsValid() && !PropertyHandle->IsEditConst() && PropertyHandle->DiffersFromDefault())
 	{
-		FString DefaultLabel = PropertyHandle->GetResetToDefaultLabel().ToString();
-
+		const FString DefaultLabel = PropertyHandle->GetResetToDefaultLabel().ToString();
 		if (DefaultLabel.Len() > 0)
 		{
 			Tooltip += "\n";
@@ -527,7 +525,7 @@ void FMultiLineEditableTextBox_CustomRowHelper::UpdateInternal()
 	MultiLineEditableTextBoxWidget->SetToolTipText(ToolTip);
 
 	PropertyHandle->MarkResetToDefaultCustomized(true);
-	EditableTextProperty = MakeShareable(new FDlgEditableTextPropertyHandle(PropertyHandle.ToSharedRef(), PropertyUtils));
+	EditableTextProperty = MakeShared<FDlgEditableTextPropertyHandle>(PropertyHandle.ToSharedRef(), PropertyUtils);
 
 	TSharedPtr<SHorizontalBox> HorizontalBox;
 	DetailWidgetRow

@@ -46,6 +46,7 @@ FAssetAssistantEditorUIView::FAssetAssistantEditorUIView(FAssetAssistantEdMode* 
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "SCSEditor.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Cont", "Cont" ) )
 				]
 			]
@@ -80,6 +81,7 @@ FAssetAssistantEditorUIView::FAssetAssistantEditorUIView(FAssetAssistantEdMode* 
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "SCSEditor.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Edited", "Edited" ) )
 				]
 			]
@@ -114,6 +116,7 @@ FAssetAssistantEditorUIView::FAssetAssistantEditorUIView(FAssetAssistantEdMode* 
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "SCSEditor.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Paste", "Paste" ) )
 				]
 			]
@@ -150,6 +153,7 @@ FAssetAssistantEditorUIView::FAssetAssistantEditorUIView(FAssetAssistantEdMode* 
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "SCSEditor.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "TArr", "TArr" ) )
 				]
 			]
@@ -186,6 +190,7 @@ FAssetAssistantEditorUIView::FAssetAssistantEditorUIView(FAssetAssistantEdMode* 
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "SCSEditor.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "List", "List" ) )
 				]
 			]
@@ -335,6 +340,7 @@ FAssetAssistantEditorUIView::FAssetAssistantEditorUIView(FAssetAssistantEdMode* 
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "SCSEditor.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "SaveList", "Save list" ) )
 				]
 			]

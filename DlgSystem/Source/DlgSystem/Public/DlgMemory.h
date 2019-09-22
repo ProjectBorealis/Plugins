@@ -2,7 +2,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "DlgHelper.h"
 
 #include "DlgMemory.generated.h"
 
@@ -19,10 +18,7 @@ public:
 	TSet<int32> VisitedNodeIndices;
 
 public:
-	bool operator==(const FDlgHistory& Other) const
-	{
-		return FDlgHelper::IsSetEqual(VisitedNodeIndices, Other.VisitedNodeIndices);
-	}
+	bool operator==(const FDlgHistory& Other) const;
 };
 
 /**
@@ -46,8 +42,8 @@ public:
 	/** returns the entry for the given name, or nullptr if it does not exist */
 	FDlgHistory* GetEntry(const FGuid& DlgGuid) { return HistoryMap.Find(DlgGuid); }
 
-	void SetNodeVisited(const FGuid& DlgGuid, const int32 NodeIndex);
-	bool IsNodeVisited(const FGuid& DlgGuid, const int32 NodeIndex) const;
+	void SetNodeVisited(const FGuid& DlgGuid, int32 NodeIndex);
+	bool IsNodeVisited(const FGuid& DlgGuid, int32 NodeIndex) const;
 
 	const TMap<FGuid, FDlgHistory>& GetHistoryMaps() const { return HistoryMap; }
 	void SetHistoryMap(const TMap<FGuid, FDlgHistory>& Map) { HistoryMap = Map; }

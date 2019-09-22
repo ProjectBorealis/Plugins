@@ -126,6 +126,7 @@ void FAssetAssistantEditorUISettingCustomization_Macro::CustomizeDetails(IDetail
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Load", "Load" ) )
 				]
 			]
@@ -160,6 +161,7 @@ void FAssetAssistantEditorUISettingCustomization_Macro::CustomizeDetails(IDetail
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Find", "Find" ) )
 				]
 			]
@@ -194,6 +196,7 @@ void FAssetAssistantEditorUISettingCustomization_Macro::CustomizeDetails(IDetail
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Open", "Open" ) )
 				]
 			]
@@ -330,6 +333,7 @@ void FAssetAssistantEditorUISettingCustomization_Macro::CustomizeDetails(IDetail
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Load", "Load" ) )
 				]
 			]
@@ -364,6 +368,7 @@ void FAssetAssistantEditorUISettingCustomization_Macro::CustomizeDetails(IDetail
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Find", "Find" ) )
 				]
 			]
@@ -398,6 +403,7 @@ void FAssetAssistantEditorUISettingCustomization_Macro::CustomizeDetails(IDetail
 				[
 					SNew( STextBlock )
 					.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+					.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 					.Text( LOCTEXT( "Open", "Open" ) )
 				]
 			]

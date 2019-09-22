@@ -61,9 +61,14 @@ TSharedRef<SDockTab> FAssetAssistant::OnSpawnPluginTab(const FSpawnTabArgs& Spaw
 	FText CreatedBy = FText::FromString(TEXT("by ") + IPluginManager::Get().FindPlugin(TEXT("AssetAssistant"))->GetDescriptor().CreatedBy);
 	FText FriendlyName = FText::FromString(IPluginManager::Get().FindPlugin(TEXT("AssetAssistant"))->GetDescriptor().FriendlyName);
 	FText ChangeLog = LOCTEXT("AssetAssistantChangeLog",
-		"1.4.0\n\
+"1.5.0\n\
 ------------------\n\
-* Fixed an issue where duplicated asset did not use {Arr} pattern \n\
+* Adapting plugin to the 4.23 UE4 version \n\
+\n\
+\n\
+1.4.0\n\
+------------------\n\
+* Fixed an issue where duplicated asset did not use{ Arr } pattern \n\
 \n\
 \n\
 1.3.0\n\

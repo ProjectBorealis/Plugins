@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 4,
-	"VersionName": "1.4.0",
+	"VersionName": "1.5.0",
 	"FriendlyName": "Asset Assistant",
 	"Description": "Asset assistant is an editor mode plugin that improves work with multiple assets and windows. It can find, rename, save, open, remove, duplicate files. Get them from content, opened windows or clipboard. Use statistics, autosave to recover sets and more!",
 	"Category": "Editor",
@@ -11,7 +11,6 @@
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/b77ea233ba3748409cdc06601b2a7969",
 	"SupportURL": "",
 	"CanContainContent": false,
-	"Installed": true,
 	"Modules": [
 		{
 			"Name": "AssetAssistant",
