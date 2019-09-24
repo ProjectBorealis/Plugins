@@ -11,11 +11,11 @@
 	TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, _SelfMethod))
 
 // Constants used in this file
-static constexpr TCHAR* META_ShowOnlyInnerProperties = TEXT("ShowOnlyInnerProperties");
-static constexpr TCHAR* META_UIMin = TEXT("UIMin");
-static constexpr TCHAR* META_UIMax = TEXT("UIMax");
-static constexpr TCHAR* META_ClampMin = TEXT("ClampMin");
-static constexpr TCHAR* META_ClampMax = TEXT("ClampMax");
+static const TCHAR* META_ShowOnlyInnerProperties = TEXT("ShowOnlyInnerProperties");
+static const TCHAR* META_UIMin = TEXT("UIMin");
+static const TCHAR* META_UIMax = TEXT("UIMax");
+static const TCHAR* META_ClampMin = TEXT("ClampMin");
+static const TCHAR* META_ClampMax = TEXT("ClampMax");
 
 struct FDialogueDetailsPanelUtils
 {
