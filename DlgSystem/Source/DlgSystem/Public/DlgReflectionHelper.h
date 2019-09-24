@@ -3,7 +3,6 @@
 
 #include "CoreMinimal.h"
 
-#include "UObject/TextProperty.h"
 #include "DlgSystemSettings.h"
 
 #include "DlgReflectionHelper.generated.h"
@@ -27,7 +26,7 @@ public:
 
 	/** Attempts to modify the property VariableName from ParticipantObject */
 	template <typename PropertyType, typename VariableType>
-	static void ModifyVariable(UObject* ParticipantObject, const FName VariableName, const VariableType Value, const bool bDelta);
+	static void ModifyVariable(UObject* ParticipantObject, const FName VariableName, const VariableType Value, bool bDelta);
 
 
 	/** Attempts to set the property VariableName from ParticipantObject */
@@ -75,7 +74,7 @@ VariableType UDlgReflectionHelper::GetVariable(const UObject* ParticipantObject,
 
 
 template <typename PropertyType, typename VariableType>
-void UDlgReflectionHelper::ModifyVariable(UObject* ParticipantObject, const FName VariableName, const VariableType Value, const bool bDelta)
+void UDlgReflectionHelper::ModifyVariable(UObject* ParticipantObject, const FName VariableName, const VariableType Value, bool bDelta)
 {
 	if (!IsValid(ParticipantObject))
 	{

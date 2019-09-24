@@ -8,6 +8,7 @@ Node_Speech StartNode
 	bIsVirtualParent False
 	OwnerName "None"
 	bCheckChildrenOnEvaluation False
+	NodeData ""
 	VoiceSoundWave ""
 	VoiceDialogueWave ""
 	GenericData ""
@@ -32,6 +33,7 @@ Node Nodes
 		bIsVirtualParent False
 		OwnerName "TestOwner"
 		bCheckChildrenOnEvaluation False
+		NodeData ""
 		VoiceSoundWave ""
 		VoiceDialogueWave ""
 		GenericData ""
@@ -56,6 +58,7 @@ Node Nodes
 		bIsVirtualParent False
 		OwnerName "Cat"
 		bCheckChildrenOnEvaluation False
+		NodeData ""
 		VoiceSoundWave ""
 		VoiceDialogueWave ""
 		GenericData ""
@@ -69,6 +72,7 @@ Node Nodes
 		bIsVirtualParent False
 		OwnerName "TestOwner"
 		bCheckChildrenOnEvaluation False
+		NodeData ""
 		VoiceSoundWave ""
 		VoiceDialogueWave ""
 		GenericData ""

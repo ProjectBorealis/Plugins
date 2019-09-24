@@ -12,7 +12,7 @@ struct FAssetFile
 	FAssetFile() {}
 
 	UPROPERTY()
-	int32 ItemID = 0;
+	int32 ItemID;
 
 	UPROPERTY()
 	FString AssetName;

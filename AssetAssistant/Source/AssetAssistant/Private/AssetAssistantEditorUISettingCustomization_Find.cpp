@@ -237,6 +237,7 @@ void FAssetAssistantEditorUISettingCustomization_Find::CustomizeDetails(IDetailL
 					[
 						SNew(STextBlock)
 						.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
 						.Text(FEditorFontGlyphs::Search)
 					]
 
@@ -247,6 +248,7 @@ void FAssetAssistantEditorUISettingCustomization_Find::CustomizeDetails(IDetailL
 					[
 						SNew( STextBlock )
 						.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+						.Font(FEditorStyle::Get().GetFontStyle("TinyText"))
 						.Text( LOCTEXT( "FindFiles", "Find files" ) )
 					]
 				]
@@ -297,7 +299,7 @@ FReply FAssetAssistantEditorUISettingCustomization_Find::OnFindButtonClicked()
 		ClassNames.AddUnique(FName(*AssetFile.AssetClass));
 
 		FAssetData Asset = *PkgIter;
-		//Asset.GetPackage()->HasThumbnailMap() i dalej thumbnail
+		//Asset.GetPackage()->HasThumbnailMap()
 		if (EditMode->UISetting->TextToFind.IsEmpty() || AssetFile.AssetName.Contains(EditMode->UISetting->TextToFind))
 		{
 			// make sure that class is the same like searching one animBlueprint Blueprint etc

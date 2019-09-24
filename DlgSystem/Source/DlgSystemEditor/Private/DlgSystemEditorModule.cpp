@@ -2,7 +2,6 @@
 #include "DlgSystemEditorModule.h"
 
 #include "Extensions/ContentBrowserExtensions.h"
-#include "Engine/ObjectLibrary.h"
 #include "Engine/BlueprintCore.h"
 #include "Templates/SharedPointer.h"
 #include "AssetRegistryModule.h"
@@ -10,7 +9,6 @@
 #include "WorkspaceMenuStructureModule.h"
 #include "WorkspaceMenuStructure.h"
 #include "Widgets/Docking/SDockTab.h"
-#include "K2Node.h"
 #include "FileHelpers.h"
 #include "Framework/MultiBox/MultiBoxExtender.h"
 #include "LevelEditor.h"
@@ -33,9 +31,7 @@
 #include "DialogueEditor/DetailsPanel/DialogueEvent_Details.h"
 #include "DialogueEditor/DetailsPanel/DialogueTextArgument_Details.h"
 #include "DialogueEditor/DetailsPanel/DialogueSpeechSequenceEntry_Details.h"
-#include "DlgDialogueParticipant.h"
 #include "DlgManager.h"
-#include "DlgSystemModule.h"
 
 #include "IO/DlgConfigWriter.h"
 #include "IO/DlgConfigParser.h"
@@ -72,7 +68,7 @@ void FDlgSystemEditorModule::StartupModule()
 	// make the DlgSystem be displayed in the filters menu and in the create new menu
 	DlgSystemAssetCategoryBit = AssetTools.RegisterAdvancedAssetCategory(DIALOGUE_SYSTEM_MENU_CATEGORY_KEY, DIALOGUE_SYSTEM_MENU_CATEGORY_KEY_TEXT);
 	{
-		auto Action = MakeShareable(new FAssetTypeActions_Dialogue(DlgSystemAssetCategoryBit));
+		auto Action = MakeShared<FAssetTypeActions_Dialogue>(DlgSystemAssetCategoryBit);
 		AssetTools.RegisterAssetTypeActions(Action);
 		RegisteredAssetTypeActions.Add(Action);
 	}
@@ -126,14 +122,14 @@ void FDlgSystemEditorModule::StartupModule()
 //	UThumbnailManager::Get().RegisterCustomRenderer(UDlgDialogue::StaticClass(), UDlgDialogueThumbnailRenderer::StaticClass());
 
 	// Create factories
-	DialogueGraphNodeFactory = MakeShareable(new FDialogueGraphNodeFactory());
+	DialogueGraphNodeFactory = MakeShared<FDialogueGraphNodeFactory>();
 	FEdGraphUtilities::RegisterVisualNodeFactory(DialogueGraphNodeFactory);
 
-	DialogueGraphPinFactory = MakeShareable(new FDialogueGraphPinFactory());
+	DialogueGraphPinFactory = MakeShared<FDialogueGraphPinFactory>();
 	FEdGraphUtilities::RegisterVisualPinFactory(DialogueGraphPinFactory);
 
 	// Bind Editor commands
-	GlobalEditorCommands = MakeShareable(new FUICommandList);
+	GlobalEditorCommands = MakeShared<FUICommandList>();
 	GlobalEditorCommands->MapAction(FDialogueEditorCommands::Get().SaveAllDialogues,
 		FExecuteAction::CreateStatic(&Self::HandleOnSaveAllDialogues));
 

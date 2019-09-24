@@ -1,5 +1,12 @@
 // Copyright 2017-2018 Csaba Molnar, Daniel Butum
 #include "DlgMemory.h"
+#include "DlgHelper.h"
+
+
+bool FDlgHistory::operator==(const FDlgHistory& Other) const
+{
+	return FDlgHelper::IsSetEqual(VisitedNodeIndices, Other.VisitedNodeIndices);
+}
 
 void FDlgMemory::SetEntry(const FGuid& DlgGuid, const FDlgHistory& History)
 {
@@ -15,7 +22,7 @@ void FDlgMemory::SetEntry(const FGuid& DlgGuid, const FDlgHistory& History)
 	}
 }
 
-void FDlgMemory::SetNodeVisited(const FGuid& DlgGuid, const int32 NodeIndex)
+void FDlgMemory::SetNodeVisited(const FGuid& DlgGuid, int32 NodeIndex)
 {
 	FDlgHistory* History = HistoryMap.Find(DlgGuid);
 	// Add it if it does not exist already
@@ -28,7 +35,7 @@ void FDlgMemory::SetNodeVisited(const FGuid& DlgGuid, const int32 NodeIndex)
 }
 
 
-bool FDlgMemory::IsNodeVisited(const FGuid& DlgGuid, const int32 NodeIndex) const
+bool FDlgMemory::IsNodeVisited(const FGuid& DlgGuid, int32 NodeIndex) const
 {
 	const FDlgHistory* History = HistoryMap.Find(DlgGuid);
 	if (History == nullptr)

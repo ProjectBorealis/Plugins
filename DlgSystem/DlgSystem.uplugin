@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 6,
-	"VersionName": "6.0",
+	"Version": 7,
+	"VersionName": "7.0",
 	"FriendlyName": "DlgSystem",
 	"Description": "Dialogue system (with text based dialogues) and nice Editor for editing dialogues",
 	"Category": "Editor",
@@ -11,7 +11,6 @@
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/6d0255a60be340dfa1c556503cc57eb3",
 	"SupportURL": "https://gitlab.com/NotYetGames/DlgSystem",
 	"CanContainContent": true,
-	"Installed": true,
 	"Modules": [
 		{
 			"Name": "DlgSystem",
@@ -20,7 +19,8 @@
 			"WhitelistPlatforms": [
 				"Win64",
 				"Win32",
-				"Linux"
+				"Linux",
+				"XboxOne"
 			]
 		},
 		{

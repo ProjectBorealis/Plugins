@@ -2,7 +2,6 @@
 #pragma once
 
 #include "IDlgSystemModule.h"
-#include "GameFramework/Actor.h"
 
 // DlgDataDisplay TabID
 const FName DIALOGUE_DATA_DISPLAY_TAB_ID(TEXT("DlgDataDisplayWindow"));
@@ -13,6 +12,7 @@ struct FAssetData;
 class SDlgDataDisplay;
 class SDockTab;
 struct IConsoleCommand;
+class AActor;
 
 /**
  * Implementation of the DlgSystem Module
@@ -33,7 +33,7 @@ public:
 
 private:
 	/** Refreshes the actor of the DlgDataDisplay if it is already opened. Return true if refresh was successful */
-	bool RefreshDisplayDialogueDataWindow(const bool bFocus = true);
+	bool RefreshDisplayDialogueDataWindow(bool bFocus = true);
 
 	/** Handle the event from the asset registry when an asset was deleted. */
 	void HandleOnInMemoryAssetDeleted(UObject* DeletedObject);
