@@ -81,4 +81,4 @@ public:
 };
 
 
-//#define NGA_IMPLEMENT_CONNECTION_DRAW_POLICY(PolicyName,ParentPolicyName)\
+//#define NGA_IMPLEMENT_CONNECTION_DRAW_POLICY(PolicyName,ParentPolicyName)

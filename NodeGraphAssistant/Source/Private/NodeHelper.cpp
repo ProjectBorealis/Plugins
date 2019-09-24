@@ -615,10 +615,10 @@ TArray<TArray<UEdGraphNode*>> FNodeHelper::CalculateNodeshierarchy(TArray<UEdGra
 }
 
 
-//	       |node|\		
+//	       |node|
 //	|node|-|node|-|node|-|node| 
 //	|node|-|node|-|node|	
-//	       |node|/	
+//	       |node|
 //  col0	col1   col2   col3
 bool FNodeHelper::RearrangeSelectedNodes(SGraphPanel* graphPanel, FIntPoint Spacing, float SpacingRelax)
 {
