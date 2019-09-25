@@ -7,7 +7,6 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 #include "Editor.h"
-#include "EditorStyle.h"
 #include "GraphEditorModule.h"
 #include "EdGraph/EdGraph.h"
 #include "ISettingsSection.h"
@@ -21,6 +20,8 @@
 #include "ScopedTransaction.h"
 #include "EdGraphNode_Comment.h"
 #include "FormatterGraph.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Widgets/Input/SSpinBox.h"
 
 #define LOCTEXT_NAMESPACE "GraphFormatter"
 

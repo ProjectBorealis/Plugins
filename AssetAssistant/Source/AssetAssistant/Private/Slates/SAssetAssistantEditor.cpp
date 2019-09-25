@@ -14,6 +14,7 @@
 #include "AssetAssistantEditorUISettingCustomization_Extra.h"
 #include "Widgets/Layout/SSplitter.h"
 #include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/SCanvas.h"
 
 #define LOCTEXT_NAMESPACE "AssetAssistantEditor"
 

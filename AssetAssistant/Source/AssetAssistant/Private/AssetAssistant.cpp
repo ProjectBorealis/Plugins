@@ -2,7 +2,6 @@
 
 #include "AssetAssistant.h"
 #include "EdMode.h"
-#include "EditorStyle.h"
 #include "Interfaces/IPluginManager.h"
 #include "AssetAssistantEditorCommands.h"
 #include "AssetAssistantEdMode.h"
@@ -11,6 +10,9 @@
 #include "AssetAssistantEdModeToolkit.h"
 #include "Framework/Commands/UICommandList.h"
 #include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 
 static const FName AssetAssistantTabName("AssetAssistant");
 #define LOCTEXT_NAMESPACE "FAssetAssistant"

@@ -3,6 +3,7 @@
 #include "AssetAssistantEditorUIView.h"
 #include "AssetAssistantEditorUISetting.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Widgets/Layout/SSeparator.h"
 
 #define LOCTEXT_NAMESPACE "AssetAssistant.UIView"
 

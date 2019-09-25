@@ -1,6 +1,7 @@
 // Copyright 2017 Tefel. All Rights Reserved.
 #include "Slates/SAssistantList.h"
 #include "Slates/SAssistantCombo.h"
+#include "Widgets/Input/SComboBox.h"
 
 #define LOCTEXT_NAMESPACE "SAssistantList"
 

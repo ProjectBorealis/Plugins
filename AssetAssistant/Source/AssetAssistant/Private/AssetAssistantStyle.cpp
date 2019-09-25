@@ -2,6 +2,7 @@
 
 #include "AssetAssistantStyle.h"
 #include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "Interfaces/IPluginManager.h"
 
 #define IMAGE_BRUSH(RelativePath, ...) FSlateImageBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)

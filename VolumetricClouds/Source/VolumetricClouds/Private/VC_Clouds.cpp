@@ -3,11 +3,11 @@
 #include "VC_Clouds.h"
 #include "Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h"
 #include "Runtime/Engine/Classes/Kismet/KismetRenderingLibrary.h"
-#include "Components/LightComponent.h" 
+#include "Components/LightComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 #if WITH_EDITOR
 #include "Runtime/Engine/Classes/Components/BillboardComponent.h"
-#include "UnrealEd.h"
 #include "Editor/UnrealEd/Public/EditorViewportClient.h"
 #endif
 
