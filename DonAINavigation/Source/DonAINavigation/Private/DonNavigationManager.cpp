@@ -15,6 +15,14 @@
 #include "DonNavigationManager.h"
 #include "DonAINavigationPrivatePCH.h"
 #include "Multithreading/DonNavigationWorker.h"
+#include "Components/BillboardComponent.h"
+#include "Components/LineBatchComponent.h"
+#include "DrawDebugHelpers.h"
+#include "Engine/Engine.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "UObject/ConstructorHelpers.h"
 
 #include <stdio.h>
 #include <limits>

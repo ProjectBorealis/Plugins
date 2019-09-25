@@ -9,6 +9,9 @@
 #include <regex>
 #include "Framework/Text/SlateTextLayout.h"
 #include "LogDisplaySettings.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 
 class FOutputLogTextLayoutMarshaller;
 class SSearchBox;

@@ -14,6 +14,12 @@
 #include "SourceCodeNavigation.h"
 #include "EditorStyleSet.h"
 #include "Classes/EditorStyleSettings.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "HAL/FileManager.h"
+#include "Misc/OutputDeviceHelper.h"
+#include "SlateOptMacros.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 using namespace std;
 
