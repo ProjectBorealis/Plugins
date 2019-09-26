@@ -753,7 +753,8 @@ void FOutputLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSh
             startOffset = newLine->Len();
             newLine->Append(*LineText);
             LineText = MakeShareable(newLine);
-            const FTextBlockStyle& CountTextStyle = FTextBlockStyle(MessageTextStyle).SetColorAndOpacity(FSlateColor(StyleSettings->CollapsedLineCounterColor));
+			FTextBlockStyle CountTextStyle = GetStyle(CurrentMessage, StyleSettings);
+			CountTextStyle.SetColorAndOpacity(FSlateColor(StyleSettings->CollapsedLineCounterColor));
             TSharedRef<FSlateTextRun> textRun = FSlateTextRun::Create(FRunInfo(), LineText, CountTextStyle, FTextRange(0, startOffset));
             Runs.Add(textRun);
         }
