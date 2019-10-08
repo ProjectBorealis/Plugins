@@ -13,3 +13,6 @@
 [submodule "LayoutsPlugin"]
 	path = LayoutsPlugin
 	url = https://github.com/Sythenz/LayoutsPlugin
+[submodule "GenericGraph"]
+	path = GenericGraph
+	url = https://github.com/jinyuliao/GenericGraph.git
