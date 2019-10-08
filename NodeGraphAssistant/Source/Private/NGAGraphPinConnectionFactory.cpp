@@ -1,12 +1,12 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 #include "NGAGraphPinConnectionFactory.h"
 
-#include "NGAMaterialGraphConnectionDrawingPolicy.h"
-#include "NGABlueprintConnectionDrawingPolicy.h"
-#include "NGASoundCueConnectionDrawingPolicy.h"
-#include "NGAAnimGraphConnectionDrawingPolicy.h"
+#include "ConnectionDrawingPolicy/NGAMaterialGraphConnectionDrawingPolicy.h"
+#include "ConnectionDrawingPolicy/NGABlueprintConnectionDrawingPolicy.h"
+#include "ConnectionDrawingPolicy/NGASoundCueConnectionDrawingPolicy.h"
+#include "ConnectionDrawingPolicy/NGAAnimGraphConnectionDrawingPolicy.h"
 
 #include "MaterialGraph/MaterialGraphSchema.h"
 #include "EdGraphSchema_K2.h"
@@ -16,8 +16,8 @@
 #include "StateMachineConnectionDrawingPolicy.cpp"
 #include "AnimationStateNodes/SGraphNodeAnimTransition.cpp"
 #else
-#include "../_ImportPrivateEngineAPI/StateMachineConnectionDrawingPolicy.cpp"
-#include "../_ImportPrivateEngineAPI/SGraphNodeAnimTransition.cpp"
+#include "EngineCppFiles/StateMachineConnectionDrawingPolicy.cpp"
+#include "EngineCppFiles/SGraphNodeAnimTransition.cpp"
 #endif
 
 #include "Version.h"

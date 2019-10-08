@@ -1,4 +1,4 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
 //check list
@@ -79,6 +79,3 @@ public:
 
 	TSharedPtr<FNGAGraphPinConnectionFactoryPayLoadData> PayLoadData;
 };
-
-
-//#define NGA_IMPLEMENT_CONNECTION_DRAW_POLICY(PolicyName,ParentPolicyName)\

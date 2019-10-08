@@ -1,15 +1,19 @@
-// Copyright 2018 yangxiangyun
+// Copyright 2019 yangxiangyun
 // All Rights Reserved
 
-#include "NGAAnimGraphConnectionDrawingPolicy.h"
+#include "NGAGraphConnectionDrawingPolicyCommon.h"
 
 #include "SGraphPanel.h"
 #include "../NodeGraphAssistantConfig.h"
 
 #include "Rendering/DrawElements.h"
 
+#include "SlateApplication.h"
 
-void FNGAAnimGraphConnectionDrawingPolicy::DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin)
+//#pragma optimize("", off)
+
+
+void FNGAGraphConnectionDrawingPolicyCommon::OverrideDrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin)
 {
 	//delay till we have PinGeometries data ready to use.
 	DelayDrawPreviewStart.Add(StartPoint);
@@ -17,22 +21,16 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawPreviewConnector(const FGeometry&
 	DelayDrawPreviewPins.Add(Pin);
 }
 
-
-void FNGAAnimGraphConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
+void FNGAGraphConnectionDrawingPolicyCommon::OverrideDraw(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
 {
-	if (MyPayLoadData.IsValid())
-	{
-		MyPayLoadData->OutLazyConnectiblePin.Reset();
-		MyPayLoadData->OutInsertableNodePinInfo = InsertableNodePinInfo();
-		MyPayLoadData->OutHoveredInputPins.Empty();
-		MyPayLoadData->OutHoveredOutputPins.Empty();
-	}
-	FAnimGraphConnectionDrawingPolicy::Draw(InPinGeometries, ArrangedNodes);
+	//reset payload data
+	//call parent policy draw func.
+
 	DelayDrawPreviewConnector();
 }
 
 
-void FNGAAnimGraphConnectionDrawingPolicy::DelayDrawPreviewConnector()
+void FNGAGraphConnectionDrawingPolicyCommon::DelayDrawPreviewConnector()
 {
 	if (MyPayLoadData.IsValid())
 	{
@@ -60,7 +58,7 @@ void FNGAAnimGraphConnectionDrawingPolicy::DelayDrawPreviewConnector()
 				for (auto nodePinWidget : NodePinWdgets)
 				{
 					auto nodePin = StaticCastSharedRef<SGraphPin>(nodePinWidget);
-					if (auto arrangedNodePin = PinGeometries->Find(nodePin))
+					if (auto arrangedNodePin = Ref_PinGeometries->Find(nodePin))
 					{
 						FVector2D curPinPos = arrangedNodePin->Geometry.AbsolutePosition;
 						if (nodePin->GetDirection() == EEdGraphPinDirection::EGPD_Input)
@@ -100,10 +98,10 @@ void FNGAAnimGraphConnectionDrawingPolicy::DelayDrawPreviewConnector()
 			TSharedRef<SGraphPin> startPin = MyPayLoadData->AutoConnectStartPins[i].Pin().ToSharedRef();
 			TSharedRef<SGraphPin> endPin = MyPayLoadData->AutoConnectEndPins[i].Pin().ToSharedRef();
 
-			if (PinGeometries->Find(startPin) && PinGeometries->Find(endPin))
+			if (Ref_PinGeometries->Find(startPin) && Ref_PinGeometries->Find(endPin))
 			{
-				FGeometry startGeometry = PinGeometries->Find(startPin)->Geometry;
-				FGeometry endGeometry = PinGeometries->Find(endPin)->Geometry;
+				FGeometry startGeometry = Ref_PinGeometries->Find(startPin)->Geometry;
+				FGeometry endGeometry = Ref_PinGeometries->Find(endPin)->Geometry;
 				FVector2D startPos = startGeometry.AbsolutePosition;
 				FVector2D endPos = endGeometry.AbsolutePosition;
 
@@ -128,7 +126,7 @@ void FNGAAnimGraphConnectionDrawingPolicy::DelayDrawPreviewConnector()
 					Params.WireColor = GetDefault<UNodeGraphAssistantConfig>()->AutoConnectPreviewWireColor;
 					Params.WireThickness = 3;
 				}
-				DrawSplineWithArrow(startPos, endPos, Params);
+				Ref_EffectingPolicy->DrawSplineWithArrow(startPos, endPos, Params);
 			}
 		}
 		if (MyPayLoadData->OutInsertableNodePinInfo.InputPin && MyPayLoadData->OutInsertableNodePinInfo.OutputPin)
@@ -137,7 +135,7 @@ void FNGAAnimGraphConnectionDrawingPolicy::DelayDrawPreviewConnector()
 			if (GetDefault<UNodeGraphAssistantConfig>()->InsertNodeShowDeletedWireAsRed)
 			{
 				params.WireColor = FColor::Red;
-				DrawConnection(WireLayerID, MyPayLoadData->OutInsertableNodePinInfo.Pin1Pos, MyPayLoadData->OutInsertableNodePinInfo.Pin2Pos, params);
+				OverrideDrawConnection(Ref_WireLayerID, MyPayLoadData->OutInsertableNodePinInfo.Pin1Pos, MyPayLoadData->OutInsertableNodePinInfo.Pin2Pos, params);
 			}
 
 			params = MyPayLoadData->OutInsertableNodePinInfo.Params;
@@ -146,35 +144,35 @@ void FNGAAnimGraphConnectionDrawingPolicy::DelayDrawPreviewConnector()
 				params.WireColor = GetDefault<UNodeGraphAssistantConfig>()->AutoConnectPreviewWireColor;
 				params.WireThickness = 3;
 			}
-			DrawConnection(WireLayerID, MyPayLoadData->OutInsertableNodePinInfo.Pin1Pos, MyPayLoadData->OutInsertableNodePinInfo.InputPinPos, params);
-			DrawConnection(WireLayerID, MyPayLoadData->OutInsertableNodePinInfo.OutputPinPos, MyPayLoadData->OutInsertableNodePinInfo.Pin2Pos, params);
+			OverrideDrawConnection(Ref_WireLayerID, MyPayLoadData->OutInsertableNodePinInfo.Pin1Pos, MyPayLoadData->OutInsertableNodePinInfo.InputPinPos, params);
+			OverrideDrawConnection(Ref_WireLayerID, MyPayLoadData->OutInsertableNodePinInfo.OutputPinPos, MyPayLoadData->OutInsertableNodePinInfo.Pin2Pos, params);
 		}
 	}
 	for (int i = 0; i < DelayDrawPreviewStart.Num(); i++)
 	{
 		FConnectionParams Params;
 		DetermineWiringStyle(DelayDrawPreviewPins[i], nullptr, /*inout*/ Params);
-		DrawSplineWithArrow(DelayDrawPreviewStart[i], DelayDrawPreviewEnd[i], Params);
+		Ref_EffectingPolicy->DrawSplineWithArrow(DelayDrawPreviewStart[i], DelayDrawPreviewEnd[i], Params);
 	}
 }
 
 
-void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params)
+void FNGAGraphConnectionDrawingPolicyCommon::OverrideDrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params)
 {
 	if (!GetDefault<UNodeGraphAssistantConfig>()->WireStyleStraight)
 	{
 		const FVector2D& P0 = Start;
 		const FVector2D& P1 = End;
 
-		const FVector2D SplineTangent = ComputeSplineTangent(P0, P1);
+		const FVector2D SplineTangent = Ref_EffectingPolicy->ComputeSplineTangent(P0, P1);
 		const FVector2D P0Tangent = (Params.StartDirection == EGPD_Output) ? SplineTangent : -SplineTangent;
 		const FVector2D P1Tangent = (Params.EndDirection == EGPD_Input) ? SplineTangent : -SplineTangent;
 
 		//NGA begin
 		if (MyPayLoadData.IsValid() && MyPayLoadData->InsertNodePinInfos.Num() > 0)
 		{
-			auto nodeBoundMin = MyPayLoadData->NodeBoundMinRelToCursor + LocalMousePosition;
-			auto nodeBoundMax = MyPayLoadData->NodeBoundMaxRelToCursor + LocalMousePosition;
+			auto nodeBoundMin = MyPayLoadData->NodeBoundMinRelToCursor + Ref_LocalMousePosition;
+			auto nodeBoundMax = MyPayLoadData->NodeBoundMaxRelToCursor + Ref_LocalMousePosition;
 
 			if ((FMath::Min(Start.X, End.X) < nodeBoundMin.X && nodeBoundMax.X < FMath::Max(Start.X, End.X)) || (FMath::Min(Start.Y, End.Y) < nodeBoundMin.Y && nodeBoundMax.Y < FMath::Max(Start.Y, End.Y)))
 			{
@@ -196,7 +194,7 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 						{
 							if (inserInfo.InputPin.IsValid() && inserInfo.OutputPin.IsValid())
 							{
-								float closestDist = FMath::Abs(intersectInput.Y - inserInfo.InputPinPosRelToCursor.Y - LocalMousePosition.Y) + FMath::Abs(intersectOutput.Y - inserInfo.OutputPinPosRelToCursor.Y - LocalMousePosition.Y);
+								float closestDist = FMath::Abs(intersectInput.Y - inserInfo.InputPinPosRelToCursor.Y - Ref_LocalMousePosition.Y) + FMath::Abs(intersectOutput.Y - inserInfo.OutputPinPosRelToCursor.Y - Ref_LocalMousePosition.Y);
 								if (closestDist < MyPayLoadData->OutInsertableNodePinInfo.MinPinDist)
 								{
 									ECanCreateConnectionResponse response = MyGraphObject->GetSchema()->CanCreateConnection(Params.AssociatedPin1, inserInfo.InputPin.Pin()->GetPinObj()).Response;
@@ -205,8 +203,8 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 										response = MyGraphObject->GetSchema()->CanCreateConnection(Params.AssociatedPin2, inserInfo.OutputPin.Pin()->GetPinObj()).Response;
 										if (response != ECanCreateConnectionResponse::CONNECT_RESPONSE_DISALLOW)
 										{
-											auto arrangedInput = PinGeometries->Find(inserInfo.InputPin.Pin().ToSharedRef());
-											auto arrangedOutput = PinGeometries->Find(inserInfo.OutputPin.Pin().ToSharedRef());
+											auto arrangedInput = Ref_PinGeometries->Find(inserInfo.InputPin.Pin().ToSharedRef());
+											auto arrangedOutput = Ref_PinGeometries->Find(inserInfo.OutputPin.Pin().ToSharedRef());
 											if (arrangedInput && arrangedOutput)
 											{
 												auto inputGeo = arrangedInput->Geometry;
@@ -232,8 +230,9 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 						}
 						if (MyPayLoadData->OutInsertableNodePinInfo.MinPinDist < preInfo.MinPinDist && !GetDefault<UNodeGraphAssistantConfig>()->InsertNodeShowDeletedWireAsRed)
 						{
+#if ENGINE_MINOR_VERSION > 16
 							FSlateDrawElement::MakeDrawSpaceSpline(
-								DrawElementsList,
+								Ref_DrawElementsList,
 								LayerId,
 								preInfo.Pin1Pos, preInfo.Pin1Tangent,
 								preInfo.Pin2Pos, preInfo.Pin2Tangent,
@@ -241,18 +240,29 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 								ESlateDrawEffect::None,
 								preInfo.Params.WireColor
 							);
+#else
+							FSlateDrawElement::MakeDrawSpaceSpline(
+								Ref_DrawElementsList,
+								LayerId,
+								preInfo.Pin1Pos, preInfo.Pin1Tangent,
+								preInfo.Pin2Pos, preInfo.Pin2Tangent,
+								Ref_ClippingRect,
+								preInfo.Params.WireThickness,
+								ESlateDrawEffect::None,
+								preInfo.Params.WireColor
+							);
+#endif
 							return;
 						}
 					}
 				}
 			}
 		}
-		//NGA end
 
-		if (Settings->bTreatSplinesLikePins)
+		if (Ref_Settings->bTreatSplinesLikePins && !FSlateApplication::Get().IsDragDropping())//[wire flickering]fix connection flickering when drag and pan.
 		{
 			// Distance to consider as an overlap
-			float QueryDistanceTriggerThresholdSquared = FMath::Square(Settings->SplineHoverTolerance + Params.WireThickness * 0.5f);
+			float QueryDistanceTriggerThresholdSquared = FMath::Square(Ref_Settings->SplineHoverTolerance + Params.WireThickness * 0.5f);
 
 			//if cursor delta is big,means cursor move fast,so adjust hit radius,
 			if (MyPayLoadData.IsValid())
@@ -275,7 +285,7 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 				Bounds += FVector2D(P1);
 				Bounds += FVector2D(P1 - MaximumTangentContribution * P1Tangent);
 
-				bCloseToSpline = Bounds.ComputeSquaredDistanceToPoint(LocalMousePosition) < QueryDistanceToBoundingBoxSquared;
+				bCloseToSpline = Bounds.ComputeSquaredDistanceToPoint(Ref_LocalMousePosition) < QueryDistanceToBoundingBoxSquared;
 			}
 
 			if (bCloseToSpline)
@@ -291,8 +301,8 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 				{
 					const FVector2D Point2 = FMath::CubicInterp(P0, P0Tangent, P1, P1Tangent, TestAlpha + StepInterval);
 
-					const FVector2D ClosestPointToSegment = FMath::ClosestPointOnSegment2D(LocalMousePosition, Point1, Point2);
-					const float DistanceSquared = (LocalMousePosition - ClosestPointToSegment).SizeSquared();
+					const FVector2D ClosestPointToSegment = FMath::ClosestPointOnSegment2D(Ref_LocalMousePosition, Point1, Point2);
+					const float DistanceSquared = (Ref_LocalMousePosition - ClosestPointToSegment).SizeSquared();
 
 					if (DistanceSquared < ClosestDistanceSquared)
 					{
@@ -306,12 +316,12 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 				// Record the overlap
 				if (ClosestDistanceSquared < QueryDistanceTriggerThresholdSquared)
 				{
-					if (ClosestDistanceSquared < SplineOverlapResult.GetDistanceSquared())
+					if (ClosestDistanceSquared < Ref_EffectingPolicy->SplineOverlapResult.GetDistanceSquared())
 					{
 						const float SquaredDistToPin1 = (Params.AssociatedPin1 != nullptr) ? (P0 - ClosestPoint).SizeSquared() : FLT_MAX;
 						const float SquaredDistToPin2 = (Params.AssociatedPin2 != nullptr) ? (P1 - ClosestPoint).SizeSquared() : FLT_MAX;
 
-						SplineOverlapResult = FGraphSplineOverlapResult(Params.AssociatedPin1, Params.AssociatedPin2, ClosestDistanceSquared, SquaredDistToPin1, SquaredDistToPin2);
+						Ref_EffectingPolicy->SplineOverlapResult = FGraphSplineOverlapResult(Params.AssociatedPin1, Params.AssociatedPin2, ClosestDistanceSquared, SquaredDistToPin1, SquaredDistToPin2);
 					}
 					//NGA begin
 					if (MyPayLoadData.IsValid())
@@ -325,8 +335,9 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 		}
 
 		// Draw the spline itself
+#if ENGINE_MINOR_VERSION > 16
 		FSlateDrawElement::MakeDrawSpaceSpline(
-			DrawElementsList,
+			Ref_DrawElementsList,
 			LayerId,
 			P0, P0Tangent,
 			P1, P1Tangent,
@@ -334,19 +345,31 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 			ESlateDrawEffect::None,
 			Params.WireColor
 		);
+#else
+		FSlateDrawElement::MakeDrawSpaceSpline(
+			Ref_DrawElementsList,
+			LayerId,
+			P0, P0Tangent,
+			P1, P1Tangent,
+			Ref_ClippingRect,
+			Params.WireThickness,
+			ESlateDrawEffect::None,
+			Params.WireColor
+		);
+#endif
 
-		if (Params.bDrawBubbles || (MidpointImage != nullptr))
+		if (Params.bDrawBubbles || (Ref_MidpointImage != nullptr))
 		{
 			// This table maps distance along curve to alpha
 			FInterpCurve<float> SplineReparamTable;
-			const float SplineLength = MakeSplineReparamTable(P0, P0Tangent, P1, P1Tangent, SplineReparamTable);
+			const float SplineLength = Ref_EffectingPolicy->MakeSplineReparamTable(P0, P0Tangent, P1, P1Tangent, SplineReparamTable);
 
 			// Draw bubbles on the spline
 			if (Params.bDrawBubbles)
 			{
-				const float BubbleSpacing = 64.f * ZoomFactor;
-				const float BubbleSpeed = 192.f * ZoomFactor;
-				const FVector2D BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * Params.WireThickness;
+				const float BubbleSpacing = 64.f * Ref_ZoomFactor;
+				const float BubbleSpeed = 192.f * Ref_ZoomFactor;
+				const FVector2D BubbleSize = Ref_BubbleImage->ImageSize * Ref_ZoomFactor * 0.1f * Params.WireThickness;
 
 				float Time = (FPlatformTime::Seconds() - GStartTime);
 				const float BubbleOffset = FMath::Fmod(Time * BubbleSpeed, BubbleSpacing);
@@ -360,20 +383,32 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 						FVector2D BubblePos = FMath::CubicInterp(P0, P0Tangent, P1, P1Tangent, Alpha);
 						BubblePos -= (BubbleSize * 0.5f);
 
+#if ENGINE_MINOR_VERSION > 16
 						FSlateDrawElement::MakeBox(
-							DrawElementsList,
+							Ref_DrawElementsList,
 							LayerId,
-							FPaintGeometry(BubblePos, BubbleSize, ZoomFactor),
-							BubbleImage,
+							FPaintGeometry(BubblePos, BubbleSize, Ref_ZoomFactor),
+							Ref_BubbleImage,
 							ESlateDrawEffect::None,
 							Params.WireColor
 						);
+#else
+						FSlateDrawElement::MakeBox(
+							Ref_DrawElementsList,
+							LayerId,
+							FPaintGeometry(BubblePos, BubbleSize, Ref_ZoomFactor),
+							Ref_BubbleImage,
+							Ref_ClippingRect,
+							ESlateDrawEffect::None,
+							Params.WireColor
+						);
+#endif
 					}
 				}
 			}
 
 			// Draw the midpoint image
-			if (MidpointImage != nullptr)
+			if (Ref_MidpointImage != nullptr)
 			{
 				// Determine the spline position for the midpoint
 				const float MidpointAlpha = SplineReparamTable.Eval(SplineLength * 0.5f, 0.f);
@@ -385,20 +420,35 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 				const FVector2D SlopeUnnormalized = MidpointPlusE - MidpointMinusE;
 
 				// Draw the arrow
-				const FVector2D MidpointDrawPos = Midpoint - MidpointRadius;
+				const FVector2D MidpointDrawPos = Midpoint -Ref_EffectingPolicy->MidpointRadius;
 				const float AngleInRadians = SlopeUnnormalized.IsNearlyZero() ? 0.0f : FMath::Atan2(SlopeUnnormalized.Y, SlopeUnnormalized.X);
 
+#if ENGINE_MINOR_VERSION > 16
 				FSlateDrawElement::MakeRotatedBox(
-					DrawElementsList,
+					Ref_DrawElementsList,
 					LayerId,
-					FPaintGeometry(MidpointDrawPos, MidpointImage->ImageSize * ZoomFactor, ZoomFactor),
-					MidpointImage,
+					FPaintGeometry(MidpointDrawPos, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
 					ESlateDrawEffect::None,
 					AngleInRadians,
 					TOptional<FVector2D>(),
 					FSlateDrawElement::RelativeToElement,
 					Params.WireColor
 				);
+#else
+				FSlateDrawElement::MakeRotatedBox(
+					Ref_DrawElementsList,
+					LayerId,
+					FPaintGeometry(MidpointDrawPos, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
+					Ref_ClippingRect,
+					ESlateDrawEffect::None,
+					AngleInRadians,
+					TOptional<FVector2D>(),
+					FSlateDrawElement::RelativeToElement,
+					Params.WireColor
+				);
+#endif
 			}
 		}
 	}
@@ -414,7 +464,7 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 		points.Add(End);
 
 		float ClosestDistanceSquared = FLT_MAX;
-		float QueryDistanceTriggerThreshold = Settings->SplineHoverTolerance + Params.WireThickness * 0.5f;
+		float QueryDistanceTriggerThreshold = Ref_Settings->SplineHoverTolerance + Params.WireThickness * 0.5f;
 		if (MyPayLoadData.IsValid())
 		{
 			QueryDistanceTriggerThreshold = FMath::Max(FMath::Sqrt(MyPayLoadData->CursorDeltaSquared), QueryDistanceTriggerThreshold);
@@ -434,8 +484,8 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 		//NGA begin
 		if (MyPayLoadData.IsValid() && MyPayLoadData->InsertNodePinInfos.Num() > 0)
 		{
-			auto nodeBoundMin = MyPayLoadData->NodeBoundMinRelToCursor + LocalMousePosition;
-			auto nodeBoundMax = MyPayLoadData->NodeBoundMaxRelToCursor + LocalMousePosition;
+			auto nodeBoundMin = MyPayLoadData->NodeBoundMinRelToCursor + Ref_LocalMousePosition;
+			auto nodeBoundMax = MyPayLoadData->NodeBoundMaxRelToCursor + Ref_LocalMousePosition;
 
 			if ((Start.X < nodeBoundMin.X && nodeBoundMax.X < End.X) || (End.X < nodeBoundMin.X && nodeBoundMax.X < Start.X))
 			{
@@ -447,8 +497,8 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 					{
 						if (inserInfo.InputPin.IsValid() && inserInfo.OutputPin.IsValid())
 						{
-							float closestDistStart = FMath::Abs(Start.Y - inserInfo.InputPinPosRelToCursor.Y - LocalMousePosition.Y) + FMath::Abs(Start.Y - inserInfo.OutputPinPosRelToCursor.Y - LocalMousePosition.Y);
-							float closestDistEnd = FMath::Abs(End.Y - inserInfo.InputPinPosRelToCursor.Y - LocalMousePosition.Y) + FMath::Abs(End.Y - inserInfo.OutputPinPosRelToCursor.Y - LocalMousePosition.Y);
+							float closestDistStart = FMath::Abs(Start.Y - inserInfo.InputPinPosRelToCursor.Y - Ref_LocalMousePosition.Y) + FMath::Abs(Start.Y - inserInfo.OutputPinPosRelToCursor.Y - Ref_LocalMousePosition.Y);
+							float closestDistEnd = FMath::Abs(End.Y - inserInfo.InputPinPosRelToCursor.Y - Ref_LocalMousePosition.Y) + FMath::Abs(End.Y - inserInfo.OutputPinPosRelToCursor.Y - Ref_LocalMousePosition.Y);
 							float closestDist = FMath::Min(closestDistStart, closestDistEnd);
 							if (closestDist < MyPayLoadData->OutInsertableNodePinInfo.MinPinDist)
 							{
@@ -458,8 +508,8 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 									response = MyGraphObject->GetSchema()->CanCreateConnection(Params.AssociatedPin2, inserInfo.OutputPin.Pin()->GetPinObj()).Response;
 									if (response != ECanCreateConnectionResponse::CONNECT_RESPONSE_DISALLOW)
 									{
-										auto arrangedInput = PinGeometries->Find(inserInfo.InputPin.Pin().ToSharedRef());
-										auto arrangedOutput = PinGeometries->Find(inserInfo.OutputPin.Pin().ToSharedRef());
+										auto arrangedInput = Ref_PinGeometries->Find(inserInfo.InputPin.Pin().ToSharedRef());
+										auto arrangedOutput = Ref_PinGeometries->Find(inserInfo.OutputPin.Pin().ToSharedRef());
 										if (arrangedInput && arrangedOutput)
 										{
 											auto inputGeo = arrangedInput->Geometry;
@@ -492,8 +542,10 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 						points.Add(preMiddleEnd);
 						points.Add(preInfo.Pin2Pos);
 						preInfo.Params.WireColor.A *= 0.85;
+
+#if ENGINE_MINOR_VERSION > 16
 						FSlateDrawElement::MakeLines(
-							DrawElementsList,
+							Ref_DrawElementsList,
 							LayerId,
 							FPaintGeometry(),
 							prePoints,
@@ -502,19 +554,32 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 							false,
 							FMath::Min(3.f, preInfo.Params.WireThickness)
 						);
+#else
+						FSlateDrawElement::MakeLines(
+							Ref_DrawElementsList,
+							LayerId,
+							FPaintGeometry(),
+							prePoints,
+							Ref_ClippingRect,
+							ESlateDrawEffect::None,
+							preInfo.Params.WireColor,
+							false,
+							FMath::Min(3.f, preInfo.Params.WireThickness)
+						);
+#endif
 						return;
 					}
 				}
 			}
 		}
 
-		ClosestDistanceSquared =FMath::Min3(BoundsStart.ComputeSquaredDistanceToPoint(LocalMousePosition), BoundsMiddle.ComputeSquaredDistanceToPoint(LocalMousePosition),BoundsEnd.ComputeSquaredDistanceToPoint(LocalMousePosition)) ;
+		ClosestDistanceSquared =FMath::Min3(BoundsStart.ComputeSquaredDistanceToPoint(Ref_LocalMousePosition), BoundsMiddle.ComputeSquaredDistanceToPoint(Ref_LocalMousePosition),BoundsEnd.ComputeSquaredDistanceToPoint(Ref_LocalMousePosition)) ;
 		
-		if (ClosestDistanceSquared < QueryDistanceTriggerThreshold && ClosestDistanceSquared < SplineOverlapResult.GetDistanceSquared())
+		if (ClosestDistanceSquared < QueryDistanceTriggerThreshold && ClosestDistanceSquared < Ref_EffectingPolicy->SplineOverlapResult.GetDistanceSquared())
 		{
-			const float SquaredDistToPin1 = (Params.AssociatedPin1 != nullptr) ? (Start - LocalMousePosition).SizeSquared() : FLT_MAX;
-			const float SquaredDistToPin2 = (Params.AssociatedPin2 != nullptr) ? (End - LocalMousePosition).SizeSquared() : FLT_MAX;
-			SplineOverlapResult = FGraphSplineOverlapResult(Params.AssociatedPin1, Params.AssociatedPin2, ClosestDistanceSquared, SquaredDistToPin1, SquaredDistToPin2);
+			const float SquaredDistToPin1 = (Params.AssociatedPin1 != nullptr) ? (Start - Ref_LocalMousePosition).SizeSquared() : FLT_MAX;
+			const float SquaredDistToPin2 = (Params.AssociatedPin2 != nullptr) ? (End - Ref_LocalMousePosition).SizeSquared() : FLT_MAX;
+			Ref_EffectingPolicy->SplineOverlapResult = FGraphSplineOverlapResult(Params.AssociatedPin1, Params.AssociatedPin2, ClosestDistanceSquared, SquaredDistToPin1, SquaredDistToPin2);
 		}
 		if (ClosestDistanceSquared < QueryDistanceTriggerThreshold)
 		{
@@ -527,8 +592,9 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 
 		FLinearColor color = Params.WireColor;
 		color.A *= 0.85;
+#if ENGINE_MINOR_VERSION > 16
 		FSlateDrawElement::MakeLines(
-			DrawElementsList,
+			Ref_DrawElementsList,
 			LayerId,
 			FPaintGeometry(),
 			points,
@@ -537,6 +603,19 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 			false,//no aa,its straight line, and aa causes line breaks
 			FMath::Min(3.f, Params.WireThickness)
 		);
+#else
+		FSlateDrawElement::MakeLines(
+			Ref_DrawElementsList,
+			LayerId,
+			FPaintGeometry(),
+			points,
+			Ref_ClippingRect,
+			ESlateDrawEffect::None,
+			color,
+			false,//no aa,its straight line, and aa causes line breaks
+			FMath::Min(3.f, Params.WireThickness)
+		);
+#endif
 
 		if (Params.bDrawBubbles)
 		{
@@ -544,9 +623,9 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 			const float line2 = FMath::Abs(middleEnd.Y - middleStart.Y);
 			const float line3 = FMath::Abs(End.X - middleEnd.X);
 			const float SplineLength = line1 + line2 + line3;
-			const float BubbleSpacing = 64.f * ZoomFactor;
-			const float BubbleSpeed = 192.f * ZoomFactor;
-			const FVector2D BubbleSize = FMath::Min(FVector2D(25, 25), BubbleImage->ImageSize * ZoomFactor * 0.1f * Params.WireThickness);
+			const float BubbleSpacing = 64.f * Ref_ZoomFactor;
+			const float BubbleSpeed = 192.f * Ref_ZoomFactor;
+			const FVector2D BubbleSize = FMath::Min(FVector2D(25, 25), Ref_BubbleImage->ImageSize * Ref_ZoomFactor * 0.1f * Params.WireThickness);
 
 			float Time = (FPlatformTime::Seconds() - GStartTime);
 			const float BubbleOffset = FMath::Fmod(Time * BubbleSpeed, BubbleSpacing);
@@ -566,27 +645,39 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 						BubblePos = FMath::Lerp(middleEnd, End, (Distance - line1 - line2) / line3);
 					}
 					BubblePos -= (BubbleSize * 0.5f);
-
+#if ENGINE_MINOR_VERSION > 16
 					FSlateDrawElement::MakeBox(
-						DrawElementsList,
+						Ref_DrawElementsList,
 						LayerId,
-						FPaintGeometry(BubblePos, BubbleSize, ZoomFactor),
-						BubbleImage,
+						FPaintGeometry(BubblePos, BubbleSize, Ref_ZoomFactor),
+						Ref_BubbleImage,
 						ESlateDrawEffect::None,
 						Params.WireColor
 					);
+#else
+					FSlateDrawElement::MakeBox(
+						Ref_DrawElementsList,
+						LayerId,
+						FPaintGeometry(BubblePos, BubbleSize, Ref_ZoomFactor),
+						Ref_BubbleImage,
+						Ref_ClippingRect,
+						ESlateDrawEffect::None,
+						Params.WireColor
+					);
+#endif
 				}
 			}
 		}
-		if (MidpointImage != nullptr)
+		if (Ref_MidpointImage != nullptr)
 		{
-			if (FMath::Abs(middleStart.X - Start.X) > float(MidpointImage->ImageSize.X) * ZoomFactor)
+#if ENGINE_MINOR_VERSION > 16
+			if (FMath::Abs(middleStart.X - Start.X) > float(Ref_MidpointImage->ImageSize.X) * Ref_ZoomFactor)
 			{
 				FSlateDrawElement::MakeRotatedBox(
-					DrawElementsList,
+					Ref_DrawElementsList,
 					LayerId,
-					FPaintGeometry((middleStart + Start) / 2 - MidpointRadius, MidpointImage->ImageSize * ZoomFactor, ZoomFactor),
-					MidpointImage,
+					FPaintGeometry((middleStart + Start) / 2 - Ref_EffectingPolicy->MidpointRadius, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
 					ESlateDrawEffect::None,
 					middleStart.X > Start.X ? 0 : 3.14,
 					TOptional<FVector2D>(),
@@ -594,13 +685,13 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 					Params.WireColor
 				);
 			}
-			if (FMath::Abs(middleEnd.Y - middleStart.Y) > MidpointImage->ImageSize.Y * ZoomFactor)
+			if (FMath::Abs(middleEnd.Y - middleStart.Y) > Ref_MidpointImage->ImageSize.Y * Ref_ZoomFactor)
 			{
 				FSlateDrawElement::MakeRotatedBox(
-					DrawElementsList,
+					Ref_DrawElementsList,
 					LayerId,
-					FPaintGeometry((middleEnd + middleStart) / 2 - MidpointRadius, MidpointImage->ImageSize * ZoomFactor, ZoomFactor),
-					MidpointImage,
+					FPaintGeometry((middleEnd + middleStart) / 2 - Ref_EffectingPolicy->MidpointRadius, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
 					ESlateDrawEffect::None,
 					middleEnd.Y > middleStart.Y ? 1.57 : 4.71,
 					TOptional<FVector2D>(),
@@ -608,13 +699,13 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 					Params.WireColor
 				);
 			}
-			if (FMath::Abs(End.X - middleEnd.X) > MidpointImage->ImageSize.X * ZoomFactor)
+			if (FMath::Abs(End.X - middleEnd.X) > Ref_MidpointImage->ImageSize.X * Ref_ZoomFactor)
 			{
 				FSlateDrawElement::MakeRotatedBox(
-					DrawElementsList,
+					Ref_DrawElementsList,
 					LayerId,
-					FPaintGeometry((End + middleEnd) / 2 - MidpointRadius, MidpointImage->ImageSize * ZoomFactor, ZoomFactor),
-					MidpointImage,
+					FPaintGeometry((End + middleEnd) / 2 - Ref_EffectingPolicy->MidpointRadius, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
 					ESlateDrawEffect::None,
 					End.X > middleEnd.X ? 0 : 3.14,
 					TOptional<FVector2D>(),
@@ -622,6 +713,112 @@ void FNGAAnimGraphConnectionDrawingPolicy::DrawConnection(int32 LayerId, const F
 					Params.WireColor
 				);
 			}
+#else
+			if (FMath::Abs(middleStart.X - Start.X) > float(Ref_MidpointImage->ImageSize.X) * Ref_ZoomFactor)
+			{
+				FSlateDrawElement::MakeRotatedBox(
+					Ref_DrawElementsList,
+					LayerId,
+					FPaintGeometry((middleStart + Start) / 2 - Ref_EffectingPolicy->MidpointRadius, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
+					Ref_ClippingRect,
+					ESlateDrawEffect::None,
+					middleStart.X > Start.X ? 0 : 3.14,
+					TOptional<FVector2D>(),
+					FSlateDrawElement::RelativeToElement,
+					Params.WireColor
+				);
+			}
+			if (FMath::Abs(middleEnd.Y - middleStart.Y) > Ref_MidpointImage->ImageSize.Y * Ref_ZoomFactor)
+			{
+				FSlateDrawElement::MakeRotatedBox(
+					Ref_DrawElementsList,
+					LayerId,
+					FPaintGeometry((middleEnd + middleStart) / 2 - Ref_EffectingPolicy->MidpointRadius, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
+					Ref_ClippingRect,
+					ESlateDrawEffect::None,
+					middleEnd.Y > middleStart.Y ? 1.57 : 4.71,
+					TOptional<FVector2D>(),
+					FSlateDrawElement::RelativeToElement,
+					Params.WireColor
+				);
+			}
+			if (FMath::Abs(End.X - middleEnd.X) > Ref_MidpointImage->ImageSize.X * Ref_ZoomFactor)
+			{
+				FSlateDrawElement::MakeRotatedBox(
+					Ref_DrawElementsList,
+					LayerId,
+					FPaintGeometry((End + middleEnd) / 2 - Ref_EffectingPolicy->MidpointRadius, Ref_MidpointImage->ImageSize * Ref_ZoomFactor, Ref_ZoomFactor),
+					Ref_MidpointImage,
+					Ref_ClippingRect,
+					ESlateDrawEffect::None,
+					End.X > middleEnd.X ? 0 : 3.14,
+					TOptional<FVector2D>(),
+					FSlateDrawElement::RelativeToElement,
+					Params.WireColor
+				);
+			}
+#endif
 		}
 	}
 }
+
+void FNGAGraphConnectionDrawingPolicyCommon::DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params)
+{
+	Ref_EffectingPolicy->DetermineWiringStyle(OutputPin, InputPin, Params);
+	return;
+	//most material expression did not implement get type interface,so we can not get the correct color.
+	/*if (GetDefault<UNodeGraphAssistantConfig>()->OverrideMaterialGraphPinColor)
+	{
+		uint32 i = static_cast<const UMaterialGraphSchema*>(OutputPin->GetOwningNode()->GetSchema())->GetMaterialValueType(OutputPin);
+		FLinearColor newColor = FColor::White;
+		switch (i)
+		{
+		case MCT_Float:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->Float1PinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		case MCT_Float2:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->Float2PinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		case MCT_Float3:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->Float3PinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		case MCT_Float4:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->Float4PinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		case MCT_StaticBool:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->BoolPinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		case MCT_Texture2D:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->TexturePinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		case MCT_TextureCube:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->TexturePinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		case MCT_MaterialAttributes:
+			newColor = GetDefault<UNodeGraphAssistantConfig>()->MaterialAttributesPinWireColor;
+			newColor.A = Params.WireColor.A;
+			Params.WireColor = newColor;
+			break;
+		default:
+			Params.WireColor = newColor;
+		}
+	}*/
+}
+
+//#pragma optimize("", on)

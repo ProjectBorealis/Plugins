@@ -6,6 +6,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Editor/GraphEditor/Public/SGraphNodeComment.h"
 #include "Editor/GraphEditor/Public/SGraphNodeResizable.h"
+#include "AutoSizeCommentsSettings.h"
 
 struct FPresetCommentStyle;
 
@@ -14,10 +15,10 @@ struct FPresetCommentStyle;
  */
 enum ASC_AnchorPoint
 {
-	TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NONE
+	LEFT, RIGHT, TOP, BOTTOM, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NONE
 };
 
-class SAutoSizeCommentNode : public SGraphNode
+class SAutoSizeCommentsGraphNode : public SGraphNode
 {
 public:
 	/** This delay is to ensure that all nodes exist on the graph and have their bounds properly set */
@@ -31,16 +32,17 @@ public:
 	FVector2D DragSize;
 	bool bUserIsDragging = false;
 
-	ASC_AnchorPoint AnchorPoint = NONE;
+	ASC_AnchorPoint CachedAnchorPoint = NONE;
 	float AnchorSize = 40.f;
 
 	virtual void MoveTo(const FVector2D& NewPosition, FNodeSet& NodeFilter) override;
 
 public:
-	SLATE_BEGIN_ARGS(SAutoSizeCommentNode) {}
+	SLATE_BEGIN_ARGS(SAutoSizeCommentsGraphNode) {}
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, class UEdGraphNode* InNode);
+	~SAutoSizeCommentsGraphNode();
 
 	//~ Begin SWidget Interface
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -72,6 +74,8 @@ public:
 
 	/** return rect of the title bar */
 	virtual FSlateRect GetTitleRect() const override;
+
+	class UEdGraphNode_Comment* GetCommentNodeObj() { return CommentNode; }
 
 protected:
 	//~ Begin SGraphNode Interface
@@ -133,18 +137,22 @@ private:
 	/** Local copy of the comment style */
 	FInlineEditableTextBlockStyle CommentStyle;
 
+	TSharedPtr<class SButton> ToggleHeaderButton;
+	TSharedPtr<class SBorder> ColorControlsWithBorder;
+	TSharedPtr<class SHorizontalBox> CommentControls;
+
 public:
 	/** Update the nodes */
 	void UpdateRefreshDelay();
 
-	void RefreshNodesInsideComment(bool bCheckContained);
+	void RefreshNodesInsideComment(ECommentCollisionMethod OverrideCollisionMethod = ASC_Collision_Default);
 
 	float GetTitleBarHeight() const;
 
 	/** Util functions */
 	FSlateRect GetBoundsForNodesInside();
 	FSlateRect GetNodeBounds(UEdGraphNode* Node);
-	TSet<UEdGraphNode_Comment*> GetOtherCommentNodes();
+	TSet<TSharedPtr<SAutoSizeCommentsGraphNode>> GetOtherCommentNodes();
 	void UpdateExistingCommentNodes();
 	bool AnySelectedNodes();
 	static bool RemoveNodesFromUnderComment(UEdGraphNode_Comment* InCommentNode, TSet<UObject*>& NodesToRemove);
@@ -152,6 +160,17 @@ public:
 	void SnapVectorToGrid(FVector2D& Vector);
 	bool IsLocalPositionInCorner(const FVector2D& MousePositionInNode) const;
 
-	bool IsHeaderComment();
+	ASC_AnchorPoint GetAnchorPoint(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) const;
+
+	bool IsHeaderComment() const;
 	bool IsPresetStyle();
+
+	bool LoadCache();
+	void SaveToCache();
+
+	void QueryNodesUnderComment(TArray<TSharedPtr<SGraphNode>>& OutNodesUnderComment, ECommentCollisionMethod OverrideCollisionMethod = ASC_Collision_Default);
+
+	void RandomizeColor();
+
+	void AdjustMinSize(FVector2D& InSize);
 };
