@@ -16,3 +16,6 @@
 [submodule "GenericGraph"]
 	path = GenericGraph
 	url = https://github.com/ProjectBorealis/GenericGraph.git
+[submodule "SocketIOClient"]
+	path = SocketIOClient
+	url = https://github.com/ProjectBorealis/socketio-client-ue4.git
