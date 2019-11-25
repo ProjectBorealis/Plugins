@@ -19,3 +19,6 @@
 [submodule "SocketIOClient"]
 	path = SocketIOClient
 	url = https://github.com/ProjectBorealis/socketio-client-ue4.git
+[submodule "DiscordGameSDK"]
+	path = DiscordGameSDK
+	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
