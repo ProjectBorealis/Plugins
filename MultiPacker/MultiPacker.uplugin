@@ -1,0 +1,46 @@
+{
+	"FileVersion": 3,
+	"Version": 20,
+	"VersionName": "2.10.1",
+	"FriendlyName": "MultiPacker",
+	"Description": "Edit and combine Textures easily",
+	"Category": "MultiPacker",
+	"CreatedBy": "@turbocheke",
+	"CreatedByURL": "",
+	"DocsURL": "https://cheke.github.io/MultiPacker/",
+	"MarketplaceURL": "https://ue/marketplace/content/afd1a04001bc4110b4a22460ca09da94",
+	"SupportURL": "",
+	"EngineVersion": "4.23.0",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "MultiPackerRuntime",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"WhitelistPlatforms": [
+				"Android",
+				"Win64",
+				"Win32"
+			]
+		},
+		{
+			"Name": "MultiPackerEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32"
+			]
+		},
+		{
+			"Name": "MultiPackerTab",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Win32"
+			]
+		}
+	]
+}
