@@ -131,7 +131,7 @@ private:
 			SizeTextureHorizontal = GetSizeAsByte(TextureBlue->GetSurfaceWidth(), SizeTextureHorizontal, Biggest);
 			SizeTextureVertical = GetSizeAsByte(TextureBlue->GetSurfaceHeight(), SizeTextureVertical, Biggest);
 		}
-		if (AlphaChannel = true && TextureAlpha)
+		if (AlphaChannel && TextureAlpha)
 		{
 			SizeTextureHorizontal = GetSizeAsByte(TextureAlpha->GetSurfaceWidth(), SizeTextureHorizontal, Biggest);
 			SizeTextureVertical = GetSizeAsByte(TextureAlpha->GetSurfaceHeight(), SizeTextureVertical, Biggest);

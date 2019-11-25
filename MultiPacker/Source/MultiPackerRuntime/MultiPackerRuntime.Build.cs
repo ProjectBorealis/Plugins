@@ -7,7 +7,6 @@ namespace UnrealBuildTool.Rules
 		public MultiPackerRuntime(ReadOnlyTargetRules Target) : base(Target)
         {
             bEnforceIWYU = true;
-            bUseAVX = true;
             OptimizeCode = CodeOptimization.Always;
             PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
             PrivateIncludePaths.Add("MultiPackerRuntime/Private");

@@ -1,7 +1,7 @@
 // Copyright(c) 2019 Vadim Slyusarev 
 
 #pragma once
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 
 #include "optick.config.h"
 
@@ -1714,4 +1714,4 @@ SymbolEngine* Platform::CreateSymbolEngine()
 }
 #endif //OPTICK_ENABLE_TRACING
 #endif //USE_OPTICK
-#endif //_MSC_VER
+#endif //_WIN32

@@ -7,7 +7,6 @@ namespace UnrealBuildTool.Rules
 		public MultiPackerEditor(ReadOnlyTargetRules Target) : base(Target)
         {
             bEnforceIWYU = true;
-            bUseAVX = true;
             OptimizeCode = CodeOptimization.Always;
             PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
             PrivateIncludePaths.Add("MultiPackerEditor/Private");

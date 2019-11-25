@@ -157,7 +157,7 @@ TSharedRef<SDockTab> FMultiPackerChannelTab::SpawnTab_Viewport(const FSpawnTabAr
 	PreviewBrush = MakeShareable(new FSlateImageBrush(PropertyMPChannel->TextureRed, FVector2D(250, 250)));
 	return SNew(SDockTab)
 		.Label(LOCTEXT("ViewportTab_Title", "Viewport"))
-		.OnCanCloseTab(false)
+		.OnCanCloseTab(nullptr)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
@@ -196,7 +196,7 @@ TSharedRef<SDockTab> FMultiPackerChannelTab::SpawnTab_Details(const FSpawnTabArg
 		.Icon(FEditorStyle::GetBrush("LevelEditor.Tabs.Details"))
 		.Label(LOCTEXT("Details_Title", "Details"))
 		.ShouldAutosize(true)
-		.OnCanCloseTab(false)
+		.OnCanCloseTab(nullptr)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
@@ -215,7 +215,7 @@ TSharedRef<SDockTab> FMultiPackerChannelTab::SpawnTab_Buttons(const FSpawnTabArg
 		.Icon(FEditorStyle::GetBrush("LevelEditor.Tabs.Details"))
 		.Label(LOCTEXT("Buttons_Title", "Buttons"))
 		.ShouldAutosize(true)
-		.OnCanCloseTab(false)
+		.OnCanCloseTab(nullptr)
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
