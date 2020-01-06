@@ -10,9 +10,6 @@
 [submodule "IAUS"]
 	path = IAUS
 	url = https://github.com/ProjectBorealisAdmin/IAUS.git
-[submodule "Layouts"]
-	path = Layouts
-	url = https://github.com/ProjectBorealis/LayoutsPlugin.git
 [submodule "GenericGraph"]
 	path = GenericGraph
 	url = https://github.com/ProjectBorealis/GenericGraph.git
