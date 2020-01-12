@@ -21,7 +21,10 @@
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
 [submodule "LoadingScreen"]
 	path = LoadingScreen
-	url = https://github.com/ue4plugins/LoadingScreen.git
+	url = https://github.com/ProjectBorealis/LoadingScreen.git
 [submodule "MayaLiveLink"]
 	path = MayaLiveLink
-	url = https://github.com/ue4plugins/MayaLiveLink.git
+	url = https://github.com/ProjectBorealis/MayaLiveLink.git
+[submodule "MagicConsole"]
+	path = MagicConsole
+	url = https://github.com/ProjectBorealis/UE4_MagicConsole.git
