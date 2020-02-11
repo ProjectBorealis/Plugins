@@ -1,4 +1,4 @@
-﻿// Copyright 2017 Allegorithmic Inc. All rights reserved.
+// Copyright 2017 Allegorithmic Inc. All rights reserved.
 // File: SubstanceSourceWindow.h
 
 /** Description:: This class will be the core window class and will contain all of the functionality for the window directly. */

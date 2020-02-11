@@ -1,4 +1,4 @@
-﻿// Copyright 2017 Allegorithmic Inc. All rights reserved.
+// Copyright 2017 Allegorithmic Inc. All rights reserved.
 // File: SubstanceToolkitHost.cpp
 
 #include "SubstanceToolkitHost.h"
@@ -209,13 +209,6 @@ void SSubstanceSourceToolkitHost::RestoreFromLayout(const TSharedRef<FTabManager
 
 void SSubstanceSourceToolkitHost::GenerateMenus(bool bForceCreateMenu)
 {
-	if (bForceCreateMenu || DefaultMenuWidget != SNullWidget::NullWidget)
-	{
-		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame");
-		DefaultMenuWidget = MainFrameModule.MakeMainMenu(MyTabManager, FExtender::Combine(MenuExtenders).ToSharedRef());
-
-		MenuWidgetContent->SetContent(DefaultMenuWidget.ToSharedRef());
-	}
 }
 
 void SSubstanceSourceToolkitHost::SetMenuOverlay(TSharedRef<SWidget> NewOverlay)

@@ -64,6 +64,7 @@ ColorSpace getDefaultColorSpace(ChannelUse channel, bool isFloatFormat)
 		case Channel_Specular:
 		case Channel_Transmissive:
 		case Channel_Diffuse:
+		case Channel_CoatColor:
 			return isFloatFormat ? ColorSpace_Linear : ColorSpace_sRGB;
 
 		case Channel_Height:
@@ -71,6 +72,7 @@ ColorSpace getDefaultColorSpace(ChannelUse channel, bool isFloatFormat)
 			return isFloatFormat ? ColorSpace_Passthru : ColorSpace_SNorm;
 
 		case Channel_Normal:
+		case Channel_CoatNormal:
 			return ColorSpace_NormalXYZLeft;
 
 		case Channel_SpecularLevel:

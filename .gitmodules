@@ -36,3 +36,9 @@
 [submodule "modio"]
 	path = modio
 	url = https://github.com/ProjectBorealis/modio.git
+[submodule "QuickCommands"]
+	path = QuickCommands
+	url = https://github.com/ProjectBorealis/QuickCommands.git
+[submodule "FactionsExtension"]
+	path = FactionsExtension
+	url = https://github.com/ProjectBorealis/FactionsExtension.git
