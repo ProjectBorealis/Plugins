@@ -42,3 +42,6 @@
 [submodule "FactionsExtension"]
 	path = FactionsExtension
 	url = https://github.com/ProjectBorealis/FactionsExtension.git
+[submodule "GraphFormatter"]
+	path = GraphFormatter
+	url = https://github.com/ProjectBorealis/graphformatter.git

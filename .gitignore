@@ -2,3 +2,8 @@ Intermediate
 Binaries
 Saved
 Build
+
+# Large libs that we compress
+ULIS1.0.lib
+libULIS1.0.a
+libzmq_d.lib
