@@ -1,7 +1,7 @@
 [submodule "Prefabricator"]
 	path = Prefabricator
 	url = https://github.com/ProjectBorealis/prefabricator-ue4.git
-    branch = 4.24
+    branch = master
 [submodule "UE4GitPlugin"]
 	path = UE4GitPlugin
 	url = https://github.com/ProjectBorealis/UE4GitPlugin.git
