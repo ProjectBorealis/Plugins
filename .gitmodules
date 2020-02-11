@@ -1,9 +1,11 @@
 [submodule "Prefabricator"]
 	path = Prefabricator
 	url = https://github.com/ProjectBorealis/prefabricator-ue4.git
+    branch = 4.24
 [submodule "UE4GitPlugin"]
 	path = UE4GitPlugin
 	url = https://github.com/ProjectBorealis/UE4GitPlugin.git
+    branch = pb-changes
 [submodule "ArcticAnalytics"]
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
@@ -21,4 +23,16 @@
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
 [submodule "LoadingScreen"]
 	path = LoadingScreen
-	url = https://github.com/ue4plugins/LoadingScreen.git
+	url = https://github.com/ProjectBorealis/LoadingScreen.git
+[submodule "MayaLiveLink"]
+	path = MayaLiveLink
+	url = https://github.com/ProjectBorealis/MayaLiveLink.git
+[submodule "MagicConsole"]
+	path = MagicConsole
+	url = https://github.com/ProjectBorealis/MagicConsole.git
+[submodule "AutoSizeComments"]
+	path = AutoSizeComments
+	url = https://github.com/ProjectBorealis/AutoSizeComments.git
+[submodule "modio"]
+	path = modio
+	url = https://github.com/ProjectBorealis/modio.git
