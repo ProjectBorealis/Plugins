@@ -105,7 +105,7 @@ public class SubstanceCore : ModuleRules
 			if ((SDKDir != null) && (SDKDir.Length > 0))
 			{
 				PublicIncludePaths.Add(SDKDir + "/target/include_common");
-				PublicLibraryPaths.Add(SDKDir + "/host_tools/lib");
+				PublicSystemLibraryPaths.Add(SDKDir + "/host_tools/lib");
 
 				PublicAdditionalLibraries.Add("libSceGpuAddress.lib");
 				PublicDelayLoadDLLs.Add("libSceGpuAddress.dll");

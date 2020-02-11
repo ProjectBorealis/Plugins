@@ -39,3 +39,9 @@
 [submodule "GraphFormatter"]
 	path = GraphFormatter
 	url = https://github.com/ProjectBorealis/GraphFormatter.git
+[submodule "QuickCommands"]
+	path = QuickCommands
+	url = https://github.com/ProjectBorealis/QuickCommands.git
+[submodule "FactionsExtension"]
+	path = FactionsExtension
+	url = https://github.com/ProjectBorealis/FactionsExtension.git

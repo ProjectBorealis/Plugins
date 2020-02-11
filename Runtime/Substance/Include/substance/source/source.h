@@ -15,9 +15,9 @@
 #include <iterator>
 
 //macros
-#define SUBSTANCE_SOURCE_URL_GRAPHQL				"https://source-api.allegorithmic.com/graphql"
-#define SUBSTANCE_SOURCE_URL_USER_INFO				"https://source-api.allegorithmic.com/user"
-#define SUBSTANCE_SOURCE_URL_USER_LOGIN				"https://source-api.allegorithmic.com/login"
+#define SUBSTANCE_SOURCE_URL_GRAPHQL				"https://source-api.substance3d.com/graphql"
+#define SUBSTANCE_SOURCE_URL_USER_INFO				"https://source-api.substance3d.com/user"
+#define SUBSTANCE_SOURCE_URL_USER_LOGIN				"https://source-api.substance3d.com/login"
 
 #define SUBSTANCE_SOURCE_MIMETYPE_SBSAR				"application/vnd.allegorithmic.sbsar"
 

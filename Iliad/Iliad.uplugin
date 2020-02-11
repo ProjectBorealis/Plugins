@@ -1,0 +1,127 @@
+{
+	"FileVersion": 3,
+	"Version": 2,
+	"VersionName": "0.2.424",
+	"FriendlyName": "Iliad",
+	"Description": "Painting plugin with Blueprint brushes for Unreal Engine",
+	"Category": "2D",
+	"CreatedBy": "Praxinos",
+	"CreatedByURL": "https://praxinos.coop",
+	"DocsURL": "https://praxinos.coop/forum/viewforum.php?f=15",
+	"MarketplaceURL": "",
+	"SupportURL": "https://praxinos.coop/contact.php",
+	"EngineVersion": "4.24.0",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "OdysseyImaging",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyMaths",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyStrokePipeline",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyBrush",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyLayer",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyTransaction",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyPaintEngine",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyBrushEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyStyle",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyWidgets",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyPainterEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		},
+		{
+			"Name": "OdysseyStylusInput",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac"
+			]
+		}
+	]
+}

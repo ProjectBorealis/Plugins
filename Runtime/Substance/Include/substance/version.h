@@ -21,8 +21,8 @@
 
 
 /** @brief Version of the header of the Substance Engine API (Major|Minor)
-	Required by the substanceContextInit macro */
-#define SUBSTANCE_API_VERSION 0x00010008u
+    Required by the substanceContextInit macro */
+#define SUBSTANCE_API_VERSION 0x00010009u
 
 
 /** @brief Substance current version description

@@ -690,7 +690,7 @@ void FSubstanceTexture2DDynamicResource::InitRHI()
 //Called when the resource is released. This is only called by the rendering thread.
 void FSubstanceTexture2DDynamicResource::ReleaseRHI()
 {
-	RHIUpdateTextureReference(SubstanceOwner->TextureReference.TextureReferenceRHI, FTextureRHIParamRef());
+	RHIUpdateTextureReference(SubstanceOwner->TextureReference.TextureReferenceRHI, TextureRHI);
 	FTextureResource::ReleaseRHI();
 	Texture2DRHI.SafeRelease();
 }

@@ -1,0 +1,26 @@
+{
+	"FileVersion": 3,
+	"Version": 11,
+	"VersionName": "1.1",
+	"FriendlyName": "Toolbag Importer",
+	"Description": "Import Toolbag Scene files directly into UE4",
+	"Category": "Other",
+	"CreatedBy": "Marmoset",
+	"CreatedByURL": "http://www.marmoset.co/",
+	"DocsURL": "",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/5510b9babf944b8e97cd533640f78a2f",
+	"SupportURL": "",
+	"EngineVersion": "4.24.0",
+	"CanContainContent": true,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "ToolbagImporter",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Win64"
+			]
+		}
+	]
+}

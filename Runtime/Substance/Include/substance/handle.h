@@ -60,7 +60,7 @@
 	  - substanceHandleSetUserData (advanced usage)
 	  - substanceHandleGetUserData (advanced usage)
 
-	  Typical call sequence for Substance handle (synchronous, grab all outputs):
+	Typical call sequence for Substance handle (synchronous, grab all outputs):
 	  - 1. substanceHandleInit (initialization from Substance cooked data)
 	  - 2. substanceHandleGetDesc (retrieve the number of outputs)
 	  - 3. substanceHandlePushOutputs (request the needed outputs)
@@ -593,7 +593,7 @@ SUBSTANCE_EXPORT unsigned int substanceHandleTransferCache(
 	const unsigned char* cacheMappingDataPtr);
 
 
-/** @brief Set the user data associate to the handle
+/** @brief Set the user data associated to the handle
 	@param substanceHandle Pointer to the Substance handle to set data.
 	@param userData User data (integer/pointer) to associate with the handle.
 		This value can be grabbed in callback functions (by using
@@ -604,14 +604,28 @@ SUBSTANCE_EXPORT unsigned int substanceHandleSetUserData(
 	SubstanceHandle* substanceHandle,
 	size_t userData);
 
-/** @brief Get the user data associate to the handle
-	@param substanceHandle Pointer to the Substance handle to set data.
-	@param[out] userData Sets the User data associated with the handle w/
+/** @brief Get the user data associated to the handle
+    @param substanceHandle Pointer to the Substance handle to get data.
+    @param[out] userData Sets the User data associated with the handle w/
 		substanceHandleSetUserData (user data default value is 0).
-	@return Returns 0 if succeeded, an error code otherwise. */
+    @return Returns 0 if succeeded, an error code otherwise. */
 SUBSTANCE_EXPORT unsigned int substanceHandleGetUserData(
 	SubstanceHandle* substanceHandle,
 	size_t* userData);
+
+/** @brief Set the maximum node size to be used during rendering
+    @param substanceHandle Pointer to the Substance handle
+    @param[in] maxNodeSizeWidthLog2  Maximum node width  (log2)
+    @param[in] maxNodeSizeHeightLog2 Maximum node height (log2)
+    @note This can be used to limit the size of internal nodes
+          during rendering in order to limit the runtime cost,
+          when rendering material previews for instance.
+    @note Available since API version 1.9
+    @return Returns 0 if succeeded, an error code otherwise. */
+SUBSTANCE_EXPORT unsigned int substanceHandleSetMaxNodeSize(
+	SubstanceHandle* substanceHandle,
+	unsigned int     maxNodeSizeWidthLog2,
+	unsigned int     maxNodeSizeHeightLog2);
 
 
 /** @brief Internal use only */

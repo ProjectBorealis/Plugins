@@ -42,6 +42,11 @@
 	#define SUBSTANCE_DEVICE_NULL 1
 #endif /* ifdef SUBSTANCE_PLATFORM_RAWMEMORYOUTPUT */
 
+#if __cplusplus >= 201103L
+#define SUBSTANCE_ZERO_INIT(x) x = 0
+#else
+#define SUBSTANCE_ZERO_INIT(x) x
+#endif
 
 #if defined(SUBSTANCE_DEVICE_D3D10)
 
@@ -120,7 +125,7 @@
 		/** @brief Index of the GPU to use (Windows/D3D only)
 		    @note  The GPUs are considered in the order used by the
 		           IDXGIFactory::EnumAdapters() function. */
-		unsigned int gpuIndex;
+		SUBSTANCE_ZERO_INIT(unsigned int gpuIndex);
 
 	} SubstanceDevice;
 
