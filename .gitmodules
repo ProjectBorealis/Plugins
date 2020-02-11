@@ -48,3 +48,6 @@
 [submodule "ObjectBrowser"]
 	path = ObjectBrowser
 	url = https://github.com/ProjectBorealis/ObjectBrowser.git
+[submodule "Designer"]
+	path = Designer
+	url = https://github.com/ProjectBorealis/Designer.git
