@@ -7,7 +7,6 @@ public class ConsoleEnhanced : ModuleRules
     public ConsoleEnhanced(ReadOnlyTargetRules Target) : base(Target)
     {
         MinFilesUsingPrecompiledHeaderOverride = 1;
-        bFasterWithoutUnity = true;
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
         PrivateDependencyModuleNames.AddRange(

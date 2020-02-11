@@ -3,6 +3,7 @@
 
 	Copyright (C) 2016, Marmoset LLC
 */
+using System.IO;
 using UnrealBuildTool;
 
 public class ToolbagImporter : ModuleRules
@@ -12,7 +13,7 @@ public class ToolbagImporter : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"ToolbagImporter/Public"
+				Path.Combine(ModuleDirectory, "Public")
 				// ... add public include paths required here ...
 			}
 			);
@@ -20,7 +21,7 @@ public class ToolbagImporter : ModuleRules
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"ToolbagImporter/Private",
+				Path.Combine(ModuleDirectory, "Private"),
 				// ... add other private include paths required here ...
 			}
 			);
