@@ -27,7 +27,8 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"EngineSettings",
-					"DesktopPlatform",
+					"RenderCore",
+					"RHI",
 					// ... add other public dependencies that you statically link with here ...
 				}
 				);
@@ -51,11 +52,22 @@ namespace UnrealBuildTool.Rules
 				{
 					"OPTICK_ENABLE_GPU_VULKAN=0",
 					"OPTICK_ENABLE_GPU_D3D12=0",
+					"_CRT_SECURE_NO_WARNINGS",
 					"OPTICK_UE4=1",
 				}
 				);
-				
-				
+
+/*
+#if UE_4_24_OR_LATER
+			PublicDefinitions.AddRange(
+				new string[]
+				{
+					"OPTICK_UE4_GPU=1",
+				}
+				);
+#endif
+*/
+
 			if (Target.bBuildEditor == true)
 			{
 				PublicDependencyModuleNames.AddRange(
@@ -70,9 +82,11 @@ namespace UnrealBuildTool.Rules
 						"Projects",
 						"InputCore",
 						"LevelEditor",
+						"DesktopPlatform",
 					}
 				);
 			}
+
 			//PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		}
 	}
