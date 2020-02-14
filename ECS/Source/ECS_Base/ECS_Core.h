@@ -4,7 +4,7 @@
 #include "entt/entt.hpp"
 
 #include <vector>
-#include "ECS.h"
+#include "ECS/ECS.h"
 #include "LinearMemory.h"
 DECLARE_CYCLE_STAT(TEXT("ECS: Total System Update"), STAT_TotalUpdate, STATGROUP_ECS);
 
