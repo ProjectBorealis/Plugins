@@ -195,10 +195,10 @@ struct FCopyTransformToECS {
 	bool bWorldSpace;	
 };
 USTRUCT(BlueprintType)
-struct FActorTransform {
+struct FECSActorTransform {
 	GENERATED_BODY()
-		FActorTransform() {};
-		FActorTransform(FTransform trns) : transform(trns) {};
+		FECSActorTransform() {};
+		FECSActorTransform(FTransform trns) : transform(trns) {};
 
 		UPROPERTY(EditAnywhere, Category = ECS)
 		FTransform transform;

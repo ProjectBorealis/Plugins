@@ -67,7 +67,7 @@ struct CopyTransformToECSSystem :public System {
 	{
 		assert(OwnerActor);		
 
-		//copy transforms from actor into FActorTransform
+		//copy transforms from actor into FECSActorTransform
 		auto ActorTransformView = registry.view<FCopyTransformToECS, FActorReference>();
 		for (auto e : ActorTransformView)
 		{
@@ -76,22 +76,22 @@ struct CopyTransformToECSSystem :public System {
 			if (actor.ptr.IsValid())
 			{
 				const FTransform & ActorTransform = actor.ptr->GetActorTransform();
-				registry.accommodate<FActorTransform>(e, ActorTransform);
+				registry.accommodate<FECSActorTransform>(e, ActorTransform);
 			}
 		}		
 		{
 
 			SCOPE_CYCLE_COUNTER(STAT_UnpackActorTransform);
 			//unpack from ActorTransform into the separate transform components, only if the entity does have that component
-			registry.view<FActorTransform, FPosition>().each([&, dt](auto entity, FActorTransform & transform, FPosition & pos) {
+			registry.view<FECSActorTransform, FPosition>().each([&, dt](auto entity, FECSActorTransform & transform, FPosition & pos) {
 
 				pos.pos = transform.transform.GetLocation();
 			});
-			registry.view<FActorTransform, FRotationComponent>().each([&, dt](auto entity, FActorTransform & transform, FRotationComponent & rot) {
+			registry.view<FECSActorTransform, FRotationComponent>().each([&, dt](auto entity, FECSActorTransform & transform, FRotationComponent & rot) {
 
 				rot.rot = transform.transform.GetRotation();
 			});
-			registry.view<FActorTransform, FScale>().each([&, dt](auto entity, FActorTransform & transform, FScale & sc) {
+			registry.view<FECSActorTransform, FScale>().each([&, dt](auto entity, FECSActorTransform & transform, FScale & sc) {
 
 				sc.scale = transform.transform.GetScale3D();
 			});
@@ -111,23 +111,23 @@ struct CopyTransformToActorSystem :public System {
 		{
 			SCOPE_CYCLE_COUNTER(STAT_PackActorTransform);
 			//fill ActorTransform from separate components		
-			registry.view<FActorTransform, FPosition>().each([&, dt](auto entity, FActorTransform & transform, FPosition & pos) {
+			registry.view<FECSActorTransform, FPosition>().each([&, dt](auto entity, FECSActorTransform & transform, FPosition & pos) {
 				transform.transform.SetLocation(pos.pos);
 			});
-			registry.view<FActorTransform, FRotationComponent>().each([&, dt](auto entity, FActorTransform & transform, FRotationComponent & rot) {
+			registry.view<FECSActorTransform, FRotationComponent>().each([&, dt](auto entity, FECSActorTransform & transform, FRotationComponent & rot) {
 				transform.transform.SetRotation(rot.rot);
 			});
-			registry.view<FActorTransform, FScale>().each([&, dt](auto entity, FActorTransform & transform, FScale & sc) {
+			registry.view<FECSActorTransform, FScale>().each([&, dt](auto entity, FECSActorTransform & transform, FScale & sc) {
 
 				transform.transform.SetScale3D(sc.scale);
 			});
 		}
 		SCOPE_CYCLE_COUNTER(STAT_CopyTransformActor);
-		//copy transforms from actor into FActorTransform	
-		auto TransformView = registry.view<FCopyTransformToActor, FActorReference, FActorTransform>();
+		//copy transforms from actor into FECSActorTransform	
+		auto TransformView = registry.view<FCopyTransformToActor, FActorReference, FECSActorTransform>();
 		for (auto e : TransformView)
 		{			
-			const FTransform&transform = TransformView.get<FActorTransform>(e).transform;
+			const FTransform&transform = TransformView.get<FECSActorTransform>(e).transform;
 			FActorReference&actor = TransformView.get<FActorReference>(e);
 
 			if (actor.ptr.IsValid())

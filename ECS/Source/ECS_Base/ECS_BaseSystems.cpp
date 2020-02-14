@@ -105,10 +105,10 @@ void ArchetypeSpawnerSystem::update(ECS_Registry &registry, float dt)
 	}
 
 	//spawn from arc and actortransform
-	auto SpawnerArcView = registry.view<FArchetypeSpawner, FRandomArcSpawn, FActorTransform>();
+	auto SpawnerArcView = registry.view<FArchetypeSpawner, FRandomArcSpawn, FECSActorTransform>();
 	for (auto e : SpawnerArcView)
 	{
-		const FTransform &ActorTransform = SpawnerArcView.get<FActorTransform>(e).transform;
+		const FTransform &ActorTransform = SpawnerArcView.get<FECSActorTransform>(e).transform;
 		FArchetypeSpawner& spawner = SpawnerArcView.get<FArchetypeSpawner>(e);
 		const FRandomArcSpawn& arc = SpawnerArcView.get<FRandomArcSpawn>(e);
 

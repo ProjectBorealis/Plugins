@@ -10,12 +10,5 @@ public class ECS : ModuleRules
         // UEBuildConfiguration.bForceEnableExceptions = true;
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });
         bEnableExceptions = true;
-        PublicIncludePaths.AddRange(
-            new string[] {
-
-                        "ECS/ThirdParty",
-                        "ECS/ECS_Base"
-            }
-        );
     }
 }
