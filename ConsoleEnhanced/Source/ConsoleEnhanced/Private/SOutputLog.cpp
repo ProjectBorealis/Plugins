@@ -1047,7 +1047,7 @@ FOutputLogTextLayoutMarshaller::FOutputLogTextLayoutMarshaller(TArray< TSharedPt
     : Messages(MoveTemp(InMessages))
     , Filter(InFilter)
     , TextLayout(nullptr)
-    , UrlPattern(FRegexPattern(FString("\\b(((https?://)?www\\d{0,3}[.]|(https?://))([^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\"., <>?«»“”‘’]))")))
+    , UrlPattern(FRegexPattern(FString("\\b(((https?://)?www\\d{0,3}[.]|(https?://))([^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\"., <>?]))")))
 #if PLATFORM_MAC || PLATFORM_LINUX
     , FilePathPattern(FRegexPattern(FString("\"((?:/[^/]*)+)/?\"|((?:/[^/ \\n]*)+/?)")))
 #else

@@ -15,7 +15,7 @@ public class ECS : ModuleRules
         PublicIncludePaths.AddRange(
 	        new string[] {
 		        Path.Combine(ModuleDirectory, "ThirdParty"),
-				Path.Combine(ModuleDirectory, "ECS_Base")
+				Path.Combine(ModuleDirectory, "ECS")
 	        }
         );
 	}
