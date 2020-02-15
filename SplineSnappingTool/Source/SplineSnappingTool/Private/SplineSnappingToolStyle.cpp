@@ -3,11 +3,11 @@
 
 
 #include "SplineSnappingToolStyle.h"
-#include "SlateStyle.h"
-#include "IPluginManager.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
+#include "Interfaces/IPluginManager.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "SlateOptMacros.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 #include "EditorStyleSet.h"
 
 
