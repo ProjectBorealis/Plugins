@@ -2,12 +2,15 @@
 
 #pragma once
 #include "ConsoleEnhanced.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Framework/Text/BaseTextLayoutMarshaller.h"
 #include "Misc/TextFilterExpressionEvaluator.h"
 #include "Internationalization/Regex.h"
 #include <map>
 #include <regex>
 #include "Framework/Text/SlateTextLayout.h"
+#include "Framework/Text/SlateHyperlinkRun.h"
+#include "Framework/Text/TextRange.h"
 #include "LogDisplaySettings.h"
 
 class FOutputLogTextLayoutMarshaller;

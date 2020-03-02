@@ -4,6 +4,7 @@
 #include "ConsoleEnhanced.h"
 #include "SOutputLog.h"
 #include "EditorStyleSet.h"
+#include "SlateOptMacros.h"
 
 namespace DebugConsoleDefs
 {

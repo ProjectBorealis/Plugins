@@ -15,6 +15,12 @@
 #include "EditorStyleSet.h"
 #include "Classes/EditorStyleSettings.h"
 #include "Subsystems/AssetEditorSubsystem.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformFilemanager.h"
+#include "SlateOptMacros.h"
+#include "Framework/Text/SlateTextRun.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Misc/OutputDeviceHelper.h"
 
 using namespace std;
 
