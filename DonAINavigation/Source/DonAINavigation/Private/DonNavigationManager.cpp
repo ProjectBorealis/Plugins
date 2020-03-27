@@ -1687,8 +1687,8 @@ FDonNavigationVoxel* ADonNavigationManager::ResolveVolume(FVector &DesiredLocati
 
 				//DrawDebugSphere_Safe(GetWorld(), locationToSample, 6.f, 16, FColor::Yellow, false, 5.f);
 
-				auto volume = VolumeAt(locationToSample);
-				if (!volume || !CanNavigate(volume))
+				auto volumeInner = VolumeAt(locationToSample);
+				if (!volumeInner || !CanNavigate(volumeInner))
 					continue;
 
 				FHitResult outHit;
@@ -1701,7 +1701,7 @@ FDonNavigationVoxel* ADonNavigationManager::ResolveVolume(FVector &DesiredLocati
 
 				DesiredLocation = locationToSample;
 
-				return volume; // success
+				return volumeInner; // success
 			}
 		}		
 	}
