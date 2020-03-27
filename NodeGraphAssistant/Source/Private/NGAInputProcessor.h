@@ -10,10 +10,6 @@
 #include "Application/ThrottleManager.h"
 #include "SGraphPanel.h"
 
-#if ENGINE_MINOR_VERSION < 23
-#include "HardwareCursor.h"
-#endif
-
 #include "NodeGraphAssistantCommands.h"
 #include "NGAGraphPinConnectionFactory.h"
 
@@ -99,9 +95,8 @@ public:
 	virtual bool HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
 	virtual bool HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
 	virtual bool HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
-#if ENGINE_MINOR_VERSION >= 21
 	virtual bool HandleMouseButtonDoubleClickEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent) override;
-#endif
+
 
 	FNGAEventContex InitEventContex(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent);
 
@@ -199,11 +194,7 @@ private:
 	//for setting input schem in editor ui;
 	TSharedPtr<FUICommandList> UICommandList;
 
-#if ENGINE_MINOR_VERSION > 22
 	void* CusorResource_Scissor;
-#else
-	TSharedPtr<FHardwareCursor> CusorResource_Scissor;
-#endif
 
 	int32 PressedCharKey = 0;
 };
