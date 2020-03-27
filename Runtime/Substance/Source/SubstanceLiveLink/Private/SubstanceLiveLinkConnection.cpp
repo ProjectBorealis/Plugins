@@ -574,7 +574,8 @@ void FSubstanceLiveLinkConnection::RegisterMessageHandlers()
 					}
 					else
 					{
-						UE_LOG(LogSubstanceLiveLink, Warning, TEXT("Unable to load Material \"%s\" referenced from Substance Painter"), *MaterialName);
+						FString Msg = "Unable to load Material " + MaterialName + " referenced from Substance Painter";
+						UE_LOG(LogSubstanceLiveLink, Warning, TEXT("%s"), *Msg);
 					}
 				});
 			});
