@@ -16,7 +16,7 @@
 	"Modules": [
 		{
 			"Name": "ConsoleEnhanced",
-			"Type": "DeveloperTool",
+			"Type": "Editor",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [
 				"Win64",
