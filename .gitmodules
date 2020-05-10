@@ -27,24 +27,12 @@
 [submodule "MayaLiveLink"]
 	path = MayaLiveLink
 	url = https://github.com/ProjectBorealis/MayaLiveLink.git
-[submodule "AutoSizeComments"]
-	path = AutoSizeComments
-	url = https://github.com/ProjectBorealis/AutoSizeComments.git
 [submodule "modio"]
 	path = modio
 	url = https://github.com/ProjectBorealis/modio.git
-[submodule "GraphFormatter"]
-	path = GraphFormatter
-	url = https://github.com/ProjectBorealis/GraphFormatter.git
-[submodule "QuickCommands"]
-	path = QuickCommands
-	url = https://github.com/ProjectBorealis/QuickCommands.git
 [submodule "FactionsExtension"]
 	path = FactionsExtension
 	url = https://github.com/ProjectBorealis/FactionsExtension.git
-[submodule "GraphFormatter"]
-	path = GraphFormatter
-	url = https://github.com/ProjectBorealis/graphformatter.git
 [submodule "ObjectBrowser"]
 	path = ObjectBrowser
 	url = https://github.com/ProjectBorealis/ObjectBrowser.git
