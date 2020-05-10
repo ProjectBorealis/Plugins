@@ -43,7 +43,7 @@ class USubstanceUtility : public UBlueprintFunctionLibrary
 
 	/* Get the textures (from enabled outputs) of a Substance Graph Instance*/
 	UFUNCTION(BlueprintCallable, Category = "Substance")
-	static SUBSTANCECORE_API TArray<class USubstanceTexture2D*> GetSubstanceTextures(class USubstanceGraphInstance* GraphInstance);
+	static SUBSTANCECORE_API TArray<class UTexture2D*> GetSubstanceTextures(class USubstanceGraphInstance* GraphInstance);
 
 	/* Get the original graph name */
 	UFUNCTION(BlueprintCallable, Category = "Substance")
@@ -63,6 +63,7 @@ class USubstanceUtility : public UBlueprintFunctionLibrary
 	    UObject* WorldContextObject,
 	    class USubstanceInstanceFactory* Factory,
 	    int32 GraphDescIndex,
+		UMaterial* ParentMaterial,
 	    FString InstanceName = TEXT(""));
 
 	/* Create a copy of Substance Graph Instance */

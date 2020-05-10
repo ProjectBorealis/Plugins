@@ -1,4 +1,4 @@
-// Copyright 2017 Allegorithmic Inc. All rights reserved.
+﻿// Copyright 2017 Allegorithmic Inc. All rights reserved.
 // File: SourceHTTPRequest.cpp
 #include "SourceHTTPRequest.h"
 #include "SubstanceSourcePrivatePCH.h"

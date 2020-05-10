@@ -3,6 +3,7 @@
 
 #pragma once
 #include "SubstanceInstanceFactory.h"
+#include "Materials/Material.h"
 #include "SubstanceSettings.generated.h"
 
 #if PLATFORM_ANDROID || PLATFORM_IOS
@@ -53,9 +54,6 @@ class SUBSTANCECORE_API USubstanceSettings : public UObject
 	UPROPERTY(EditAnywhere, Config, Category = "Optimization", meta = (ClampMin = "4", ClampMax = "1024"))
 	int32 MaxAsyncSubstancesRenderedPerFrame;
 
-	UPROPERTY(EditAnywhere, Config, Category = "Cooking", meta = (DisplayName = "Default generation mode for Substances."))
-	TEnumAsByte<ESubstanceGenerationMode> DefaultGenerationMode;
-
 	UPROPERTY(EditAnywhere, Config, Category = "Cooking", meta = (DisplayName = "Substance Engine (requires editor restart to take effect.)"))
 	TEnumAsByte<ESubstanceEngineType> SubstanceEngine;
 
@@ -64,4 +62,7 @@ class SUBSTANCECORE_API USubstanceSettings : public UObject
 
 	UPROPERTY(EditAnywhere, Config, Category = "Substance Import Settings", meta = (DisplayName = "Default Substance output height"))
 	TEnumAsByte<EDefaultSubstanceTextureSize> DefaultSubstanceOutputSizeY;
+
+	UPROPERTY(EditAnywhere, Config, Category = "Substance Import Settings", meta = (DisplayName = "Default Substance Material Template", AllowedClasses = "Material,MaterialInstance,MaterialInterface"))
+	TAssetPtr<UMaterialInterface> DefaultTemplateMaterial;
 };

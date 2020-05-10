@@ -18,8 +18,6 @@
 #include "SSubstanceEditorPanel.h"
 
 #include "SubstanceCoreClasses.h"
-#include "SubstanceImageInputFactory.h"
-#include "ReimportSubstanceImageInputFactory.h"
 #include "ReimportSubstanceFactory.h"
 
 #include "Logging/LogMacros.h"

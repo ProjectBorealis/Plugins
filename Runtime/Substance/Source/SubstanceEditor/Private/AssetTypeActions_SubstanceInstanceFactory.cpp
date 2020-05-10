@@ -105,8 +105,8 @@ void FAssetTypeActions_SubstanceInstanceFactory::ExecuteInstantiate(const Substa
 	}
 
 	UObject* InstanceOuter = CreatePackage(nullptr, *ImportOptions.InstanceDestinationPath);
-	USubstanceGraphInstance* Instance = Substance::Helpers::InstantiateGraph(Factory, *Desc, InstanceOuter, ImportOptions.InstanceName, true);
-	Substance::Helpers::RenderSync(Instance->Instance);
+	USubstanceGraphInstance* Instance = Substance::Helpers::InstantiateGraph(Factory, *Desc, InstanceOuter, ImportOptions.InstanceName, true, RF_Standalone | RF_Public, ImportOptions.ParentMaterial);
+	Instance->PrepareOutputsForSave();
 
 	if (ImportOptions.bCreateMaterial)
 	{

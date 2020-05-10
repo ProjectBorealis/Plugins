@@ -5,8 +5,7 @@
 #include "SubstanceEditorPrivatePCH.h"
 #include "SubstanceEditorModule.h"
 #include "SubstanceCoreModule.h"
-
-#include "../../SubstanceCore/Classes/SubstanceGraphInstance.h"
+#include "SubstanceCoreClasses.h"
 
 #include "PropertyCustomizationHelpers.h"
 #include "ContentBrowserModule.h"
@@ -39,7 +38,14 @@
 
 #define LOC_NAMESPACE TEXT("SubstanceEditor")
 
-SSubstanceEditorPanel::~SSubstanceEditorPanel() = default;
+SSubstanceEditorPanel::~SSubstanceEditorPanel()
+{
+	if (Graph && HasPresetChanged())
+	{
+		CachePresetValues();
+		Graph->PrepareOutputsForSave();
+	}
+}
 
 TWeakPtr<ISubstanceEditor> SSubstanceEditorPanel::GetSubstanceEditor() const
 {
@@ -88,12 +94,22 @@ void SSubstanceEditorPanel::Construct(const FArguments& InArgs)
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 	ThumbnailPool = LevelEditorModule.GetFirstLevelEditor()->GetThumbnailPool();
-
+	CachePresetValues();
 	ConstructDescription();
 	ConstructOutputs();
 	ConstructInputs();
 
 	ConstructWidget();
+}
+
+void SSubstanceEditorPanel::CachePresetValues()
+{
+	LastCachedValuesPreset = Substance::Helpers::GetPresetAsXMLString(Graph);
+}
+
+bool SSubstanceEditorPanel::HasPresetChanged()
+{
+	return (LastCachedValuesPreset != Substance::Helpers::GetPresetAsXMLString(Graph));
 }
 
 void SSubstanceEditorPanel::ConstructDescription()
@@ -180,16 +196,14 @@ void SSubstanceEditorPanel::ConstructOutputs()
 	{
 		FReferencerInformationList Refs;
 		UObject* TextureObject = nullptr;
-		if (OutputItr->mUserData != 0)
+		if (OutputItr->mUserData != 0 && OutputItr->mDesc.isImage())
 		{
-			TextureObject = reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->Texture.Get();
+			TextureObject = reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData();
 		}
-
-		// determine whether the transaction buffer is the only thing holding a reference to the object
-		// and if so, behave like it's not referenced and ask offer the user to clean up undo/redo history when he deletes the output
-		GEditor->Trans->DisableObjectSerialization();
-		bool bIsReferenced = TextureObject ? IsReferenced(TextureObject, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs) : false;
-		GEditor->Trans->EnableObjectSerialization();
+		else if(OutputItr->mDesc.isNumerical())
+		{
+			continue;
+		}
 
 		const SubstanceAir::OutputDesc* OutputDesc = &OutputItr->mDesc;
 
@@ -216,7 +230,7 @@ void SSubstanceEditorPanel::ConstructOutputs()
 		        SNew(SCheckBox)
 		        .OnCheckStateChanged(this, &SSubstanceEditorPanel::OnToggleOutput, OutputItr)
 		        .IsChecked(this, &SSubstanceEditorPanel::GetOutputState, OutputItr)
-		        .IsEnabled(!bIsReferenced && nullptr != OutputDesc)
+		        .IsEnabled(nullptr != OutputDesc)
 		        .ToolTipText(FText::FromString(OutputDesc->mIdentifier.c_str()))
 		    ]
 		];
@@ -300,7 +314,7 @@ void ActualizeMaterialGraph(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance
 			continue;
 
 		FReferencerInformationList Refs;
-		UObject* TextureObject = reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->Texture.Get();
+		UObject* TextureObject = reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData();
 
 		//Check and see whether we are referenced by any objects that won't be garbage collected.
 		bool bIsReferenced = TextureObject ? IsReferenced(TextureObject, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs) : false;
@@ -327,90 +341,59 @@ void ActualizeMaterialGraph(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance
 void SSubstanceEditorPanel::OnToggleOutput(ECheckBoxState InNewState, SubstanceAir::OutputInstance* Output)
 {
 	UTexture* Texture = nullptr;
-
-	if (Output->mUserData != 0 && reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get())
-		Texture = reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get();
+	USubstanceOutputData* OutputData = reinterpret_cast<USubstanceOutputData*>(Output->mUserData);
+	if (Output->mUserData != 0 && OutputData->GetData())
+		Texture = Cast<UTexture2D>(OutputData->GetData());
 
 	if (InNewState == ECheckBoxState::Checked)
 	{
-		FString TextureName;
-		FString PackageName;
-		Substance::Helpers::GetSuitableName(Output, TextureName, PackageName, Graph);
-		UObject* TextureParent = CreatePackage(NULL, *PackageName);
+		Substance::Helpers::EnableTexture(Output, Graph);
 
-		Substance::Helpers::CreateSubstanceTexture2D(Output, false, TextureName, TextureParent, Graph);
+		Graph->PrepareOutputsForSave();
 
-		TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>> Instances;
-		Instances.Push(reinterpret_cast<OutputInstanceData*>(Output->mUserData)->ParentInstance->Instance);
-		Substance::Helpers::RenderAsync(Instances);
+		OutputData = reinterpret_cast<USubstanceOutputData*>(Output->mUserData);
 
-		TArray<UObject*> NewTexture;
-		NewTexture.Add(reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get());
+		if (Output->mDesc.mType == Substance_IOType_Image)
+		{
+			TArray<UObject*> NewTexture;
+			NewTexture.Add(OutputData->GetData());
 
-		FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-		ContentBrowserModule.Get().SyncBrowserToAssets(NewTexture);
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			ContentBrowserModule.Get().SyncBrowserToAssets(NewTexture);
+		}
 
 		// Should rebuild the graph of any material using a substance output
-		ActualizeMaterialGraph(Graph->Instance);
+		Substance::Helpers::GenerateMaterialExpressions(Graph->Instance.get(), Graph->ConstantCreatedMaterial, Graph);
 	}
-	else if (InNewState == ECheckBoxState::Unchecked && Texture && Texture->IsValidLowLevel())
+	else if (InNewState == ECheckBoxState::Unchecked)
 	{
-		FReferencerInformationList Refs;
-		UObject* TextureObject = reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get();
 
-		// Check and see whether we are referenced by any objects that won't be garbage collected.
-		bool bIsReferenced = TextureObject ? IsReferenced(TextureObject, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs) : false;
-
-		if (bIsReferenced)
+		if (reinterpret_cast<USubstanceOutputData*>(Output->mUserData)->GetData())
 		{
-			// determine whether the transaction buffer is the only thing holding a reference to the object
-			// and if so, behave like it's not referenced and ask offer the user to clean up undo/redo history when he deletes the output
-			GEditor->Trans->DisableObjectSerialization();
-			bIsReferenced = IsReferenced(TextureObject, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs);
-			GEditor->Trans->EnableObjectSerialization();
-
-			// only ref to this object is the transaction buffer - let the user choose whether to clear the undo buffer
-			if (!bIsReferenced)
-			{
-				if (EAppReturnType::Yes == FMessageDialog::Open(
-				            EAppMsgType::YesNo, NSLOCTEXT("UnrealEd", "ResetUndoBufferForObjectDeletionPrompt",
-				                    "The only reference to this object is the undo history. In order to delete this object, you must clear all undo history - would you like to clear undo history?")))
-				{
-					GEditor->Trans->Reset(NSLOCTEXT("UnrealEd", "DeleteSelectedItem", "Delete Selected Item"));
-				}
-				else
-				{
-					bIsReferenced = true;
-				}
-			}
+			Substance::Helpers::RegisterForDeletion(Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(Output->mUserData)->GetData()));
 		}
-
-		if (reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get() && !bIsReferenced)
-		{
-			Substance::Helpers::RegisterForDeletion(reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get());
-		}
-		else
-		{
-			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "ObjectStillReferenced", "The texture is in use, it cannot be deleted."));
-		}
-
+		Output->mEnabled = false;
 		ActualizeMaterialGraph(Graph->Instance);
 	}
 }
 
 ECheckBoxState SSubstanceEditorPanel::GetOutputState(SubstanceAir::OutputInstance* Output) const
 {
-	ECheckBoxState CurrentState;
-	(Output->mUserData != 0) ? CurrentState = ECheckBoxState::Checked : CurrentState = ECheckBoxState::Unchecked;
+	ECheckBoxState CurrentState = ECheckBoxState::Unchecked;
+	USubstanceOutputData* data = reinterpret_cast<USubstanceOutputData*>(Output->mUserData);
+	if (data != 0)
+	{
+		(data->GetData() != 0) ? CurrentState = ECheckBoxState::Checked : CurrentState = ECheckBoxState::Unchecked;
+	}
 	return CurrentState;
 }
 
 void SSubstanceEditorPanel::OnBrowseTexture(SubstanceAir::OutputInstance* Output)
 {
-	if (Output->mUserData && reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get())
+	if (Output->mUserData && reinterpret_cast<USubstanceOutputData*>(Output->mUserData)->GetData())
 	{
 		TArray<UObject*> Objects;
-		Objects.Add(reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get());
+		Objects.Add(reinterpret_cast<USubstanceOutputData*>(Output->mUserData)->GetData());
 		GEditor->SyncBrowserToObjects(Objects);
 	}
 }
@@ -420,7 +403,7 @@ void SSubstanceEditorPanel::OnBrowseImageInput(SubstanceAir::InputInstanceImage*
 	if (ImageInput->getImage())
 	{
 		TArray<UObject*> Objects;
-		Objects.Add(reinterpret_cast<InputImageData*>(ImageInput->getImage().get()->mUserData)->ImageUObjectSource);
+		Objects.Add(reinterpret_cast<UTexture2D*>(ImageInput->getImage().get()->mUserData));
 		GEditor->SyncBrowserToObjects(Objects);
 	}
 }
@@ -692,6 +675,38 @@ void SSubstanceEditorPanel::ResetThumbnailInputs(SubstanceAir::GraphInstance* gr
 	}
 }
 
+void SSubstanceEditorPanel::OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath, const FFocusEvent& InFocusEvent)
+{
+	if (!HasPresetChanged() || !Graph || HasKeyboardFocus())
+		return;
+
+	bool bCache = true;
+
+	if (NewWidgetPath.GetWindow()->GetTitle().ToString() != Graph->GetName())
+	{
+		TSharedPtr<SWindow> window = NewWidgetPath.GetWindow()->GetParentWindow();
+		while (window)
+		{
+			if (window->GetTitle().ToString() == Graph->GetName())
+			{
+				bCache = false;
+			}
+			window = window->GetParentWindow();
+		}
+	}
+	else
+	{
+		bCache = false;
+	}
+
+	if (bCache)
+	{
+		CachePresetValues();
+		Graph->PrepareOutputsForSave();
+	}
+}
+
+
 void SSubstanceEditorPanel::OnFreezeGraphValueChanged(ECheckBoxState InNewState)
 {
 	check(Graph);
@@ -844,7 +859,7 @@ TSharedRef<SWidget> SSubstanceEditorPanel::MakeInputComboWidget(TSharedPtr<FStri
 
 bool SSubstanceEditorPanel::OnAssetDraggedOver(const UObject* InObject) const
 {
-	return (InObject && Cast<USubstanceImageInput>(InObject));
+	return (InObject && Cast<UTexture2D>(InObject));
 }
 
 void SSubstanceEditorPanel::OnAssetDropped(UObject* InObject, SubstanceAir::InputInstanceBase* Input, TSharedPtr<FAssetThumbnail> Thumbnail)
@@ -942,7 +957,16 @@ void SSubstanceEditorPanel::UpdateColor(FLinearColor NewColor, SubstanceAir::Inp
 
 void SSubstanceEditorPanel::CancelColor(FLinearColor OldColor, SubstanceAir::InputInstanceBase* Input)
 {
-	UpdateColor(OldColor.HSVToLinearRGB(), Input);
+	UpdateColor(OldColor, Input);
+}
+
+void SSubstanceEditorPanel::CloseColorPicker(const TSharedRef<SWindow>&)
+{
+	if (Graph && HasPresetChanged())
+	{
+		CachePresetValues();
+		Graph->PrepareOutputsForSave();
+	}
 }
 
 void SSubstanceEditorPanel::UpdateString(const FText& NewValue, SubstanceAir::InputInstanceBase* InputInst)
@@ -974,7 +998,7 @@ FReply SSubstanceEditorPanel::PickColor(const FGeometry& MyGeometry, const FPoin
 	PickerArgs.InitialColorOverride = InputColor;
 	PickerArgs.OnColorCommitted = FOnLinearColorValueChanged::CreateSP(this, &SSubstanceEditorPanel::UpdateColor, Input);
 	PickerArgs.OnColorPickerCancelled = FOnColorPickerCancelled::CreateSP(this, &SSubstanceEditorPanel::CancelColor, Input);
-
+	PickerArgs.OnColorPickerWindowClosed = FOnWindowClosed::CreateSP(this, &SSubstanceEditorPanel::CloseColorPicker);
 	OpenColorPicker(PickerArgs);
 
 	return FReply::Handled();
@@ -1141,6 +1165,8 @@ void SSubstanceEditorPanel::OnSizeComboboxSelectionChanged(TSharedPtr<FString> I
 	{
 		SetValues<int>(1, values);
 	}
+
+	FSlateApplication::Get().SetAllUserFocus(WidgetSizeX.ToSharedRef());
 }
 
 TSharedRef<SWidget> SSubstanceEditorPanel::GetInputWidgetRandomSeed(SubstanceAir::InputInstanceBase* Input)
@@ -1182,7 +1208,7 @@ FReply SSubstanceEditorPanel::RandomizeSeed(SubstanceAir::InputInstanceBase* Inp
 
 void SSubstanceEditorPanel::OnGetClassesForAssetPicker(TArray<const UClass*>& OutClasses)
 {
-	OutClasses.AddUnique(USubstanceImageInput::StaticClass());
+	OutClasses.AddUnique(UTexture2D::StaticClass());
 
 	// disable substance output as input feature for now
 	//OutClasses.AddUnique(USubstanceTexture2D::StaticClass());
@@ -1201,7 +1227,7 @@ void SSubstanceEditorPanel::OnUseSelectedImageInput(SubstanceAir::InputInstanceB
 	USelection* Selection = GEditor->GetSelectedObjects();
 	if (Selection)
 	{
-		USubstanceImageInput* ImageInput = Selection->GetTop<USubstanceImageInput>();
+		UTexture2D* ImageInput = Selection->GetTop<UTexture2D>();
 		if (ImageInput)
 		{
 			OnSetImageInput(ImageInput, Input, Thumbnail);
@@ -1219,7 +1245,7 @@ TSharedRef<SWidget> SSubstanceEditorPanel::GetImageInputWidget(SubstanceAir::Inp
 	TSharedPtr<FAssetThumbnail> Thumbnail;
 	if (ImageInput->getImage() && ImageInput->getImage()->mUserData != 0)
 	{
-		UObject* inputImageWrapper = reinterpret_cast<InputImageData*>(ImageInput->getImage()->mUserData)->ImageUObjectSource;
+		UObject* inputImageWrapper = reinterpret_cast<UTexture2D*>(ImageInput->getImage()->mUserData);
 		Thumbnail = MakeShareable(new FAssetThumbnail(inputImageWrapper, ThumbSize, ThumbSize, ThumbnailPool));
 		ThumbnailInputs.Add(ImageInput, Thumbnail);
 	}
@@ -1336,7 +1362,7 @@ FString SSubstanceEditorPanel::GetImageInputPath(SubstanceAir::InputInstanceBase
 
 	if (TypedInst->getImage())
 	{
-		PathName = reinterpret_cast<InputImageData*>(TypedInst->getImage()->mUserData)->ImageUObjectSource->GetPathName();
+		PathName = reinterpret_cast<UTexture2D*>(TypedInst->getImage()->mUserData)->GetPathName();
 	}
 
 	return PathName;
@@ -1386,6 +1412,9 @@ void SSubstanceEditorPanel::OnSetImageInput(const UObject* InObject, SubstanceAi
 
 	Thumbnail->SetAsset(InObject);
 	ThumbnailPool->Tick(0.1f);
+
+	CachePresetValues();
+	Graph->PrepareOutputsForSave();
 }
 
 TSharedRef<SHorizontalBox> SSubstanceEditorPanel::GetInputWidgetString(SubstanceAir::InputInstanceBase* Input)

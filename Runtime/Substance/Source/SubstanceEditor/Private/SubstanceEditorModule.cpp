@@ -11,6 +11,7 @@
 #include "EdGraphUtilities.h"
 #include "LevelEditor.h"
 #include "EditorStyleSet.h"
+#include "Misc/MessageDialog.h"
 
 #include "SubstanceCoreModule.h"
 #include "SubstanceEditor.h"
@@ -18,9 +19,7 @@
 #include "SubstanceCoreHelpers.h"
 
 #include "AssetTypeActions_SubstanceGraphInstance.h"
-#include "AssetTypeActions_SubstanceImageInput.h"
 #include "AssetTypeActions_SubstanceInstanceFactory.h"
-#include "AssetTypeActions_SubstanceTexture2D.h"
 
 #define LOCTEXT_NAMESPACE "SubstanceEditorModule"
 
@@ -29,8 +28,10 @@ namespace SubstanceEditorModule
 const FName SubstanceEditorAppIdentifier = FName(TEXT("SubstanceEditorApp"));
 static FEditorDelegates::FOnPIEEvent::FDelegate OnBeginPIEDelegate;
 static FEditorDelegates::FOnPIEEvent::FDelegate OnEndPIEDelegate;
+static FEditorDelegates::FOnMapOpened::FDelegate OnMapOpenedDelegate;
 static FDelegateHandle OnBeginPIEDelegateHandle;
 static FDelegateHandle OnEndPIEDelegateHandle;
+static FDelegateHandle OnMapOpenedDelegateHandle;
 }
 
 /** Create a command list to be able to add a button to callback to rebuild */
@@ -62,9 +63,7 @@ class FSubstanceEditorModule : public ISubstanceEditorModule
 {
 public:
 	TSharedPtr<FAssetTypeActions_SubstanceGraphInstance> SubstanceGraphInstanceAssetTypeActions;
-	TSharedPtr<FAssetTypeActions_SubstanceTexture2D> SubstanceTextureAssetTypeActions;
 	TSharedPtr<FAssetTypeActions_SubstanceInstanceFactory> SubstanceInstanceFactoryAssetTypeActions;
-	TSharedPtr<FAssetTypeActions_SubstanceImageInput> SubstanceImageInputAssetTypeActions;
 
 	/** Constructor, set up console commands and variables **/
 	FSubstanceEditorModule()
@@ -83,18 +82,10 @@ public:
 		IAssetTools& AssetTools = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools").Get();
 
 		SubstanceGraphInstanceAssetTypeActions = MakeShareable(new FAssetTypeActions_SubstanceGraphInstance);
-		SubstanceTextureAssetTypeActions = MakeShareable(new FAssetTypeActions_SubstanceTexture2D);
 		SubstanceInstanceFactoryAssetTypeActions = MakeShareable(new FAssetTypeActions_SubstanceInstanceFactory);
-		SubstanceImageInputAssetTypeActions = MakeShareable(new FAssetTypeActions_SubstanceImageInput);
 
 		AssetTools.RegisterAssetTypeActions(SubstanceGraphInstanceAssetTypeActions.ToSharedRef());
-		AssetTools.RegisterAssetTypeActions(SubstanceTextureAssetTypeActions.ToSharedRef());
 		AssetTools.RegisterAssetTypeActions(SubstanceInstanceFactoryAssetTypeActions.ToSharedRef());
-		AssetTools.RegisterAssetTypeActions(SubstanceImageInputAssetTypeActions.ToSharedRef());
-
-		// Register the thumbnail renderers
-		UThumbnailManager::Get().RegisterCustomRenderer(USubstanceTexture2D::StaticClass(), USubstanceTextureThumbnailRenderer::StaticClass());
-		UThumbnailManager::Get().RegisterCustomRenderer(USubstanceImageInput::StaticClass(), USubstanceImageInputThumbnailRenderer::StaticClass());
 
 		//Create the call back for when we start play in editor
 		SubstanceEditorModule::OnBeginPIEDelegate = FEditorDelegates::FOnPIEEvent::FDelegate::CreateStatic(&FSubstanceEditorModule::OnPieStart);
@@ -106,12 +97,39 @@ public:
 
 		//Add a menu extension to rebuild all substances
 		CreateRebuildSubstancesButtonExtention();
+
+		SubstanceEditorModule::OnMapOpenedDelegate = FEditorDelegates::FOnMapOpened::FDelegate::CreateStatic(&FSubstanceEditorModule::OnMapOpened);
+		SubstanceEditorModule::OnMapOpenedDelegateHandle = FEditorDelegates::OnMapOpened.Add(SubstanceEditorModule::OnMapOpenedDelegate);
 	}
 
 	/** Callback for when the rebuild substance menu button is pressed */
 	static void OnRebuildAllSubstances()
 	{
-		Substance::Helpers::RebuildAllSubstanceGraphInstances();
+		RebuildAlert();
+	}
+
+	static void OnMapOpened(const FString& Filename, bool bAsTemplate)
+	{
+		RebuildAlert();
+	}
+
+	static void OnWorldInit(UWorld*, const UWorld::InitializationValues)
+	{
+	}
+
+	static void RebuildAlert()
+	{
+		if (Substance::Helpers::SubstancesRequireUpdate())
+		{
+			EAppReturnType::Type RebuildMessage = FMessageDialog::Open(EAppMsgType::YesNoCancel,
+				FText::FromString("Substance Graph data is missing or has been updated, would you like to rebuild the substance graphs now?\nPlease cancel and backup your projects before continuing."),
+				nullptr);
+
+			if (RebuildMessage == EAppReturnType::Yes)
+				Substance::Helpers::RebuildAllSubstanceGraphInstances();
+			else if (RebuildMessage == EAppReturnType::Cancel)
+				FPlatformMisc::RequestExit(0);
+		}
 	}
 
 	static void OnPieEnd(const bool bIsSimulating)
@@ -128,6 +146,8 @@ public:
 	virtual void ShutdownModule() override
 	{
 		FEditorDelegates::BeginPIE.Remove(SubstanceEditorModule::OnBeginPIEDelegateHandle);
+		FEditorDelegates::EndPIE.Remove(SubstanceEditorModule::OnEndPIEDelegateHandle);
+		FEditorDelegates::OnMapOpened.Remove(SubstanceEditorModule::OnMapOpenedDelegateHandle);
 
 		MenuExtensibilityManager.Reset();
 		ToolBarExtensibilityManager.Reset();
@@ -140,13 +160,7 @@ public:
 			    SubstanceGraphInstanceAssetTypeActions.ToSharedRef());
 
 			AssetTools.UnregisterAssetTypeActions(
-			    SubstanceTextureAssetTypeActions.ToSharedRef());
-
-			AssetTools.UnregisterAssetTypeActions(
 			    SubstanceInstanceFactoryAssetTypeActions.ToSharedRef());
-
-			AssetTools.UnregisterAssetTypeActions(
-			    SubstanceImageInputAssetTypeActions.ToSharedRef());
 		}
 	}
 
@@ -155,6 +169,11 @@ public:
 		TSharedRef<FSubstanceEditor> NewSubstanceEditor(new FSubstanceEditor());
 		NewSubstanceEditor->InitSubstanceEditor(InitToolkitHost, Graph);
 		return NewSubstanceEditor;
+	}
+
+	virtual void PostLoadCallback() override
+	{
+		RebuildAlert();
 	}
 
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and tool bars */
@@ -209,13 +228,14 @@ private:
 	//Static function to add a substance section to the menu and to add our menu entry
 	static void AddBuildSubstancesButton(FMenuBuilder& MenuBuilder)
 	{
-#if SUBSTANCE_CORE_DEBUG_TOOLS
-		MenuBuilder.BeginSection("Substance", LOCTEXT("Substance", "Substance"));
+		if (Substance::Helpers::SubstancesRequireUpdate())
 		{
-			MenuBuilder.AddMenuEntry(FSubstanceEditorModuleCommands::Get().RebuildAllSubstances);
+			MenuBuilder.BeginSection("Substance", LOCTEXT("Substance", "Substance"));
+			{
+				MenuBuilder.AddMenuEntry(FSubstanceEditorModuleCommands::Get().RebuildAllSubstances);
+			}
+			MenuBuilder.EndSection();
 		}
-		MenuBuilder.EndSection();
-#endif // SUBSTANCE_CORE_DEBUG_TOOLS
 	}
 
 	//Function callback for building a menu extender
@@ -233,9 +253,10 @@ private:
 
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
-
 };
 
 IMPLEMENT_MODULE(FSubstanceEditorModule, SubstanceEditor);
 
 #undef LOCTEXT_NAMESPACE //"SubstanceEditorModule"
+
+

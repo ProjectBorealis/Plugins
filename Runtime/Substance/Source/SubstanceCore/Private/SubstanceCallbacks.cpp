@@ -3,7 +3,6 @@
 
 #include "SubstanceCallbacks.h"
 #include "SubstanceCorePrivatePCH.h"
-#include "SubstanceTexture2D.h"
 
 #include"substance/framework/graph.h"
 #include"substance/framework/output.h"

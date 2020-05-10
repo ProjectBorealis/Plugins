@@ -63,7 +63,7 @@ public:
 	FString	SourceFileTimestamp;
 
 	/** Flag for the format used to save asset data */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Substance")
+	UPROPERTY()
 	TEnumAsByte<ESubstanceGenerationMode> GenerationMode;
 
 	/** Serializes the assets that were created and saved post framework refactor */
@@ -81,12 +81,6 @@ public:
 
 	/** Returns the resource size based on how we are saving the data */
 	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
-
-	/** Get the generation mode for this package */
-	ESubstanceGenerationMode GetGenerationMode() const;
-
-	/** Whether or not the output instances should be cached */
-	bool ShouldCacheOutput() const;
 
 	/** Increases the count of graph instances relying on this factory - Used for cleanup */
 	void RegisterGraphInstance(USubstanceGraphInstance* Graph);

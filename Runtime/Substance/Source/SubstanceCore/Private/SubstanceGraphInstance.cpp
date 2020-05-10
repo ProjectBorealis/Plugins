@@ -3,32 +3,37 @@
 
 #include "SubstanceGraphInstance.h"
 #include "SubstanceCorePrivatePCH.h"
-#include "SubstanceTexture2D.h"
 #include "SubstanceInstanceFactory.h"
 #include "SubstanceCoreHelpers.h"
-#include "SubstanceImageInput.h"
-#include "SubstanceImageInput.h"
+#include "SubstanceOutputData.h"
 #include "SubstanceStructuresSerialization.h"
+#include "SubstanceSettings.h"
 
 #include <substance/framework/input.h>
 #include <substance/framework/package.h>
 #include <substance/framework/preset.h>
 
 #include "UObject/UObjectIterator.h"
+#include "Containers/Map.h"
+
 
 #if WITH_EDITOR
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
 #include "IAssetTools.h"
 #include <AssetToolsModule.h>
+#include "Serialization/ArchiveReplaceObjectRef.h"
+#include "Misc/ScopedSlowTask.h"
+#include "FileHelpers.h"
 #endif
+
 
 USubstanceGraphInstance::USubstanceGraphInstance(class FObjectInitializer const& PCIP) : Super(PCIP)
 {
-	bDirtyCache = false;
-	bCooked = false;
 	bIsFrozen = false;
 	Instance = nullptr;
+	ConstantCreatedMaterial = nullptr;
+	DynamicCreatedMaterial = nullptr;
 	CreatedMaterial = nullptr;
 	InstancePreset = MakeShared<SubstanceAir::Preset>();
 }
@@ -142,7 +147,7 @@ void USubstanceGraphInstance::SerializeCurrent(FArchive& Ar)
 	}
 
 	//Used to determine if this is a cooked build
-	bCooked = Ar.IsCooking();
+	bool bCooked = Ar.IsCooking();
 
 	//This is gross but it prevents a serialize size mismatch from a save corruption! (UE4-391)
 	if ((!Ar.AtEnd() && Ar.IsLoading()) || !Ar.IsLoading())
@@ -168,7 +173,7 @@ void USubstanceGraphInstance::SerializeLegacy(FArchive& Ar)
 		}
 	}
 
-	bCooked = Ar.IsCooking() && Ar.IsSaving();
+	bool bCooked = Ar.IsCooking() && Ar.IsSaving();
 
 	Ar << bCooked;
 	Ar << ParentFactory;
@@ -201,6 +206,19 @@ void USubstanceGraphInstance::CleanupGraphInstance()
 		//Manually clear the smart pointer in the case this is called from the InstanceFactory and a package is being cleaned up
 		Instance.reset();
 	}
+}
+
+bool USubstanceGraphInstance::GraphRequiresUpdate()
+{
+	for (TObjectIterator<USubstanceTexture2D> TexItr; TexItr; ++TexItr)
+	{
+		if (Instance->findOutput(TexItr->mUid) && TexItr->ParentInstance == this)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void USubstanceGraphInstance::BeginDestroy()
@@ -248,20 +266,23 @@ void USubstanceGraphInstance::PostDuplicate(bool bDuplicateForPIE)
 
 		Substance::Helpers::CopyInstance(RefInstance, this, false);
 		Substance::Helpers::CreateTextures(this);
-
 		this->mUserData.ParentGraph = this;
 		Instance->mUserData = (size_t)&mUserData;
-
+#if WITH_EDITOR
+		PrepareOutputsForSave(true);
+#else
 		Substance::Helpers::RenderAsync(Instance);
+#endif
 
 #if WITH_EDITOR
 		if (GIsEditor)
 		{
 			UObject* MaterialParent = nullptr;
-			if (RefInstance->CreatedMaterial != nullptr)
+			if (RefInstance->ConstantCreatedMaterial != nullptr)
 			{
-				FName NewMaterialName = MakeUniqueObjectName(RefInstance->CreatedMaterial->GetOuter(),
-				                        RefInstance->CreatedMaterial->GetClass(), FName(*RefInstance->CreatedMaterial->GetName()));
+				CreatedMaterial = RefInstance->CreatedMaterial;
+				FName NewMaterialName = MakeUniqueObjectName(RefInstance->ConstantCreatedMaterial->GetOuter(),
+				                        RefInstance->ConstantCreatedMaterial->GetClass(), FName(*RefInstance->ConstantCreatedMaterial->GetName()));
 
 				//Create the path to the material by getting the base path of the newly created instance;
 				FString MaterialPath;
@@ -275,7 +296,7 @@ void USubstanceGraphInstance::PostDuplicate(bool bDuplicateForPIE)
 
 				UObject* MaterialBasePackage = CreatePackage(nullptr, *FullAssetPath);
 
-				Substance::Helpers::CreateMaterial(this, NewMaterialName.ToString(), MaterialBasePackage);
+				Substance::Helpers::CreateMaterial(this, AssetName, MaterialBasePackage);
 			}
 
 			TArray<UObject*> AssetList;
@@ -287,14 +308,14 @@ void USubstanceGraphInstance::PostDuplicate(bool bDuplicateForPIE)
 					continue;
 				}
 
-				AssetList.AddUnique(reinterpret_cast<OutputInstanceData*>(itout->mUserData)->Texture.Get());
+				AssetList.AddUnique(reinterpret_cast<USubstanceOutputData*>(itout->mUserData)->GetData());
 			}
 			AssetList.AddUnique(this);
-			if (CreatedMaterial)
+			if (ConstantCreatedMaterial)
 			{
-				AssetList.AddUnique(CreatedMaterial);
+				AssetList.AddUnique(ConstantCreatedMaterial);
 				UE_LOG(LogSubstanceCore, Warning, TEXT("Material Duplicated for - %s. Should now be added to asset list. Material Name - %s"),
-				       *GetName(), *CreatedMaterial->GetName());
+				       *GetName(), *ConstantCreatedMaterial->GetName());
 			}
 
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
@@ -306,8 +327,6 @@ void USubstanceGraphInstance::PostDuplicate(bool bDuplicateForPIE)
 
 void USubstanceGraphInstance::PostLoad()
 {
-	bDirtyCache = false;
-
 	//Make sure that the factory that created this is valid
 	if (!ParentFactory)
 	{
@@ -319,20 +338,6 @@ void USubstanceGraphInstance::PostLoad()
 	//Make sure the parent factory is loaded
 	ParentFactory->ConditionalPostLoad();
 
-	//Make sure Substance package is valid for non-baked assets
-	if (!ParentFactory->SubstancePackage && ParentFactory->GenerationMode != SGM_Baked)
-	{
-		UE_LOG(LogSubstanceCore, Log, TEXT("Parent Factory's substance package is invalid, All outputs resorting to baked. \"%s\"."), *GetName());
-		Super::PostLoad();
-		return;
-	}
-
-	//If this is baked, none of the post load setup needs to happen
-	if (ParentFactory->GenerationMode == SGM_Baked && bCooked)
-	{
-		Super::PostLoad();
-		return;
-	}
 
 	if (Instance == nullptr)
 	{
@@ -382,19 +387,15 @@ void USubstanceGraphInstance::PostLoad()
 	//Let the substance texture switch outputs back on
 	for (const auto& ItOut : Instance->getOutputs())
 	{
-		if (ItOut->mUserData == 0 || reinterpret_cast<OutputInstanceData*>(ItOut->mUserData)->Texture.Get() == nullptr)
-		{
-			ItOut->mEnabled = false;
-		}
+		Substance::Helpers::OverwriteSubstancePixelFormatForRuntimeCompression(ItOut);
+
+		USubstanceOutputData** data = OutputInstances.Find(ItOut->mDesc.mUid);
+		if(data != nullptr)
+			ItOut->mUserData = (size_t)*data;
 	}
 
 	//Register this graph with the parent factory
 	ParentFactory->RegisterGraphInstance(this);
-
-	if ((ParentFactory->GetGenerationMode() != ESubstanceGenerationMode::SGM_Baked && bCooked) || (bIsFrozen && bCooked))
-	{
-		Substance::Helpers::PushDelayedRender(this);
-	}
 
 	Super::PostLoad();
 }
@@ -409,17 +410,67 @@ void USubstanceGraphInstance::PostEditUndo()
 {
 	Substance::Helpers::RenderAsync(Instance);
 }
+void USubstanceGraphInstance::PreSave(const ITargetPlatform* TargetPlatform)
+{
+	PrepareOutputsForSave();
+	Super::PreSave(TargetPlatform);
+}
+
+void USubstanceGraphInstance::PrepareOutputsForSave(bool ForceSave)
+{
+	for (auto& OutputDataItr : OutputInstances)
+	{
+		((USubstanceOutputData*)OutputDataItr.Value)->MarkPackageDirty();
+	}
+
+	Substance::Helpers::ClearFromRender(this);
+
+#define LOCTEXT_NAMESPACE "SubstanceText"
+	//Create a slowtask here to show a progress bar for user feedback
+	FScopedSlowTask CacheOutputTask(Instance->getOutputs().size(), LOCTEXT("Caching Outputs", "Caching Substance Output Textures to disk."));
+	CacheOutputTask.MakeDialog();
+#undef LOCTEXT_NAMESPACE
+
+	for (const auto& ItOut : Instance->getOutputs())
+	{
+		CacheOutputTask.EnterProgressFrame();
+		//Force outputs to source format
+		Substance::Helpers::OverwriteSubstancePixelFormatForSourceImage(ItOut);
+		ItOut->flagAsDirty();
+	}
+
+	Substance::Helpers::RenderSync(Instance, true);
+
+	if (ForceSave)
+	{
+		TArray<UPackage*> ThingsToSave;
+		for (const auto& OutputItr : OutputInstances)
+		{
+			if (OutputItr.Value->GetData())
+			{
+				ThingsToSave.Add((UPackage*)OutputItr.Value->GetData()->GetOuter());
+			}
+		}
+
+		ThingsToSave.Add((UPackage*)this->GetOuter());
+		if (ParentFactory)
+			ThingsToSave.Add((UPackage*)ParentFactory->GetOuter());
+		if (ConstantCreatedMaterial)
+			ThingsToSave.Add((UPackage*)ConstantCreatedMaterial->GetOuter());
+
+		FEditorFileUtils::PromptForCheckoutAndSave(ThingsToSave, false, false);
+	}
+
+	for (const auto& ItOut : Instance->getOutputs())
+	{
+		//Force outputs back to valid runtime formats
+		Substance::Helpers::OverwriteSubstancePixelFormatForRuntimeCompression(ItOut);
+	}
+}
 #endif //WITH_EDITOR
 
 bool USubstanceGraphInstance::CanUpdate()
 {
-	if (ParentFactory->GetGenerationMode() == ESubstanceGenerationMode::SGM_Baked)
-	{
-		UE_LOG(LogSubstanceCore, Warning, TEXT("Cannot modify Graph Instance \"%s\", parent instance factory is baked."),
-		       *ParentFactory->GetName());
-		return false;
-	}
-
 	if (bIsFrozen)
 	{
 		UE_LOG(LogSubstanceCore, Warning, TEXT("Cannot modify Graph Instance \"%s\", instance is frozen."),
@@ -465,8 +516,8 @@ bool USubstanceGraphInstance::SetInputImg(const FString& Name, class UObject* Va
 				}
 			}
 
-			USubstanceImageInput* PrevImageInput = Cast<USubstanceImageInput>(PrevSource);
-			USubstanceImageInput* NewImageInput = Cast<USubstanceImageInput>(Value);
+			UTexture2D* PrevImageInput = Cast<UTexture2D>(PrevSource);
+			UTexture2D* NewImageInput = Cast<UTexture2D>(Value);
 			if (!bUseOtherInput)
 			{
 				const uint32* Key = ImageSources.FindKey(PrevImageInput);
@@ -494,13 +545,42 @@ class UObject* USubstanceGraphInstance::GetInputImg(const FString& Name)
 
 			if (TypedInst->getImage())
 			{
-				UObject* CurrentSource = reinterpret_cast<InputImageData*>(TypedInst->getImage()->mUserData)->ImageUObjectSource;
+				UObject* CurrentSource = reinterpret_cast<UObject*>(TypedInst->getImage()->mUserData);
 				return CurrentSource;
 			}
 		}
 	}
 
 	return nullptr;
+}
+
+UMaterialInstanceDynamic* USubstanceGraphInstance::GetDynamicMaterialInstance(FName Name, UMaterial* InParentMaterial)
+{
+	if (DynamicCreatedMaterial == nullptr)
+	{
+		if (InParentMaterial == nullptr)
+			InParentMaterial = CreatedMaterial;
+
+		FName InName = Name;
+
+		if (InName == "None")
+		{
+			FString string;
+			
+			GetName(string);
+
+			string.Append("_DynMat");
+
+			InName = FName(*string);
+			
+		}
+
+		DynamicCreatedMaterial = UMaterialInstanceDynamic::Create(InParentMaterial, NULL, InName);
+
+		Substance::Helpers::GenerateMaterialExpressions(Instance.get(), DynamicCreatedMaterial, this);
+	}
+
+	return DynamicCreatedMaterial;
 }
 
 TArray<FString> USubstanceGraphInstance::GetInputNames()
@@ -893,7 +973,7 @@ bool USubstanceGraphInstance::LinkLoadedGraphInstance()
 bool USubstanceGraphInstance::LinkImageInput(SubstanceAir::InputInstanceImage* ImageInput)
 {
 	//Check the map to see if we have the input
-	USubstanceImageInput* SubstanceImage = nullptr;
+	UTexture2D* SubstanceImage = nullptr;
 	if (ImageSources.Find(ImageInput->mDesc.mUid))
 	{
 		SubstanceImage = *ImageSources.Find(ImageInput->mDesc.mUid);
@@ -905,7 +985,7 @@ bool USubstanceGraphInstance::LinkImageInput(SubstanceAir::InputInstanceImage* I
 	}
 
 	//Sets the image input
-	Substance::Helpers::SetImageInput(ImageInput, SubstanceImage, Instance);
+	Substance::Helpers::SetImageInput(ImageInput, (UObject*)SubstanceImage, Instance);
 
 	//Make sure the image is loaded
 	SubstanceImage->ConditionalPostLoad();

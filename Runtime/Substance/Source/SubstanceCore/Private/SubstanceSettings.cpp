@@ -14,5 +14,7 @@ USubstanceSettings::USubstanceSettings(const FObjectInitializer& PCIP)
 	, SubstanceEngine(SET_CPU)
 	, DefaultSubstanceOutputSizeX(EDefaultSubstanceTextureSize::SIZE_1024)
 	, DefaultSubstanceOutputSizeY(EDefaultSubstanceTextureSize::SIZE_1024)
+	, DefaultTemplateMaterial((UMaterialInterface*)TAssetPtr<UObject>(
+		FSoftObjectPath(FString(TEXT("/Substance/Templates/parent_materials/Substance_Basic_Template.Substance_Basic_Template")))).LoadSynchronous())
 {
 }
