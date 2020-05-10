@@ -5,9 +5,9 @@
 #include "SubstanceCorePrivatePCH.h"
 #include "SubstanceGraphInstance.h"
 #include "SubstanceInstanceFactory.h"
-#include "SubstanceTexture2D.h"
 #include "SubstanceCoreHelpers.h"
 #include "SubstanceSettings.h"
+#include "SubstanceOutputData.h"
 #include "substance/framework/framework.h"
 
 #include "Materials/MaterialExpressionTextureSample.h"
@@ -27,27 +27,22 @@ TArray<class USubstanceGraphInstance*> USubstanceUtility::GetSubstances(class UM
 
 	UMaterial* Material = MaterialInterface->GetMaterial();
 
-	for (const auto& ExpressionItr : MaterialInterface->GetMaterial()->Expressions)
-	{
-		UMaterialExpressionTextureSample* Expression = Cast<UMaterialExpressionTextureSample>(ExpressionItr);
-
-		if (Expression)
-		{
-			USubstanceTexture2D* SubstanceTexture = Cast<USubstanceTexture2D>(Expression->Texture);
-
-			if (SubstanceTexture && SubstanceTexture->ParentInstance)
-			{
-				Substances.AddUnique(SubstanceTexture->ParentInstance);
-			}
-		}
-	}
+	
+    for (TObjectIterator<USubstanceGraphInstance> Itr; Itr; ++Itr)
+    {
+        USubstanceGraphInstance* graph = *Itr;
+        if (graph->ConstantCreatedMaterial->GetMaterial() == Material)
+        {
+            Substances.AddUnique(graph);
+        }
+    }
 
 	return Substances;
 }
 
-TArray<class USubstanceTexture2D*> USubstanceUtility::GetSubstanceTextures(class USubstanceGraphInstance* GraphInstance)
+TArray<class UTexture2D*> USubstanceUtility::GetSubstanceTextures(class USubstanceGraphInstance* GraphInstance)
 {
-	TArray<class USubstanceTexture2D*> SubstanceTextures;
+	TArray<class UTexture2D*> SubstanceTextures;
 
 	if (!GraphInstance)
 	{
@@ -58,7 +53,7 @@ TArray<class USubstanceTexture2D*> USubstanceUtility::GetSubstanceTextures(class
 	{
 		if (OutputItr->mEnabled && OutputItr->mUserData != 0)
 		{
-			SubstanceTextures.Add(reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->Texture.Get());
+			SubstanceTextures.Add(Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData()));
 		}
 	}
 	return SubstanceTextures;
@@ -85,18 +80,15 @@ float USubstanceUtility::GetSubstanceLoadingProgress()
 	return Substance::Helpers::GetSubstanceLoadingProgress();
 }
 
-USubstanceGraphInstance* USubstanceUtility::CreateGraphInstance(UObject* WorldContextObject, USubstanceInstanceFactory* Factory, int32 GraphDescIndex, FString InstanceName)
+USubstanceGraphInstance* USubstanceUtility::CreateGraphInstance(UObject* WorldContextObject, USubstanceInstanceFactory* Factory, int32 GraphDescIndex, UMaterial* ParentMaterial, FString InstanceName)
 {
-	check(WorldContextObject);
+	if (!WorldContextObject || !ParentMaterial)
+		return nullptr;
+
 	USubstanceGraphInstance* GraphInstance = nullptr;
 
 	if (Factory && Factory->SubstancePackage && GraphDescIndex < (int32)Factory->SubstancePackage->getGraphs().size())
 	{
-		if (Factory->GetGenerationMode() == SGM_Baked)
-		{
-			UE_LOG(LogSubstanceCore, Warning, TEXT("Cannot create Graph Instance for Instance Factory %s, GenerationMode value not set to OnLoadAsync or OnLoadSync!"), *Factory->GetName());
-			return GraphInstance;
-		}
 
 		//Set package parent
 		UObject* Outer = WorldContextObject ? WorldContextObject : GetTransientPackage();
@@ -117,12 +109,14 @@ USubstanceGraphInstance* USubstanceUtility::CreateGraphInstance(UObject* WorldCo
 		//Set up the user data for framework access
 		GraphInstance->mUserData.ParentGraph = GraphInstance;
 		GraphInstance->Instance->mUserData = (size_t)&GraphInstance->mUserData;
-
+		GraphInstance->CreatedMaterial = ParentMaterial;
 		//Create textures that will not be saved
-		Substance::Helpers::CreateTransientTextures(GraphInstance, WorldContextObject);
+		Substance::Helpers::CreateTextures(GraphInstance, true, true);
 
 		//Initial update
-		Substance::Helpers::RenderSync(GraphInstance->Instance);
+#if WITH_EDITORONLY_DATA
+		GraphInstance->PrepareOutputsForSave(true);
+#endif
 	}
 
 	return GraphInstance;
@@ -146,7 +140,7 @@ USubstanceGraphInstance* USubstanceUtility::DuplicateGraphInstance(UObject* Worl
 			++idx;
 		}
 
-		NewGraphInstance = CreateGraphInstance(WorldContextObject, GraphInstance->ParentFactory, idx);
+		NewGraphInstance = CreateGraphInstance(WorldContextObject, GraphInstance->ParentFactory, idx, GraphInstance->CreatedMaterial);
 		CopyInputParameters(GraphInstance, NewGraphInstance);
 	}
 
@@ -175,7 +169,7 @@ void USubstanceUtility::EnableInstanceOutputs(UObject* WorldContextObject, USubs
 		//Skip unsupported texture formats
 		if (OutputInst->mUserData == 0)
 		{
-			Substance::Helpers::CreateSubstanceTexture2D(OutputInst, true, FString(), WorldContextObject ? WorldContextObject : GetTransientPackage());
+			Substance::Helpers::CreateSubstanceTexture2D(OutputInst, false, FString(), WorldContextObject ? WorldContextObject : GetTransientPackage());
 		}
 	}
 

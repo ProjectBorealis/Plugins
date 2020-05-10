@@ -8,6 +8,11 @@
 #include "Misc/MessageDialog.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SButton.h"
+#include "PropertyCustomizationHelpers.h"
+#include "Interfaces/IPluginManager.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+
+#define LOCTEXT_NAMESPACE "SubstanceOption"
 
 namespace Substance
 {
@@ -50,6 +55,13 @@ public:
 		{
 			WidgetWindow.Pin()->RequestDestroyWindow();
 		}
+
+		if (ImportUI->uMaterialParentType == ESubstanceMaterialParentType::Custom)
+			ImportUI->ParentMaterial = SelectedCustomMaterial;
+		else if (ImportUI->uMaterialParentType == ESubstanceMaterialParentType::Default)
+			ImportUI->ParentMaterial = SelectedDefaultMaterial;
+		else
+			ImportUI->ParentMaterial = nullptr;
 
 		return FReply::Handled();
 	}
@@ -105,6 +117,21 @@ private:
 
 	/** Material Name textbox widget */
 	TWeakPtr<SEditableTextBox> MaterialNameWidget;
+
+	UMaterial* ConfigDefaultMaterial;
+
+	TSharedPtr<SWidgetSwitcher> MaterialTypeSwitcher;
+
+	TSharedPtr<SWidget> MaterialSelectionWidget;
+	UMaterial* SelectedCustomMaterial = nullptr;
+
+	TSharedPtr<SWidget> DefaultMaterialTemplates;
+	UMaterial* SelectedDefaultMaterial = nullptr;
+
+	TSharedPtr<STextBlock> SelectedMaterialText;
+
+	TArray<UMaterial*> SubstanceIncludedMaterials;
+
 
 	void OnInstanceNameChanged(const FText& InNewName);
 
@@ -170,10 +197,68 @@ private:
 		return false;
 	}
 
+	void OnUseCustomMaterialChanged(ECheckBoxState InNewValue)
+	{
+		check(ImportUI);
+
+		if (InNewValue == ECheckBoxState::Checked)
+		{
+			ImportUI->uMaterialParentType = ESubstanceMaterialParentType::Custom;
+
+			MaterialTypeSwitcher->SetActiveWidgetIndex(static_cast<int8>(ImportUI->uMaterialParentType));
+			
+			ImportUI->ParentMaterial = SelectedCustomMaterial;
+		}
+	}
+
+	void OnUseDefaultMaterialChanged(ECheckBoxState InNewValue)
+	{
+		check(ImportUI);
+
+		if (InNewValue == ECheckBoxState::Checked)
+		{
+			ImportUI->uMaterialParentType = ESubstanceMaterialParentType::Default;
+
+			MaterialTypeSwitcher->SetActiveWidgetIndex(static_cast<int8>(ImportUI->uMaterialParentType));
+			
+			ImportUI->ParentMaterial = SelectedDefaultMaterial;
+		}
+	}
+
+	void OnGenerateMaterialChanged(ECheckBoxState InNewValue)
+	{
+		check(ImportUI);
+
+		if (InNewValue == ECheckBoxState::Checked)
+		{
+			ImportUI->uMaterialParentType = ESubstanceMaterialParentType::Generated;
+
+			MaterialTypeSwitcher->SetActiveWidgetIndex(static_cast<int8>(ImportUI->uMaterialParentType));
+
+			ImportUI->ParentMaterial = nullptr;
+		}
+	}
+
 	ECheckBoxState GetCreateMaterial() const
 	{
 		return ImportUI->bCreateMaterial ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
+
+	ECheckBoxState GetUseDefaultMaterial() const
+	{
+		return ImportUI->uMaterialParentType == ESubstanceMaterialParentType::Default ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	ECheckBoxState GetUseCustomMaterial() const
+	{
+		return ImportUI->uMaterialParentType == ESubstanceMaterialParentType::Custom ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	ECheckBoxState GetGenerateMaterial() const
+	{
+		return ImportUI->uMaterialParentType == ESubstanceMaterialParentType::Generated ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
 
 	void OnCreateMaterialChanged(ECheckBoxState InNewValue) const
 	{
@@ -212,4 +297,82 @@ private:
 		bool MaterialNameValid = !MaterialNameWidget.Pin()->GetText().ToString().IsEmpty();
 		ImportButton->SetEnabled(MaterialNameValid && InstanceNameValid);
 	}
+
+	void OnGetClassesForAssetPicker(TArray<const UClass*>& OutClasses)
+	{
+		OutClasses.AddUnique(UMaterial::StaticClass());
+	}
+
+
+	void OnCustomMaterialSelected(const FAssetData& AssetData)
+	{
+		SelectedCustomMaterial = (UMaterial*)AssetData.GetAsset();
+	}
+
+	bool OnFilterCustomMaterial(const FAssetData &)
+	{
+		return false;
+	}
+
+	TSharedRef<SWidget> CreateCustomMaterialSelectionWidget()
+	{
+		TArray<const UClass*> AllowedClasses;
+		AllowedClasses.Add(UMaterial::StaticClass());
+		GetDefault<USubstanceSettings>()->DefaultTemplateMaterial.LoadSynchronous();
+		UMaterial* SelectedMaterial = (UMaterial*)GetDefault<USubstanceSettings>()->DefaultTemplateMaterial.Get();
+
+		SelectedCustomMaterial = SelectedMaterial;
+
+		return PropertyCustomizationHelpers::MakeAssetPickerWithMenu(
+			FAssetData((UObject*)SelectedMaterial),
+			false,
+			AllowedClasses,
+			PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(AllowedClasses),
+			FOnShouldFilterAsset::CreateSP(this, &SSubstanceOptionWindow::OnFilterCustomMaterial),
+			FOnAssetSelected::CreateSP(this, &SSubstanceOptionWindow::OnCustomMaterialSelected),
+			nullptr);
+	}
+
+	TSharedRef<SWidget> CreateDefaultMaterialCombo()
+	{
+		GetDefault<USubstanceSettings>()->DefaultTemplateMaterial.LoadSynchronous();
+		UMaterial* SelectedMaterial = (UMaterial*)GetDefault<USubstanceSettings>()->DefaultTemplateMaterial.Get();
+
+		if (SubstanceIncludedMaterials.Contains(SelectedMaterial))
+			SelectedDefaultMaterial = SelectedMaterial;
+		else if (SubstanceIncludedMaterials.Num() > 0)
+			SelectedDefaultMaterial = SubstanceIncludedMaterials[0];
+
+		SelectedMaterialText = SNew(STextBlock)
+			.Text(FText::FromString(SelectedDefaultMaterial->GetName()))
+			.ColorAndOpacity(FColor::Black);
+
+		return SNew(SComboBox<UMaterial*>)
+			.OptionsSource(&SubstanceIncludedMaterials)
+			.InitiallySelectedItem(SelectedDefaultMaterial)
+			.IsEnabled(this, &SSubstanceOptionWindow::CreateMaterial)
+			.OnGenerateWidget(this, &SSubstanceOptionWindow::GenerateComboWidget)
+			.OnSelectionChanged(this, &SSubstanceOptionWindow::OnDefaultMaterialSelected)
+			.Content()
+			[
+				SelectedMaterialText.ToSharedRef()
+			];
+	}
+
+	void OnDefaultMaterialSelected(UMaterial* mat, ESelectInfo::Type infotype)
+	{
+		SelectedDefaultMaterial = mat;
+		SelectedMaterialText->SetText(FText::FromString(SelectedDefaultMaterial->GetName()));
+	}
+
+	TSharedRef<SWidget> GenerateComboWidget(UMaterial* Item)
+	{
+		return  SNew(STextBlock)
+			.Text(FText::FromString(Item->GetName()))
+			.ColorAndOpacity(FColor::White);
+	}
+
 };
+
+#undef LOCTEXT_NAMESPACE
+

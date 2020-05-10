@@ -2,7 +2,18 @@
 // File: SubstanceImportOptionsUi.h
 
 #pragma once
+
+#include "Materials/Material.h"
+
 #include "SubstanceImportOptionsUi.generated.h"
+
+UENUM(BlueprintType)		
+enum class ESubstanceMaterialParentType : uint8
+{
+	Default = 0,
+	Custom = 1,
+	Generated = 2
+};
 
 UCLASS(config = EditorUserSettings, AutoExpandCategories = (General, Materials), HideCategories = Object)
 class USubstanceImportOptionsUi : public UObject
@@ -31,6 +42,14 @@ class USubstanceImportOptionsUi : public UObject
 	/** Whether to automatically create Unreal materials for instances */
 	UPROPERTY(EditAnywhere, config, Category = Materials)
 	uint32 bCreateMaterial : 1;
+
+	/** Enables Material Selection button for custom templates on import*/
+	UPROPERTY(EditAnywhere, config, Category = Materials)
+	ESubstanceMaterialParentType uMaterialParentType;
+
+	/** Parent Material used to create Unreal material instances */
+	UPROPERTY(EditAnywhere, Category = Materials)
+	UMaterial* ParentMaterial;
 
 	/** Instance suggested name (based on filename) */
 	UPROPERTY(EditAnywhere, config, Category = General)

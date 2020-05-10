@@ -326,7 +326,7 @@ void FSubstanceEditor::OnResetDefaultValues()
 			SubstanceEditorPanel->ResetThumbnailInputs(GetGraph()->Instance.get());
 		}
 
-		Substance::Helpers::RenderAsync(GetGraph()->Instance);
+		GetGraph()->PrepareOutputsForSave();
 	}
 }
 

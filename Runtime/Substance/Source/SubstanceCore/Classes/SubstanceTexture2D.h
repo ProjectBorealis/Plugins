@@ -22,29 +22,6 @@ struct OutputInstanceData
 	FGuid CacheGuid;
 };
 
-//Note:: These are the current set of channels that we support in UE4 and not all
-//substance channel output types are listed here.
-UENUM(BlueprintType)
-enum ESubChannelType
-{
-	Channel_Diffuse,
-	Channel_Ambient,
-	Channel_BaseColor,
-	Channel_Metallic,
-	Channel_Roughness,
-	Channel_Emissive,
-	Channel_Normal,
-	Channel_Mask,
-	Channel_Opacity,
-	Channel_Refraction,
-	Channel_AmbientOcclusion,
-	Channel_Glossiness,
-	Channel_Height,
-	Channel_Displacement,
-	Channel_Reflection,
-	Channel_Invalid
-};
-
 UCLASS(hideCategories = Object)
 class SUBSTANCECORE_API USubstanceTexture2D : public UTexture2DDynamic
 {
@@ -76,10 +53,6 @@ public:
 	/** The addressing mode to use for the Y axis. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Texture, meta = (DisplayName = "Y-axis Tiling Method"), AssetRegistrySearchable, AdvancedDisplay)
 	TEnumAsByte<enum TextureAddress> AddressY;
-
-	/** Returns a list of all of the input identifiers */
-	UFUNCTION(BlueprintCallable, Category = "Substance")
-	ESubChannelType GetChannel();
 
 	/** Whether or not this is a cook asset */
 	UPROPERTY()

@@ -9,9 +9,12 @@
 #include "substance/framework/typedefs.h"
 #endif
 
+#include "Engine/Texture.h"
 #include <Materials/Material.h>
+#include <Materials/MaterialInstanceConstant.h>
+#include "Materials/MaterialExpressionTextureSampleParameter2D.h"
 
-class USubstanceImageInput;
+
 class USubstanceInstanceFactory;
 class USubstanceGraphInstance;
 class USubstanceTexture2D;
@@ -100,8 +103,8 @@ SUBSTANCECORE_API void RenderAsync(TArray<SubstanceAir::shared_ptr<SubstanceAir:
 SUBSTANCECORE_API void RenderAsync(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>);
 
 /** Perform a blocking rendering of those instances */
-SUBSTANCECORE_API void RenderSync(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>&);
-SUBSTANCECORE_API void RenderSync(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>);
+SUBSTANCECORE_API void RenderSync(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>&, bool ForceCache = false);
+SUBSTANCECORE_API void RenderSync(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>, bool ForceCache = false);
 
 /** UE4 Play in editor callback */
 SUBSTANCECORE_API void StartPIE();
@@ -135,32 +138,28 @@ SUBSTANCECORE_API void CreateSubstanceTexture2D(SubstanceAir::OutputInstance* ou
 /** Initializes 4 levels of mip maps */
 SUBSTANCECORE_API void CreatePlaceHolderMips(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance);
 
-/** Convert a PixelFormat to the closest supported PixelFormat - If new types added, alter SubstanceToUE4Format*/
-SUBSTANCECORE_API void ValidateFormat(USubstanceTexture2D* Texture, SubstanceAir::OutputInstance* Output);
-
 /** Convert from a Substance Format to UE4 equivalent */
 EPixelFormat SubstanceToUe4Format(const SubstancePixelFormat Format, const SubstanceChannelsOrder ChanOrder);
+
+void OverwriteSubstancePixelFormatForSourceImage(SubstanceAir::OutputInstance* Output);
+void OverwriteSubstancePixelFormatForRuntimeCompression(SubstanceAir::OutputInstance* Output);
+ETextureSourceFormat SubstanceToUE4SourceFormat(const SubstancePixelFormat Format);
 
 /** Convert from a UE4 pixel format to a Substance Format */
 SubstancePixelFormat UE4FormatToSubstance(EPixelFormat Fmt);
 
 /** Creates and enables a texture object*/
-SUBSTANCECORE_API void EnableTexture(SubstanceAir::OutputInstance* Output, USubstanceGraphInstance* Graph, const OutputTextureSettings* TextureSettings = nullptr);
+SUBSTANCECORE_API void EnableTexture(SubstanceAir::OutputInstance* Output, USubstanceGraphInstance* Graph, const OutputTextureSettings* TextureSettings = nullptr, bool IsTransient = false);
 
 /** Create textures of empty output instances of the given graph instance */
-void CreateTextures(USubstanceGraphInstance* Graph);
-
-/** Create textures for output instances that only exist at runtime */
-void CreateTransientTextures(USubstanceGraphInstance* Graph, UObject* Outer);
-
-/** Splits RGBA value into proper channels */
-SUBSTANCECORE_API void Split_RGBA_8bpp(int32 Width, int32 Height,
-                                       uint8* DecompressedImageRGBA, const int32 TextureDataSizeRGBA,
-                                       uint8* DecompressedImageA = nullptr, const int32 TextureDataSizeA = 0);
+SUBSTANCECORE_API void CreateTextures(USubstanceGraphInstance* Graph, bool ForceCreate = false, bool IsTransient = false);
 
 /** Update the outputs of each instance */
-SUBSTANCECORE_API bool UpdateTextures(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>& Instances);
-SUBSTANCECORE_API bool UpdateTextures(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance);
+SUBSTANCECORE_API bool UpdateTextures(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>& Instances, bool InEditor = false);
+SUBSTANCECORE_API bool UpdateTextures(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance, bool InEditor = false);
+
+/** Helper to retrieve the outputinstance from the framework */
+SUBSTANCECORE_API SubstanceAir::OutputInstance* GetSubstanceOutputByID(USubstanceGraphInstance* graph, uint32 UID);
 
 /** Compare the values of two input instances. */
 bool AreInputValuesEqual(SubstanceAir::InputInstanceBase& a, SubstanceAir::InputInstanceBase& b);
@@ -202,15 +201,6 @@ SUBSTANCECORE_API void Disable(SubstanceAir::OutputInstance* output, bool FlagTo
 const SubstanceAir::GraphDesc* FindParentGraph(const std::vector<SubstanceAir::GraphDesc>& Graphs, SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>);
 const SubstanceAir::GraphDesc* FindParentGraph(const std::vector<SubstanceAir::GraphDesc>& Graphs, const FString& URL);
 
-/** Decompress a jpeg buffer in RAW RGBA */
-SUBSTANCECORE_API void DecompressJpeg(const void* Buffer, const int32 Length, TArray<uint8>& outRawData,
-                                      int32* outW, int32* outH, int32 NumComp = 4);
-
-/** Compress a jpeg buffer in RAW RGBA */
-SUBSTANCECORE_API void CompressJpeg(
-    const void* InBuffer, const int32 InLength, const int32 W, const int32 H, const int32 NumComp,
-    TArray<uint8>& CompressedImage, const int32 Quality = 85);
-
 /** Sets up an InputImage and returns the shared pointer */
 SubstanceAir::shared_ptr<SubstanceAir::InputImage> PrepareImageInput(class UObject* InValue,
         SubstanceAir::InputInstanceImage* Input, SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Parent);
@@ -220,9 +210,6 @@ SIZE_T CalculateSubstanceImageBytes(uint32 SizeX, uint32 SizeY, uint32 SizeZ, ui
 
 /** Checks to see if a format type is currently supported */
 bool IsSupportedImageInput(UObject*);
-
-/** Link the image */
-void LinkImageInput(SubstanceAir::InputInstanceImage* ImgInputInst, USubstanceImageInput* SrcImageInput);
 
 /** Sets the properties of an Image Input Instance */
 void SetImageInput(SubstanceAir::InputInstanceImage* Input, UObject* InValue, SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Parent,
@@ -235,10 +222,31 @@ void ClearFromRender(USubstanceGraphInstance* GraphInstance);
 void ResetGraphInstanceImageInputs(USubstanceGraphInstance* GraphInstance);
 
 /** brief Create an Unreal Material for the given graph-instance */
-SUBSTANCECORE_API TWeakObjectPtr<UMaterial> CreateMaterial(USubstanceGraphInstance* Instance, const FString& MatName, UObject* Outer = nullptr);
+SUBSTANCECORE_API TWeakObjectPtr<UMaterialInstance> CreateMaterial(USubstanceGraphInstance* Instance, const FString& MatName, UObject* Outer = nullptr);
+
+/** Generate a list of material expressions and map them to existing graph instance outputs */
+SUBSTANCECORE_API void GenerateMaterialExpressions(SubstanceAir::GraphInstance* Instance, UMaterialInstance* MaterialInstance, USubstanceGraphInstance* Graph, bool IsOnImport = false);
+
+/** Generate a new simple parent material to use as a template for instancing 
+	Creates parameter nodes based on substance outputs and connects them to best matching output nodes*/
+SUBSTANCECORE_API UMaterial* GenerateTemplateMaterial(USubstanceGraphInstance* Instance, const FString& MaterialName, UObject* Outer);
+
+/** Create the sampler nodes in UMaterial graph for legacy material generation*/
+SUBSTANCECORE_API UMaterialExpressionTextureSampleParameter2D* CreateSampler(UMaterial* UnrealMaterial, UTexture* UnrealTexture, const SubstanceAir::OutputDesc* OutputDesc);
+
+SUBSTANCECORE_API void CreateMaterialExpression(SubstanceAir::OutputInstance* OutputInst, UMaterial* UnrealMaterial);
+
+/** Set material instance expression values
+	Texture Parameters - Called once to set initial texture pointer on material creation
+	Value Parameters - Called whenever a value output is updated */
+SUBSTANCECORE_API void SetMaterialExpression(SubstanceAir::OutputInstance* OutputInst, UMaterialInstance* UnrealMaterial, FMaterialParameterInfo &Info);
+
+/** Creates and fills out a FLinearColor(float4) with data from output result to use in a material parameter node
+	for use with substance vec2, vec3, and vec4 of int or float*/
+SUBSTANCECORE_API FLinearColor SubstanceIOVectorToParameter(SubstanceAir::RenderResultNumericalBase* NumericOutput);
 
 /** Sets all of the material inputs to the proper outputs from a graph instance */
-SUBSTANCECORE_API void ResetMaterialTexturesFromGraph(USubstanceGraphInstance* Graph, UMaterial* OwnedMaterial, const TArray<MaterialParameterSet>& Materials);
+SUBSTANCECORE_API void ResetMaterialTexturesFromGraph(USubstanceGraphInstance* Graph, UMaterialInstanceConstant* OwnedMaterial, const TArray<MaterialParameterSet>& Materials);
 
 /** Sets all of the material instance parameters to the proper outputs from a graph instance */
 SUBSTANCECORE_API void ResetMaterialInstanceTexturesFromGraph(USubstanceGraphInstance* Graph, const TArray<MaterialInstanceParameterSet>& Materials);
@@ -255,11 +263,7 @@ SUBSTANCECORE_API void GetSuitableName(SubstanceAir::OutputInstance* Instance,
 
 /** Create instance of a graph desc */
 SUBSTANCECORE_API USubstanceGraphInstance* InstantiateGraph(USubstanceInstanceFactory* ParentFactory, const SubstanceAir::GraphDesc& Graph, UObject* Outer,
-        FString InstanceName = FString(), bool bCreateOutputs = false, EObjectFlags Flags = RF_Standalone | RF_Public);
-
-/** Create instance of a graph desc */
-SUBSTANCECORE_API USubstanceGraphInstance* InstantiateGraph(const SubstanceAir::GraphDesc& Graph, UObject* Outer,
-        FString InstanceName = FString(), bool bCreateOutputs = false, EObjectFlags Flags = RF_Standalone | RF_Public);
+        FString InstanceName = FString(), bool bCreateOutputs = false, EObjectFlags Flags = RF_Standalone | RF_Public, UMaterial* InParentMaterial = nullptr);
 
 /** Copy constructor for USubstanceGraphInstance */
 USubstanceGraphInstance* DuplicateGraphInstance(USubstanceGraphInstance* Instance);
@@ -269,7 +273,7 @@ void CopyInstance(USubstanceGraphInstance* RefInstance, USubstanceGraphInstance*
 
 /** Queues different wrapper types for cleanup */
 SUBSTANCECORE_API void RegisterForDeletion(class USubstanceGraphInstance* InstanceContainer);
-SUBSTANCECORE_API void RegisterForDeletion(class USubstanceTexture2D* InstanceContainer);
+SUBSTANCECORE_API void RegisterForDeletion(class UTexture2D* InstanceContainer);
 SUBSTANCECORE_API void RegisterForDeletion(class USubstanceInstanceFactory* InstanceContainer);
 SUBSTANCECORE_API void PerformDelayedDeletion();
 
@@ -297,6 +301,9 @@ SUBSTANCECORE_API void ApplyPresetData(SubstanceAir::shared_ptr<SubstanceAir::Gr
 /** Exposes the frameworks instantiate graphs for the editor*/
 SUBSTANCECORE_API void InstatiateGraphsFromPackage(SubstanceAir::GraphInstances& Instances, SubstanceAir::PackageDesc* Package);
 
+/** Returns an XML formatted string with the current preset values*/
+SUBSTANCECORE_API FString GetPresetAsXMLString(USubstanceGraphInstance*);
+
 /** Exports input deltas from graph instance */
 SUBSTANCECORE_API bool ExportPresetFromGraph(USubstanceGraphInstance*);
 
@@ -322,8 +329,14 @@ SUBSTANCECORE_API void ClearCache();
 /** Recomputes all substance graph instances! - Only available from editor */
 SUBSTANCECORE_API void RebuildAllSubstanceGraphInstances();
 
-/** Creates a default unique material name and creates a material */
-SUBSTANCECORE_API void CreateDefaultNamedMaterial(USubstanceGraphInstance* Graph);
+/** Creates a material with a default formatted unique material name */
+SUBSTANCECORE_API void CreateDefaultNamedMaterial(USubstanceGraphInstance* Graph, FString Extention = FString());
+
+/** Returns an array of the material templates included with the substance plugin (may return none if the editor has not fully loaded yet) */
+SUBSTANCECORE_API TArray<UMaterial*> GetSubstanceIncludedMaterials();
+
+/** Checks if any data is missing from the substances loaded in the project, used to notify editormodule to rebuild all substances */
+SUBSTANCECORE_API bool SubstancesRequireUpdate();
 #endif // WITH_EDITOR
 
 } // namespace Helpers

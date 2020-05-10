@@ -4,6 +4,9 @@
 #pragma once
 #include "SubstanceImportOptionsUi.h"
 #include "Factories/Factory.h"
+#include "Containers/Array.h"
+#include "Materials/Material.h"
+
 #include "SubstanceFactory.generated.h"
 
 class USubstanceGraphInstance;
@@ -40,11 +43,15 @@ struct FSubstanceImportOptions
 	bool bCreateInstance;
 	bool bForceCreateInstance;
 
+	UMaterial* ParentMaterial;
+
 	FString InstanceName;
 	FString MaterialName;
 
 	FString InstanceDestinationPath;
 	FString MaterialDestinationPath;
+
+	ESubstanceMaterialParentType ParentType;
 };
 
 /** Get the options from the user for the naming / settings to use for the asset being created */

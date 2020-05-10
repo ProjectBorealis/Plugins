@@ -8,10 +8,6 @@
 #include "SubstanceOptionWindow.h"
 #include "SubstanceCoreHelpers.h"
 #include "SubstanceCoreClasses.h"
-#include "SubstanceInstanceFactory.h"
-#include "SubstanceGraphInstance.h"
-#include "SubstanceTexture2D.h"
-#include "SubstanceUtility.h"
 
 #include "HAL/FileManager.h"
 #include "Interfaces/IPluginManager.h"
@@ -27,6 +23,7 @@
 #include "Materials/MaterialInstance.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "Materials/MaterialExpressionTextureSampleParameter2D.h"
+#include "FileHelpers.h"
 
 #include "substance/framework/output.h"
 #include "substance/framework/input.h"
@@ -34,7 +31,6 @@
 #include "substance/framework/package.h"
 #include "substance/framework/preset.h"
 #include "substance/framework/typedefs.h"
-
 
 //==============================================================================================================
 // ReimportData is a struct created per graph instance that needs to be recreated post reimport of a factory
@@ -49,14 +45,17 @@ struct ReimportData
 	//PackageURL of the graph used to create this instance
 	FString PackageURL;
 
+	//Reference to the parent material that was used to create the material instance
+	UMaterial* ParentMaterial;
+
 	//Reference to the material that was created with this instance (if created)
-	UMaterial* OwnedMaterialReferencee;
+	UMaterialInstanceConstant* OwnedMaterialReferencee;
 
 	//Map of all of the enabled output UIDs and their corresponding UAsset package names
 	TMap<uint32, OutputTextureSettings> EnabledOutputUIDs;
 
 	//All of the referenced image inputs assigned for this graph
-	TMap<uint32, USubstanceImageInput*> ImageSources;
+	TMap<uint32, UTexture2D*> ImageSources;
 
 	//List of all of the materials that reference an output created from this graph
 	TArray<MaterialParameterSet> ReferencingMaterials;
@@ -69,11 +68,12 @@ struct ReimportData
 
 	ReimportData(const FString& packageURL
 	             , FString assetName
-	             , UMaterial* owningMaterial
+				 , UMaterial* parentMaterial
+	             , UMaterialInstanceConstant* owningMaterial
 	             , SubstanceAir::shared_ptr<SubstanceAir::Preset> preset
 	             , TArray<MaterialParameterSet>& referencingMaterials
 	             , TArray<MaterialInstanceParameterSet>& referencingMaterialInstances
-	             , TMap<uint32, USubstanceImageInput*>& imageSources
+	             , TMap<uint32, UTexture2D*>& imageSources
 	             , TMap<uint32, OutputTextureSettings>& enabledOutputUIDs)
 	{
 		UAssetName = assetName;
@@ -82,6 +82,7 @@ struct ReimportData
 		PreviousPresetData = preset;
 		EnabledOutputUIDs = enabledOutputUIDs;
 		ReferencingMaterials = referencingMaterials;
+		ParentMaterial = parentMaterial;
 		OwnedMaterialReferencee = owningMaterial;
 		ReferencingMaterialInstances = referencingMaterialInstances;
 	}
@@ -108,6 +109,9 @@ void Substance::ApplyImportUIToImportOptions(USubstanceImportOptionsUi* ImportUI
 
 	InOutImportOptions.bCreateInstance = ImportUI->bCreateInstance;
 	InOutImportOptions.bCreateMaterial = ImportUI->bCreateMaterial;
+
+	InOutImportOptions.ParentType = ImportUI->uMaterialParentType;
+	InOutImportOptions.ParentMaterial = ImportUI->ParentMaterial;
 
 	AssetToolsModule.Get().CreateUniqueAssetName(ImportUI->InstanceDestinationPath + TEXT("/"), ImportUI->InstanceName, PkgName, AssetName);
 
@@ -170,7 +174,20 @@ void Substance::GetImportOptions(
 
 	TSharedRef<SWindow> Window = SNew(SWindow)
 	                             .Title(NSLOCTEXT("UnrealEd", "SubstanceImportOpionsTitle", "Substance Import Options"))
-	                             .SizingRule(ESizingRule::Autosized);
+	                             .SizingRule(ESizingRule::UserSized);
+
+
+	int32 width=0, height=0, x=0, y=0;
+	
+	if (ParentWindow)
+	{
+		ParentWindow->GetNativeWindow()->GetFullScreenInfo(x, y, width, height);
+	}
+
+	width = std::max<int>(450, width/3);
+	height = std::max<int>(600, height/2);
+
+	Window->Resize(FVector2D(width, height));
 
 	TSharedPtr<SSubstanceOptionWindow> SubstanceOptionWindow;
 	Window->SetContent
@@ -179,6 +196,9 @@ void Substance::GetImportOptions(
 	    .ImportUI(ImportUI)
 	    .WidgetWindow(Window)
 	);
+
+	FVector2D CurrPos = Window->GetInitialDesiredPositionInScreen();
+	Window->MoveWindowTo(FVector2D(CurrPos.X - width / 2, CurrPos.Y - height / 2));
 
 	//TODO:: We can make this slow as showing progress bar later
 	FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
@@ -266,6 +286,9 @@ UObject* USubstanceFactory::FactoryCreateBinary(
 	Factory->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*Factory->AbsoluteSourceFilePath).ToString();
 
 	Substance::FSubstanceImportOptions ImportOptions;
+	ImportOptions.ParentMaterial = nullptr;
+
+
 	TArray<FString> Names;
 
 	bool bAllCancel = true;
@@ -318,7 +341,6 @@ UObject* USubstanceFactory::FactoryCreateBinary(
 
 			ImportOptions.MaterialName = AssetName;
 			ImportOptions.MaterialDestinationPath = PkgName;
-
 		}
 		else
 		{
@@ -343,15 +365,17 @@ UObject* USubstanceFactory::FactoryCreateBinary(
 
 			//Create USubstanceGraphInstance
 			UObject* GraphBasePackage = CreatePackage(NULL, *InstPath);
-			USubstanceGraphInstance* NewInstance = Substance::Helpers::InstantiateGraph(Factory, GraphIt, GraphBasePackage, InstName, true);
+
+			USubstanceGraphInstance* NewInstance = Substance::Helpers::InstantiateGraph(Factory, GraphIt, GraphBasePackage, InstName, true,RF_Standalone |RF_Public, ImportOptions.ParentMaterial);
+			
 			NewInstance->PostLoad();
+			NewInstance->CreatedMaterial = ImportOptions.ParentMaterial;
 
 			//Set the default output size once on reimport
-
 			TArray<int32> DefaultOutputSize{ GetDefault<USubstanceSettings>()->DefaultSubstanceOutputSizeX, GetDefault<USubstanceSettings>()->DefaultSubstanceOutputSizeY };
 			NewInstance->SetInputInt("$outputsize", DefaultOutputSize);
 
-			Substance::Helpers::RenderSync(NewInstance->Instance);
+			NewInstance->PrepareOutputsForSave();
 
 			if (ImportOptions.bCreateMaterial)
 			{
@@ -359,7 +383,7 @@ UObject* USubstanceFactory::FactoryCreateBinary(
 				FString MatName = ImportOptions.MaterialName;
 
 				UObject* MaterialBasePackage = CreatePackage(NULL, *MatPath);
-				TWeakObjectPtr<UMaterial> Mat = Substance::Helpers::CreateMaterial(NewInstance, MatName, MaterialBasePackage);
+				TWeakObjectPtr<UMaterialInstance> Mat = Substance::Helpers::CreateMaterial(NewInstance, MatName, MaterialBasePackage);
 				if (Mat.IsValid())
 				{
 					AssetList.AddUnique(Mat.Get());
@@ -376,7 +400,6 @@ UObject* USubstanceFactory::FactoryCreateBinary(
 				AssetList.AddUnique(Factory);
 			}
 		}
-
 	}
 
 	//Reset Suppression
@@ -390,6 +413,7 @@ UObject* USubstanceFactory::FactoryCreateBinary(
 		Factory->ClearFlags(RF_Standalone);
 		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 		return nullptr;
+		
 	}
 
 	//Update the content browser with the new assets
@@ -442,7 +466,8 @@ void USubstanceFactory::RecreateGraphsPostReimport(USubstanceInstanceFactory* Pa
 
 		//Create USubstanceGraphInstance
 		UObject* GraphBasePackage = CreatePackage(NULL, *GrItr.UAssetName);
-		USubstanceGraphInstance* NewInstance = Substance::Helpers::InstantiateGraph(ParentFactory, *GraphDescToCreate, GraphBasePackage, BaseInstanceName, false);
+		USubstanceGraphInstance* NewInstance = Substance::Helpers::InstantiateGraph(ParentFactory, *GraphDescToCreate, GraphBasePackage, BaseInstanceName, 
+																					false, RF_Standalone | RF_Public, (UMaterial*)GrItr.ParentMaterial);
 		AssetList.AddUnique(NewInstance);
 
 		//Enable all outputs that were previously enabled
@@ -454,10 +479,12 @@ void USubstanceFactory::RecreateGraphsPostReimport(USubstanceInstanceFactory* Pa
 			}
 			else if (!GrItr.EnabledOutputUIDs.Contains(OutputItr->mDesc.mUid) && OutputItr->mUserData)
 			{
-				TWeakObjectPtr<USubstanceTexture2D> Texture = reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->Texture;
+				TWeakObjectPtr<UTexture2D> Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData());
 
 				if (Texture.IsValid())
 					Substance::Helpers::RegisterForDeletion(Texture.Get());
+
+				NewInstance->OutputInstances.Remove(OutputItr->mDesc.mUid);
 			}
 		}
 
@@ -471,7 +498,7 @@ void USubstanceFactory::RecreateGraphsPostReimport(USubstanceInstanceFactory* Pa
 		Substance::Helpers::ApplyPresetData(NewInstance->Instance, *GrItr.PreviousPresetData.get());
 
 		//Make sure the textures are recomputed post create
-		Substance::Helpers::RenderSync(NewInstance->Instance);
+		NewInstance->PrepareOutputsForSave();
 
 		//Check if material is valid if so, set it up with the new outputs
 		Substance::Helpers::ResetMaterialTexturesFromGraph(NewInstance, GrItr.OwnedMaterialReferencee, GrItr.ReferencingMaterials);
@@ -601,9 +628,6 @@ EReimportResult::Type UReimportSubstanceFactory::Reimport(UObject* Obj)
 	//old material.
 	SaveRecreationData(CurrentInstanceFactory);
 
-	//Clear the objects referencing the factory! It is about to be replaced!
-	CurrentInstanceFactory->ClearReferencingObjects();
-
 	//Import settings
 	UAutomatedAssetImportData* ImportData = NewObject<UAutomatedAssetImportData>();
 
@@ -636,10 +660,7 @@ void UReimportSubstanceFactory::SaveRecreationData(USubstanceInstanceFactory* Fa
 		{
 			continue;
 		}
-
-		//List of all of the materials currently referencing
 		TArray<MaterialParameterSet> ReferencingMaterials;
-
 		//Fill an array with all materials referencing this graph instance and pass it to the reimport data
 		for (TObjectIterator<UMaterial> MatItr; MatItr; ++MatItr)
 		{
@@ -653,15 +674,21 @@ void UReimportSubstanceFactory::SaveRecreationData(USubstanceInstanceFactory* Fa
 
 				if (Expression && Expression->Texture)
 				{
-					USubstanceTexture2D* SubstanceTexture = Cast<USubstanceTexture2D>(Expression->Texture);
-					if (SubstanceTexture && SubstanceTexture->OutputCopy && SubstanceTexture->ParentInstance && SubstanceTexture->ParentInstance->Instance &&
-					        SubstanceTexture->ParentInstance->Instance->mInstanceUid == GraphItr->Instance->mInstanceUid)
+					for(auto OutputItr : GraphItr->OutputInstances)
 					{
-						CurrentMaterialSet.Material = *MatItr;
-						CurrentMaterialSet.ParameterNames.Add(SubstanceTexture->OutputCopy->mDesc.mIdentifier.c_str(), Expression);
+						if (Expression->Texture == OutputItr.Value->GetData())
+						{
+							SubstanceAir::OutputInstance* OutputFound = Substance::Helpers::GetSubstanceOutputByID(GraphItr, OutputItr.Key);
 
-						//Add all referencing material expressions to the update list
-						ReferencingMaterials.Add(CurrentMaterialSet);
+							if (OutputFound)
+							{
+								CurrentMaterialSet.Material = *MatItr;
+								CurrentMaterialSet.ParameterNames.Add(OutputFound->mDesc.mIdentifier.c_str(), Expression);
+
+								//Add all referencing material expressions to the update list
+								ReferencingMaterials.Add(CurrentMaterialSet);
+							}
+						}
 					}
 				}
 			}
@@ -675,14 +702,22 @@ void UReimportSubstanceFactory::SaveRecreationData(USubstanceInstanceFactory* Fa
 			{
 				if (MatItr->TextureParameterValues[ParameterIndex].ParameterValue)
 				{
-					USubstanceTexture2D* SubstanceTexture = Cast<USubstanceTexture2D>(MatItr->TextureParameterValues[ParameterIndex].ParameterValue);
-					if (SubstanceTexture && SubstanceTexture->OutputCopy && SubstanceTexture->ParentInstance && SubstanceTexture->ParentInstance->Instance &&
-					        SubstanceTexture->ParentInstance->Instance->mInstanceUid == GraphItr->Instance->mInstanceUid)
+					UTexture2D* SubstanceTexture = Cast<UTexture2D>(MatItr->TextureParameterValues[ParameterIndex].ParameterValue);
+					for (auto OutputItr : GraphItr->OutputInstances)
 					{
-						CurrentMaterialInstanceSet.MaterialInstance = *MatItr;
-						CurrentMaterialInstanceSet.ParameterNames.Add(SubstanceTexture->OutputCopy->mDesc.mIdentifier.c_str(), MatItr->TextureParameterValues[ParameterIndex].ParameterInfo.Name);
+						if (SubstanceTexture == OutputItr.Value->GetData())
+						{
+							SubstanceAir::OutputInstance* OutputFound = Substance::Helpers::GetSubstanceOutputByID(GraphItr, OutputItr.Key); 
 
-						ReferencingMaterialInstances.Add(CurrentMaterialInstanceSet);
+							if (OutputFound)
+							{
+								CurrentMaterialInstanceSet.MaterialInstance = *MatItr;
+								CurrentMaterialInstanceSet.ParameterNames.Add(OutputFound->mDesc.mIdentifier.c_str(), MatItr->TextureParameterValues[ParameterIndex].ParameterInfo.Name);
+
+								//Add all referencing material expressions to the update list
+								ReferencingMaterialInstances.Add(CurrentMaterialInstanceSet);
+							}
+						}
 					}
 				}
 			}
@@ -696,10 +731,10 @@ void UReimportSubstanceFactory::SaveRecreationData(USubstanceInstanceFactory* Fa
 		//Save the enabled state of all of the outputs
 		for (const auto& OutputItr : GraphItr->Instance->getOutputs())
 		{
-			if (OutputItr->mEnabled && OutputItr->mUserData)
+			if (OutputItr->mEnabled && OutputItr->mUserData && reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData())
 			{
 				//Get the full path for the graph asset
-				USubstanceTexture2D* Texture = reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->Texture.Get();
+				UTexture2D* Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData());
 				FString SanitizedPath;
 				Texture->GetPathName().Split(TEXT("."), &(SanitizedPath), nullptr, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
 
@@ -721,7 +756,7 @@ void UReimportSubstanceFactory::SaveRecreationData(USubstanceInstanceFactory* Fa
 		GraphItr->GetPathName().Split(TEXT("."), &(SanitizedPath), nullptr, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
 
 		//Set all of the reference data needed for this graph
-		ReimportData CurrentReimportData = ReimportData(GraphItr->PackageURL, SanitizedPath, GraphItr->CreatedMaterial, StorePreset, ReferencingMaterials, ReferencingMaterialInstances, GraphItr->ImageSources, EnabledOutputs);
+		ReimportData CurrentReimportData = ReimportData(GraphItr->PackageURL, SanitizedPath, GraphItr->CreatedMaterial,GraphItr->ConstantCreatedMaterial, StorePreset, ReferencingMaterials, ReferencingMaterialInstances, GraphItr->ImageSources, EnabledOutputs);
 		PreviousInstanceTransfer.Add(CurrentReimportData);
 	}
 }

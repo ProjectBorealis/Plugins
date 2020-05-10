@@ -4,11 +4,11 @@
 #include "SubstanceCoreHelpers.h"
 #include "SubstanceCorePrivatePCH.h"
 #include "SubstanceCoreClasses.h"
-#include "SubstanceCache.h"
-#include "SubstanceTexture2D.h"
 #include "SubstanceGraphInstance.h"
 #include "SubstanceInstanceFactory.h"
 #include "SubstanceCallbacks.h"
+#include "SubstanceOutputData.h"
+#include "SubstanceTexture2D.h"
 
 #include "substance/framework/output.h"
 #include "substance/framework/input.h"
@@ -21,16 +21,19 @@
 #include <substance/texture.h>
 
 #include "Materials/MaterialInstance.h"
-#include "Materials/MaterialExpressionTextureSampleParameter2D.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialLayersFunctions.h"
 #include "Materials/MaterialExpressionOneMinus.h"
 
 #include "Modules/ModuleManager.h"
 
 #include "RenderCore.h"
+#include "RenderUtils.h"
 #include "Misc/FileHelper.h"
 #include "Misc/ScopedSlowTask.h"
 #include "Misc/ConfigCacheIni.h"
-
+#include "Engine/Texture2D.h"
 #include "IImageWrapperModule.h"
 
 #if WITH_EDITOR
@@ -47,6 +50,9 @@
 #include "ScopedTransaction.h"
 #include "ObjectTools.h"
 #include "ContentBrowserModule.h"
+#include "IContentBrowserSingleton.h"
+#include "Interfaces/IPluginManager.h"
+#include "AssetRegistryModule.h"
 #endif
 
 #if PLATFORM_PS4
@@ -95,7 +101,7 @@ static uint32 GlobalInstanceCompletedCount = 0;
 
 //Flag for if we want to clear the substance cache during tick
 static bool GClearSubstanceCache = false;
-\
+
 //Typedef for the link between the framework image input instance and the graph instance it is currently linked to
 typedef std::pair<SubstanceAir::InputInstanceImage*, SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>> GraphImageInputPair;
 
@@ -143,42 +149,11 @@ void RenderAsync(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance)
 		return;
 	}
 
-#if WITH_EDITOR
-	FSubstanceCoreModule& SubstanceModule = FModuleManager::LoadModuleChecked<FSubstanceCoreModule>(TEXT("SubstanceCore"));
-	const bool PIE = SubstanceModule.isPie();
-#else
-	const bool PIE = false;
-#endif
-
-	//If this instance has pending rendering updates, update and re-cache
-	if (reinterpret_cast<GraphInstanceData*>(Instance->mUserData)->ParentGraph->bDirtyCache == true)
-	{
-		reinterpret_cast<GraphInstanceData*>(Instance->mUserData)->ParentGraph->bDirtyCache = false;
-		AsyncQueue.AddUnique(Instance);
-		++GlobalInstancePendingCount;
-		return;
-	}
-
-	//If this graph has been cached before, read from disk
-	bool ReadFromCache = false;
-	USubstanceGraphInstance* CurrentParentInstance = reinterpret_cast<GraphInstanceData*>(Instance->mUserData)->ParentGraph.Get();
-
-	if (CurrentParentInstance->bCooked && CurrentParentInstance->ParentFactory->ShouldCacheOutput() &&
-	        Substance::SubstanceCache::Get()->ReadFromCache(Instance) && !PIE)
-	{
-		++GlobalInstanceCompletedCount;
-		++GlobalInstancePendingCount;
-		ReadFromCache = true;
-	}
-	else
-	{
-		//Cache not available
-		AsyncQueue.AddUnique(Instance);
-		++GlobalInstancePendingCount;
-	}
+	AsyncQueue.AddUnique(Instance);
+	++GlobalInstancePendingCount;
 }
 
-void RenderSync(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>& Instances)
+void RenderSync(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>& Instances, bool ForceCache)
 {
 	if (IsRunningDedicatedServer())
 	{
@@ -196,10 +171,10 @@ void RenderSync(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>& I
 	GSubstanceRenderer->run(SubstanceAir::Renderer::Run_Default);
 	GSubstanceRenderer->setRenderCallbacks(gCallbacks.Get());
 
-	UpdateTextures(Instances);
+	UpdateTextures(Instances, ForceCache);
 }
 
-void RenderSync(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance)
+void RenderSync(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance, bool ForceCache)
 {
 	if (IsRunningDedicatedServer())
 	{
@@ -214,7 +189,7 @@ void RenderSync(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance)
 	GSubstanceRenderer->run(SubstanceAir::Renderer::Run_Default);
 	GSubstanceRenderer->setRenderCallbacks(gCallbacks.Get());
 
-	UpdateTextures(Instance);
+	UpdateTextures(Instance, ForceCache);
 }
 
 void PushDelayedRender(USubstanceGraphInstance* Instance)
@@ -224,51 +199,13 @@ void PushDelayedRender(USubstanceGraphInstance* Instance)
 		return;
 	}
 
-	if (false == reinterpret_cast<GraphInstanceData*>(Instance->Instance->mUserData)->bHasPendingImageInputRendering)
-	{
-		switch (reinterpret_cast<OutputInstanceData*>(Instance->Instance->mUserData)->ParentInstance->ParentFactory->GetGenerationMode())
-		{
-		case SGM_OnLoadAsync:
-		case SGM_OnLoadAsyncAndCache:
-			LoadingQueue.AddUnique(Instance->Instance);
-			break;
-		default:
-			PriorityLoadingQueue.AddUnique(Instance->Instance);
-			break;
-		}
-	}
-	else
-	{
-		//Instances waiting for image inputs are not filed in the priority queue
-		LoadingQueue.AddUnique(Instance->Instance);
-	}
+	LoadingQueue.AddUnique(Instance->Instance);
+
 }
 
 void PushDelayedRender(SubstanceAir::InputInstanceImage* ImgInput, USubstanceGraphInstance* Instance)
 {
-	if (IsRunningDedicatedServer())
-	{
-		return;
-	}
-
-	if (false == reinterpret_cast<GraphInstanceData*>(Instance->Instance->mUserData)->bHasPendingImageInputRendering)
-	{
-		switch (reinterpret_cast<OutputInstanceData*>(Instance->Instance->mUserData)->ParentInstance->ParentFactory->GetGenerationMode())
-		{
-		case SGM_OnLoadAsync:
-		case SGM_OnLoadAsyncAndCache:
-			LoadingQueue.AddUnique(Instance->Instance);
-			break;
-		default:
-			PriorityLoadingQueue.AddUnique(Instance->Instance);
-			break;
-		}
-	}
-	else
-	{
-		//Instances waiting for image inputs are not filed in the priority queue
-		LoadingQueue.AddUnique(Instance->Instance);
-	}
+	LoadingQueue.AddUnique(Instance->Instance);
 }
 
 void PushDelayedImageInput(SubstanceAir::InputInstanceImage* ImgInput, SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance)
@@ -319,7 +256,7 @@ void SetDelayedImageInput()
 
 		if (ImgInput && ImgInput->getImage() && ImgInput->getImage()->mUserData != 0)
 		{
-			UObject* CurrentSource = reinterpret_cast<InputImageData*>(ImgInput->getImage()->mUserData)->ImageUObjectSource;
+			UObject* CurrentSource = reinterpret_cast<UTexture2D*>(ImgInput->getImage()->mUserData);
 			SetImageInput(ImgInput, CurrentSource, Instance, true, false);
 			reinterpret_cast<GraphInstanceData*>(Instance->mUserData)->bHasPendingImageInputRendering = false;
 		}
@@ -333,50 +270,6 @@ void PerformDelayedRender()
 	if (IsRunningDedicatedServer())
 	{
 		return;
-	}
-
-	if (PriorityLoadingQueue.Num())
-	{
-		TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>> RemoveList;
-
-		//Render Sync doesn't read from cache so see if our data is cached first
-		TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>::TIterator Itr(PriorityLoadingQueue);
-		while (Itr)
-		{
-			SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> graph = *Itr;
-
-			TWeakObjectPtr<USubstanceGraphInstance> ParentInstance = reinterpret_cast<OutputInstanceData*>(graph->mUserData)->ParentInstance;
-			if (ParentInstance->bCooked && ParentInstance->ParentFactory->ShouldCacheOutput())
-			{
-				if (Substance::SubstanceCache::Get()->ReadFromCache(graph))
-				{
-					++GlobalInstancePendingCount;
-					++GlobalInstanceCompletedCount;
-					RemoveList.Add(graph);
-				}
-			}
-
-			++GlobalInstancePendingCount;
-			Itr++;
-		}
-
-		//Update the textures of the instances that were read from cache before removed
-		Substance::Helpers::UpdateTextures(RemoveList);
-
-		//Remove the items that were read from cache from the loading queue
-		TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>::TIterator rItr(RemoveList);
-		while (rItr)
-		{
-			PriorityLoadingQueue.Remove(*rItr);
-			rItr++;
-		}
-
-		//Push the remaining substance to the substance engine to be rendered and updated
-		if (PriorityLoadingQueue.Num())
-		{
-			RenderSync(PriorityLoadingQueue);
-			PriorityLoadingQueue.Empty();
-		}
 	}
 
 	SetDelayedImageInput();
@@ -419,11 +312,9 @@ SIZE_T CalculateSubstanceImageBytes(uint32 SizeX, uint32 SizeY, uint32 SizeZ, ui
 	}
 }
 
-void UpdateSubstanceOutput(USubstanceTexture2D* Texture, const SubstanceTexture& ResultText)
+void UpdateSubstanceOutput(UTexture2D* TextureOutput, const SubstanceTexture& ResultText)
 {
-	//Make sure any outstanding resource update has been completed
-	FlushRenderingCommands();
-
+	
 	// grab the Result computed in the Substance Thread
 	const SIZE_T Mipstart = (SIZE_T)ResultText.buffer;
 	SIZE_T MipOffset = 0;
@@ -431,21 +322,33 @@ void UpdateSubstanceOutput(USubstanceTexture2D* Texture, const SubstanceTexture&
 	//Prepare mip map data
 	FTexture2DMipMap* MipMap = nullptr;
 
-	EPixelFormat PreviousFormat = Texture->Format;
+	FTexturePlatformData* Texture = *TextureOutput->GetRunningPlatformData();
 
-	Texture->NumMips = ResultText.mipmapCount;
-	Texture->Format = Substance::Helpers::SubstanceToUe4Format((SubstancePixelFormat)ResultText.pixelFormat, (SubstanceChannelsOrder)ResultText.channelsOrder);
+	if (Texture == nullptr)
+		Texture = new FTexturePlatformData();
 
-	const bool bBlockSizeChanged = (PreviousFormat != Texture->Format) && 
-									(GPixelFormats[PreviousFormat].BlockSizeX != GPixelFormats[Texture->Format].BlockSizeX 
-									|| GPixelFormats[PreviousFormat].BlockSizeY != GPixelFormats[Texture->Format].BlockSizeY);
-	
+	EPixelFormat PreviousFormat = Texture->PixelFormat;
+
+	Texture->PixelFormat = Substance::Helpers::SubstanceToUe4Format((SubstancePixelFormat)ResultText.pixelFormat, (SubstanceChannelsOrder)ResultText.channelsOrder);
+
+	const bool bBlockSizeChanged = (PreviousFormat != Texture->PixelFormat)
+									&& (GPixelFormats[PreviousFormat].BlockSizeX != GPixelFormats[Texture->PixelFormat].BlockSizeX
+									|| GPixelFormats[PreviousFormat].BlockSizeY != GPixelFormats[Texture->PixelFormat].BlockSizeY);
+
+	 
 	//Create as much mip as necessary
 	if (Texture->Mips.Num() != ResultText.mipmapCount 
 		|| ResultText.level0Width != Texture->SizeX 
 		|| ResultText.level0Height != Texture->SizeY
-		|| bBlockSizeChanged)
+		|| bBlockSizeChanged
+#if WITH_EDITORONLY_DATA
+		|| TextureOutput->MipGenSettings == TextureMipGenSettings::TMGS_LeaveExistingMips
+#endif
+		)
 	{
+		if(!TextureOutput->HasPendingUpdate())
+			TextureOutput->ReleaseResource();
+
 		Texture->Mips.Empty();
 
 		int32 MipSizeX = Texture->SizeX = ResultText.level0Width;
@@ -463,14 +366,11 @@ void UpdateSubstanceOutput(USubstanceTexture2D* Texture, const SubstanceTexture&
 			MipSizeY = FMath::Max(MipSizeY >> 1, 1);
 
 			//Not smaller than the "block size"
-			MipSizeX = FMath::Max((int32)GPixelFormats[Texture->Format].BlockSizeX, MipSizeX);
-			MipSizeY = FMath::Max((int32)GPixelFormats[Texture->Format].BlockSizeY, MipSizeY);
+			MipSizeX = FMath::Max((int32)GPixelFormats[Texture->PixelFormat].BlockSizeX, MipSizeX);
+			MipSizeY = FMath::Max((int32)GPixelFormats[Texture->PixelFormat].BlockSizeY, MipSizeY);
 		}
 	}
 
-#if PLATFORM_PS4
-	Texture->bNoTiling = false;
-#endif
 	//NOTE:: The last two mips (1x1 and 2x2) cause issuses with the size - These should never really be needed
 	//Fill up the mips
 	for (int32 IdxMip = 0; IdxMip < ResultText.mipmapCount; ++IdxMip)
@@ -482,11 +382,11 @@ void UpdateSubstanceOutput(USubstanceTexture2D* Texture, const SubstanceTexture&
 		                             MipMap->SizeX,
 		                             MipMap->SizeY,
 		                             0,
-		                             Texture->Format);
+		                             Texture->PixelFormat);
 		check(0 != ImageSize);
 
 #if PLATFORM_PS4
-		TileMipForPS4((void*)(Mipstart + MipOffset), MipMap, Texture->Format);
+		TileMipForPS4((void*)(Mipstart + MipOffset), MipMap, Texture->PixelFormat);
 		MipOffset += ImageSize;
 #else
 		void* TheMipDataPtr = nullptr;
@@ -503,7 +403,7 @@ void UpdateSubstanceOutput(USubstanceTexture2D* Texture, const SubstanceTexture&
 			TheMipDataPtr = MipMap->BulkData.Lock(LOCK_READ_WRITE);
 		}
 
-		if (Texture->Format == PF_B8G8R8A8)
+		if (Texture->PixelFormat == PF_B8G8R8A8)
 		{
 			uint8* SrcPixels = (uint8*)(Mipstart + MipOffset);
 			uint8* DstPixels = (uint8*)TheMipDataPtr;
@@ -537,37 +437,67 @@ void UpdateSubstanceOutput(USubstanceTexture2D* Texture, const SubstanceTexture&
 		MipMap->BulkData.Unlock();
 #endif
 	}
+
+}
+
+void UpdateSubstanceOutputSource(UTexture2D* TextureOutput, const SubstanceTexture& ResultText)
+{
+	//Store the platform data and its mipmap data structure
+	FTexturePlatformData* TexturePlatformData = *TextureOutput->GetRunningPlatformData();
+
+#if WITH_EDITORONLY_DATA
+	//Determine which Source Texture Format to use
+	SubstancePixelFormat PixelFormat = (SubstancePixelFormat)ResultText.pixelFormat;
+	ETextureSourceFormat SourceDataFormat = SubstanceToUE4SourceFormat(PixelFormat);
+
+	if (SourceDataFormat == TSF_Invalid)
+		return;
+	
+	int32 TopMipSizeX = TexturePlatformData->SizeX = ResultText.level0Width;
+	int32 TopMipSizeY = TexturePlatformData->SizeY = ResultText.level0Height;
+
+	//#NOTE:: This is a slow operation as this updates DDC, runs through compressor and also updates textureRHI
+	TextureOutput->Source.Init(TopMipSizeX, TopMipSizeY, 1, ResultText.mipmapCount, SourceDataFormat, (uint8*)ResultText.buffer);
+
+	//Flag for save
+	TextureOutput->MarkPackageDirty();
+#endif
 }
 
 void UpdateTexture(const SubstanceTexture& result, SubstanceAir::OutputInstance* Output, bool bCacheResults /*= true*/)
 {
-	//Should we be updating textures of disabled outputs?
 	if (Output->mUserData == 0)
-	{
 		return;
-	}
 
+	USubstanceOutputData* OutputData = reinterpret_cast<USubstanceOutputData*>(Output->mUserData);
 	//Local reference of the texture we will be updating
-	USubstanceTexture2D* Texture = reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get();
+	UTexture2D* TextureOutput = Cast<UTexture2D>(OutputData->GetData());
 
 	//If the texture is invalid, we can't update it so we are done here
-	if (!Texture)
-	{
+	if (!TextureOutput)
 		return;
-	}
 
-	//Publish to cache if appropriate
-	if (bCacheResults && Texture->ParentInstance && Texture->ParentInstance->bCooked)
-	{
-		if (Texture->ParentInstance->ParentFactory->ShouldCacheOutput())
-		{
-			Substance::SubstanceCache::Get()->CacheOutput(Output, result);
-		}
-	}
+	TextureOutput->ConditionalPostLoad();
 
 	//Updates the buffer and tells the RHI to push the new data to the GPU
-	Helpers::UpdateSubstanceOutput(Texture, result);
-	Texture->UpdateResource();
+	if (bCacheResults)
+	{
+		Helpers::UpdateSubstanceOutputSource(TextureOutput, result);
+	}
+	else
+	{
+#if WITH_EDITORONLY_DATA
+		TextureOutput->ClearAllCachedCookedPlatformData();
+
+#endif
+		Helpers::UpdateSubstanceOutput(TextureOutput, result);
+#if WITH_EDITORONLY_DATA
+		TextureOutput->MarkPackageDirty();
+#endif
+
+	}
+
+	TextureOutput->UpdateResource();
 }
 
 void OnWorldInitialized()
@@ -604,18 +534,34 @@ void StartPIE()
 
 			if (resultImage)
 			{
-				//Currently not caching for PIE
-				UpdateTexture(resultImage->getTexture(), OutputItr, false);
+				bool isEditor = false;
+#if WITH_EDITOR
+				FSubstanceCoreModule& SubstanceModule = FModuleManager::LoadModuleChecked<FSubstanceCoreModule>(TEXT("SubstanceCore"));
+				const bool PIE = SubstanceModule.isPie();
+				if (!PIE)
+					isEditor = true;
+#endif
+				UpdateTexture(resultImage->getTexture(), OutputItr, isEditor);
 				bUpdatedOutput = true;
 			}
 		}
+		else
+		{
+			USubstanceOutputData* OutputData = reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData);
+			if (OutputData)
+			{
+				SetMaterialExpression(OutputItr, OutputData->ParentInstance->ConstantCreatedMaterial, OutputData->ParamInfo);
+			}
+		}
 	}
+
 #endif //WITH_EDITOR
 }
 
 void EndPIE()
 {
 #if WITH_EDITOR
+
 
 #endif //WITH_EDITOR
 }
@@ -640,15 +586,25 @@ void Tick()
 			//Grab Result (auto pointer on RenderResult)
 			SubstanceAir::OutputInstance::Result result = OutputItr->grabResult();
 
-
 			using Result = SubstanceAir::RenderResultImage;
 			Result* resultImage = static_cast<Result*>(result.get());
 
 			if (resultImage)
 			{
-				//Currently not caching for PIE
 				UpdateTexture(resultImage->getTexture(), OutputItr, false);
 				bUpdatedOutput = true;
+			}
+		}
+		else
+		{
+			USubstanceOutputData* OutputData = reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData);
+			if (OutputData)
+			{
+#if WITH_EDITOR			
+				SetMaterialExpression(OutputItr, OutputData->ParentInstance->ConstantCreatedMaterial, OutputData->ParamInfo);
+#else
+				SetMaterialExpression(OutputItr, OutputData->ParentInstance->DynamicCreatedMaterial, OutputData->ParamInfo);
+#endif
 			}
 		}
 	}
@@ -732,31 +688,12 @@ bool isSupportedByDefaultShader(SubstanceAir::OutputInstance* Output)
 	}
 }
 
-void Split_RGBA_8bpp(int32 Width, int32 Height, uint8* DecompressedImageRGBA, const int32 TextureDataSizeRGBA, uint8* DecompressedImageA, const int32 TextureDataSizeA22)
-{
-	uint8 Pixel[4] = { 0, 0, 0, 0 };
-
-	if (DecompressedImageA)
-	{
-		uint8* ImagePtrRGBA = DecompressedImageRGBA + 3;
-		uint8* ImagePtrA = DecompressedImageA;
-
-		for (int32 Y = 0; Y < Height; Y++)
-		{
-			for (int32 X = 0; X < Width; X++)
-			{
-				Pixel[0] = *ImagePtrRGBA;
-				ImagePtrRGBA += 4;
-				*ImagePtrA++ = Pixel[0];
-			}
-		}
-	}
-}
-
-void EnableTexture(SubstanceAir::OutputInstance* Output, USubstanceGraphInstance* Graph, const OutputTextureSettings* TextureSettings)
+void EnableTexture(SubstanceAir::OutputInstance* Output, USubstanceGraphInstance* Graph, const OutputTextureSettings* TextureSettings, bool IsTransient)
 {
 	FString TextureName;
 	FString PackageName;
+	UObject* Outer = nullptr;
+
 	if (!TextureSettings)
 	{
 		GetSuitableName(Output, TextureName, PackageName, Graph);
@@ -767,134 +704,58 @@ void EnableTexture(SubstanceAir::OutputInstance* Output, USubstanceGraphInstance
 		TextureSettings->PackageName.Split(TEXT("/"), nullptr, &(TextureName), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
 		PackageName = TextureSettings->PackageName;
 	}
-	UObject* TextureParent = CreatePackage(nullptr, *PackageName);
+
+	if (IsTransient)
+	{
+		Outer = Graph->GetOuter();
+		PackageName = TEXT("/") + PackageName;
+	}
+
+	UObject* TextureParent = CreatePackage(Outer, *PackageName);
 	CreateSubstanceTexture2D(Output, false, TextureName, TextureParent, Graph);
 
 	//Restore settings of created texture is available
 	if (TextureSettings)
 	{
-		reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture->SRGB = TextureSettings->sRGB_Enabled;
+		Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(Output->mUserData)->GetData())->SRGB = TextureSettings->sRGB_Enabled;
 	}
 }
 
-void CreateTextures(USubstanceGraphInstance* Graph)
+void CreateTextures(USubstanceGraphInstance* Graph, bool ForceCreate, bool IsTransient)
 {
-	bool bCreateAllOutputs = false;
-	GConfig->GetBool(TEXT("Substance"), TEXT("bCreateAllOutputs"), bCreateAllOutputs, GEngineIni);
-
-	//Special case for glossiness
-	SubstanceAir::OutputInstance* GlossinessOutput = nullptr;
-
-	//Special case for diffuse
-	SubstanceAir::OutputInstance* DiffuseOutput = nullptr;
-
-	//Flags for if maps are available
-	bool hasBaseColor = false;
-	bool hasRoughness = false;
-
 	for (const auto& Output : Graph->Instance->getOutputs())
 	{
-		const SubstanceAir::OutputDesc* Desc = &Output->mDesc;
-		if (Desc->defaultChannelUse() == SubstanceAir::Channel_Roughness)
+		if (Output->mEnabled && Output->mDesc.isImage())
 		{
-			hasRoughness = true;
+			EnableTexture(Output, Graph, nullptr, IsTransient);
 		}
-		else if (Desc->defaultChannelUse() == SubstanceAir::Channel_BaseColor)
+		else if (Output->mDesc.isNumerical())
 		{
-			hasBaseColor = true;
-		}
-		else if (Desc->defaultChannelUse() == SubstanceAir::Channel_Glossiness)
-		{
-			GlossinessOutput = Output;
-		}
-		else if (Desc->defaultChannelUse() == SubstanceAir::Channel_Diffuse)
-		{
-			DiffuseOutput = Output;
-		}
+			USubstanceOutputData* OutputLinkData = NewObject<USubstanceOutputData>(Graph, FName(), RF_Public);
+			OutputLinkData->ParentInstance = Graph;
+			OutputLinkData->CacheGuid = FGuid::NewGuid();
+			Graph->OutputInstances.Add(Output->mDesc.mUid, OutputLinkData);
+			Output->mUserData = (size_t)OutputLinkData;
+			Output->mEnabled = true;
 
-		if (bCreateAllOutputs || isSupportedByDefaultShader(Output))
-		{
-			EnableTexture(Output, Graph);
 		}
 	}
-
-	if (!hasRoughness && GlossinessOutput && !bCreateAllOutputs)
-	{
-		EnableTexture(GlossinessOutput, Graph);
-	}
-
-	if (!hasBaseColor && DiffuseOutput && !bCreateAllOutputs)
-	{
-		EnableTexture(DiffuseOutput, Graph);
-	}
+	Substance::Helpers::CreatePlaceHolderMips(Graph->Instance);
 }
 
-//#TODO:: Look into combining this logic with the CreateTextures function above for one critical path
-void CreateTransientTextures(USubstanceGraphInstance* Graph, UObject* WorldContextObject)
-{
-	UObject* Outer = WorldContextObject ? WorldContextObject : GetTransientPackage();
-
-	bool bCreateAllOutputs = false;
-	GConfig->GetBool(TEXT("Substance"), TEXT("bCreateAllOutputs"), bCreateAllOutputs, GEngineIni);
-
-	//Special case for glossiness
-	bool hasRoughness = false;
-	SubstanceAir::OutputInstance* GlossinessOutput = nullptr;
-
-	//Special case for diffuse
-	bool hasBaseColor = false;
-	SubstanceAir::OutputInstance* DiffuseOutput = nullptr;
-
-	for (const auto& Output : Graph->Instance->getOutputs())
-	{
-		const SubstanceAir::OutputDesc* Desc = &Output->mDesc;
-		if (Desc->defaultChannelUse() == SubstanceAir::Channel_Roughness)
-		{
-			hasRoughness = true;
-		}
-		else if (Desc->defaultChannelUse() == SubstanceAir::Channel_Glossiness)
-		{
-			GlossinessOutput = Output;
-		}
-		else if (Desc->defaultChannelUse() == SubstanceAir::Channel_BaseColor)
-		{
-			hasBaseColor = true;
-		}
-		else if (Desc->defaultChannelUse() == SubstanceAir::Channel_Diffuse)
-		{
-			DiffuseOutput = Output;
-		}
-
-		if (bCreateAllOutputs || isSupportedByDefaultShader(Output))
-		{
-			CreateSubstanceTexture2D(Output, true, FString(Desc->defaultChannelUseStr().c_str()), Outer, Graph);
-		}
-	}
-
-	if (!hasRoughness && GlossinessOutput && !bCreateAllOutputs)
-	{
-		CreateSubstanceTexture2D(GlossinessOutput, true, FString(GlossinessOutput->mDesc.defaultChannelUseStr().c_str()), Outer, Graph);
-	}
-
-	if (!hasBaseColor && DiffuseOutput && !bCreateAllOutputs)
-	{
-		CreateSubstanceTexture2D(DiffuseOutput, true, FString(DiffuseOutput->mDesc.defaultChannelUseStr().c_str()), Outer, Graph);
-	}
-}
-
-bool UpdateTextures(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>& Instances)
+bool UpdateTextures(TArray<SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>>& Instances, bool InEditor)
 {
 	bool GotSomething = false;
 
 	for (const auto& GraphInstItr : Instances)
 	{
-		GotSomething = UpdateTextures(GraphInstItr) ? true : GotSomething;
+		GotSomething = UpdateTextures(GraphInstItr, InEditor) ? true : GotSomething;
 	}
 
 	return GotSomething;
 }
 
-bool UpdateTextures(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance)
+bool UpdateTextures(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance, bool InEditor)
 {
 	//Iterate on all Outputs
 	bool GotSomething = false;
@@ -918,10 +779,22 @@ bool UpdateTextures(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instan
 
 			if (resultImage)
 			{
-				TWeakObjectPtr<USubstanceGraphInstance> UEGraphInstance = reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->ParentInstance;
+				TWeakObjectPtr<USubstanceGraphInstance> UEGraphInstance = reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->ParentInstance;
 				UEGraphInstance->MarkPackageDirty();
-				UpdateTexture(resultImage->getTexture(), OutputItr, false);
+				UpdateTexture(resultImage->getTexture(), OutputItr, InEditor);
 				GotSomething = true;
+			}
+		}
+		else
+		{
+			USubstanceOutputData* OutputData = reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData);
+			if (OutputData)
+			{
+#if WITH_EDITOR			
+				SetMaterialExpression(OutputItr, OutputData->ParentInstance->ConstantCreatedMaterial, OutputData->ParamInfo);
+#else
+				SetMaterialExpression(OutputItr, OutputData->ParentInstance->DynamicCreatedMaterial, OutputData->ParamInfo);
+#endif
 			}
 		}
 	}
@@ -929,21 +802,32 @@ bool UpdateTextures(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instan
 	return GotSomething;
 }
 
+SUBSTANCECORE_API SubstanceAir::OutputInstance* GetSubstanceOutputByID(USubstanceGraphInstance* graph, uint32 UID)
+{
+	return graph->Instance->findOutput(UID);
+}
+
 void CreateSubstanceTexture2D(SubstanceAir::OutputInstance* Output, bool Transient, FString Name, UObject* InOuter, USubstanceGraphInstance* ParentInst)
 {
 	check(Output);
 	check(InOuter);
 
-	USubstanceTexture2D* Texture = nullptr;
-	Texture = NewObject<USubstanceTexture2D>(InOuter, FName(*Name), Transient ? RF_NoFlags : RF_Public | RF_Standalone);
+	UTexture2D* Texture = nullptr;
+	Texture = NewObject<UTexture2D>(InOuter, FName(*Name), Transient ? RF_NoFlags : RF_Public | RF_Standalone);
 	Texture->MarkPackageDirty();
-	Texture->ParentInstance = ParentInst;
-	Texture->mUid = Output->mDesc.mUid;
+	(*Texture->GetRunningPlatformData()) = new FTexturePlatformData();
+	FTexturePlatformData* TexturePlatformData = *Texture->GetRunningPlatformData();
+	Texture->AddressX = TextureAddress::TA_Wrap;
+	Texture->AddressY = TextureAddress::TA_Wrap;
 
-	Texture->mUserData.ParentInstance = Texture->ParentInstance;
-	Texture->mUserData.Texture = Texture;
-	Texture->mUserData.CacheGuid = FGuid::NewGuid();
-	Output->mUserData = (size_t)&Texture->mUserData;
+	USubstanceOutputData* OutputLinkData = NewObject<USubstanceOutputData>(ParentInst,FName(), RF_Public);
+	OutputLinkData->ParentInstance = ParentInst;
+	OutputLinkData->SetData(Texture);
+	OutputLinkData->CacheGuid = FGuid::NewGuid();
+
+	ParentInst->OutputInstances.Add(Output->mDesc.mUid, OutputLinkData);
+	
+	Output->mUserData = (size_t)OutputLinkData;
 
 	const SubstanceAir::OutputDesc* Desc = &Output->mDesc;
 	const SubstanceAir::ChannelUse OutputChannel = Desc->defaultChannelUse();
@@ -954,35 +838,40 @@ void CreateSubstanceTexture2D(SubstanceAir::OutputInstance* Output, bool Transie
 		Texture->CompressionSettings = TC_Normalmap;
 	}
 	else if (OutputChannel == SubstanceAir::Channel_BaseColor
-	         || OutputChannel == SubstanceAir::Channel_Diffuse
-	         || OutputChannel == SubstanceAir::Channel_Specular
-	         || OutputChannel == SubstanceAir::Channel_Emissive)
+		|| OutputChannel == SubstanceAir::Channel_Diffuse
+		|| OutputChannel == SubstanceAir::Channel_Specular
+		|| OutputChannel == SubstanceAir::Channel_Emissive)
 	{
 		Texture->SRGB = true;
 	}
 	else if (OutputChannel == SubstanceAir::Channel_Roughness
-	         || OutputChannel == SubstanceAir::Channel_Metallic
-	         || OutputChannel == SubstanceAir::Channel_SpecularLevel
-	         || OutputChannel == SubstanceAir::Channel_Glossiness
-	         || OutputChannel == SubstanceAir::Channel_AmbientOcclusion
-	         || OutputChannel == SubstanceAir::Channel_Opacity
-	         || OutputChannel == SubstanceAir::Channel_Displacement
-	         || OutputChannel == SubstanceAir::Channel_Height)
+		|| OutputChannel == SubstanceAir::Channel_Metallic
+		|| OutputChannel == SubstanceAir::Channel_SpecularLevel
+		|| OutputChannel == SubstanceAir::Channel_Glossiness
+		|| OutputChannel == SubstanceAir::Channel_AmbientOcclusion
+		|| OutputChannel == SubstanceAir::Channel_Opacity
+		|| OutputChannel == SubstanceAir::Channel_Displacement
+		|| OutputChannel == SubstanceAir::Channel_Height)
 	{
 		Texture->SRGB = false;
 		Texture->CompressionSettings = TC_Grayscale;
 	}
 
-	ValidateFormat(Texture, Output);
+	//Set the initial format. This will be overwritten on output computed.
+	TexturePlatformData->PixelFormat = Substance::Helpers::SubstanceToUe4Format((SubstancePixelFormat)Output->mDesc.mFormat, Substance_ChanOrder_RGBA);
+
+#if WITH_EDITORONLY_DATA
+	Texture->MipGenSettings = TextureMipGenSettings::TMGS_LeaveExistingMips;
+#endif
 
 	//Unsupported format
-	if (PF_Unknown == Texture->Format)
+	if (PF_Unknown == Texture->GetPixelFormat())
 	{
 		Texture->ClearFlags(RF_Standalone);
 		return;
 	}
 
-	switch (Texture->Format)
+	switch (Texture->GetPixelFormat())
 	{
 	case PF_G8:
 		Texture->SRGB = false;
@@ -1007,61 +896,11 @@ void CreateSubstanceTexture2D(SubstanceAir::OutputInstance* Output, bool Transie
 #endif //WITH_EDITOR
 	}
 
-	Texture->OutputCopy = Output;
-	Texture->SizeX = 0;
-	Texture->SizeY = 0;
+	Texture->PlatformData->SizeX = 0;
+	Texture->PlatformData->SizeY = 0;
 
 	Output->mEnabled = true;
 	Output->flagAsDirty();
-}
-
-void ValidateFormat(USubstanceTexture2D* Texture, SubstanceAir::OutputInstance* Output)
-{
-	//Handle UE4 Default format setup - Override from the saved
-	const SubstanceAir::OutputDesc* Desc = &Output->mDesc;
-	SubstanceAir::OutputFormat FormatOverride;
-	FormatOverride.format = Desc->mFormat;
-
-	int32 NewFormat = Desc->mFormat;
-
-	//Strip sRGB format - Not currently supported
-	NewFormat &= ~Substance_PF_sRGB;
-	if (Desc->mFormat == (Substance_PF_RAW | Substance_PF_16b))
-	{
-		NewFormat = Substance_PF_DXT1;
-	}
-
-	//Fix formats to pass to substance (this format will also update UE4 texture format)
-	switch (NewFormat)
-	{
-	case Substance_PF_RGB:
-	case Substance_PF_RGBx:
-		NewFormat = Substance_PF_RGB;
-		break;
-
-	case Substance_PF_DXT2:
-	case Substance_PF_DXT3:
-		NewFormat = Substance_PF_DXT3;
-		break;
-
-	case Substance_PF_DXTn:
-		NewFormat = Substance_PF_BC5;
-		break;
-
-	case Substance_PF_DXT4:
-	case Substance_PF_DXT5:
-		NewFormat = Substance_PF_DXT5;
-		break;
-	}
-
-	//Locking normals to BC_5
-	if (Desc->defaultChannelUse() == SubstanceAir::ChannelUse::Channel_Normal && Desc->mFormat != Substance_PF_RAW)
-	{
-		NewFormat = Substance_PF_BC5;
-	}
-
-	FormatOverride.format = NewFormat;
-	Output->overrideFormat(FormatOverride);
 }
 
 void CreatePlaceHolderMips(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance)
@@ -1078,19 +917,30 @@ void CreatePlaceHolderMips(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>
 			continue;
 		}
 
-		USubstanceTexture2D* Texture = reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->Texture.Get();
+		UTexture2D* OutputTexture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData());
+
+		if (OutputTexture == nullptr)
+		{
+			continue;
+		}
+
+		FTexturePlatformData* Texture = OutputTexture->PlatformData;
 		FTexture2DMipMap* MipMap = nullptr;
 
-		Texture->Format = PF_B8G8R8A8;
+		if (Texture == nullptr)
+		{
+			Texture = new FTexturePlatformData();
+		}
 
-		Texture->NumMips = MinPlaceHolderMips;
+		Texture->PixelFormat = PF_B8G8R8A8;
+
 		Texture->Mips.Empty();
 
 		int32 MipSizeX = Texture->SizeX = FMath::Pow(2, MinPlaceHolderMips);
 		int32 MipSizeY = Texture->SizeY = FMath::Pow(2, MinPlaceHolderMips);
 		SIZE_T MipOffset = 0;
 
-		for (int32 IdxMip = 0; IdxMip < Texture->NumMips; ++IdxMip)
+		for (int32 IdxMip = 0; IdxMip < MinPlaceHolderMips; ++IdxMip)
 		{
 			MipMap = new FTexture2DMipMap();
 			Texture->Mips.Add(MipMap);
@@ -1102,12 +952,12 @@ void CreatePlaceHolderMips(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>
 			MipSizeY = FMath::Max(MipSizeY >> 1, 1);
 
 			//Not smaller than the "block size"
-			MipSizeX = FMath::Max((int32)GPixelFormats[Texture->Format].BlockSizeX, MipSizeX);
-			MipSizeY = FMath::Max((int32)GPixelFormats[Texture->Format].BlockSizeY, MipSizeY);
+			MipSizeX = FMath::Max((int32)GPixelFormats[Texture->PixelFormat].BlockSizeX, MipSizeX);
+			MipSizeY = FMath::Max((int32)GPixelFormats[Texture->PixelFormat].BlockSizeY, MipSizeY);
 		}
 
 		//Fill up the mips
-		for (int32 IdxMip = 0; IdxMip < Texture->NumMips; ++IdxMip)
+		for (int32 IdxMip = 0; IdxMip < Texture->Mips.Num(); ++IdxMip)
 		{
 			MipMap = &Texture->Mips[IdxMip];
 
@@ -1116,7 +966,7 @@ void CreatePlaceHolderMips(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>
 			                             MipMap->SizeX,
 			                             MipMap->SizeY,
 			                             0,
-			                             Texture->Format);
+			                             Texture->PixelFormat);
 			check(0 != ImageSize);
 
 			//Copy the data
@@ -1140,7 +990,7 @@ void CreatePlaceHolderMips(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance>
 			MipMap->BulkData.Unlock();
 		}
 
-		Texture->UpdateResource();
+		OutputTexture->UpdateResource();
 	}
 }
 
@@ -1154,7 +1004,10 @@ SubstancePixelFormat UE4FormatToSubstance(EPixelFormat Fmt)
 		return Substance_PF_DXT3;
 	case PF_DXT5:
 		return Substance_PF_DXT5;
-
+	case PF_BC4:
+		return Substance_PF_BC4;
+	case PF_BC5:
+		return Substance_PF_BC5;
 	case PF_R8G8B8A8:
 	case PF_B8G8R8A8:
 	case PF_A8R8G8B8:
@@ -1163,9 +1016,8 @@ SubstancePixelFormat UE4FormatToSubstance(EPixelFormat Fmt)
 		return Substance_PF_L;
 	case PF_G16:
 		return SubstancePixelFormat(Substance_PF_L | Substance_PF_16b);
-
 	default:
-		return Substance_PF_RAW;
+		return Substance_PF_Misc;
 	}
 }
 
@@ -1250,6 +1102,105 @@ EPixelFormat SubstanceToUe4Format(const SubstancePixelFormat Format, const Subst
 	}
 
 	return OutFormat;
+}
+
+void OverwriteSubstancePixelFormatForSourceImage(SubstanceAir::OutputInstance* Output)
+{
+	const SubstanceAir::OutputDesc* Desc = &Output->mDesc;
+	SubstanceAir::OutputFormat FormatOverride;
+	FormatOverride.mipmapLevelsCount = SubstanceAir::OutputFormat::Constant::MipmapFullPyramid;
+	FormatOverride.format = Desc->mFormat;
+	int32 NewFormat = Desc->mFormat;
+
+	//#NOTE:: Available Raw Image Formats
+	//G8, BGRA8, BGRE8, RGBA16, RGBA16F
+	//Currently there is an issue initializing with any format other than RAW to BGRE8
+	
+	NewFormat = Substance_PF_RAW;
+
+	//Swizzle the channel order to line up with the needed BGRA8 (UE4 deprecated RGBA for raw image formats)
+	FormatOverride.perComponent[0].shuffleIndex = 2;
+	FormatOverride.perComponent[1].shuffleIndex = 1;
+	FormatOverride.perComponent[2].shuffleIndex = 0;
+	FormatOverride.perComponent[3].shuffleIndex = 3;
+
+	FormatOverride.format = NewFormat;
+	Output->overrideFormat(FormatOverride);
+}
+
+void OverwriteSubstancePixelFormatForRuntimeCompression(SubstanceAir::OutputInstance* Output)
+{
+	const SubstanceAir::OutputDesc* Desc = &Output->mDesc;
+	SubstanceAir::OutputFormat FormatOverride;
+	FormatOverride.mipmapLevelsCount = SubstanceAir::OutputFormat::Constant::MipmapFullPyramid;
+	FormatOverride.format = Desc->mFormat;
+	int32 NewFormat = Desc->mFormat;
+
+	if (Output->mDesc.defaultChannelUse() == SubstanceAir::Channel_Normal)
+	{
+		NewFormat = Substance_PF_BC5;
+	}
+
+	switch (NewFormat)
+	{
+		//G8 - 8 bit Single Channel
+	case Substance_PF_L | Substance_PF_16b:
+	case Substance_PF_L | Substance_PF_16F:
+	case Substance_PF_L:
+		NewFormat = Substance_PF_L;
+		break;
+
+		//Normal map stays BC5
+	case Substance_PF_BC5:
+		NewFormat = Substance_PF_BC5;
+		break;
+
+		//16 bit 4 channel half float
+	case Substance_PF_16F:
+	case Substance_PF_RGBA | Substance_PF_16b:
+	case Substance_PF_RGB | Substance_PF_16b:
+	case Substance_PF_RGBx | Substance_PF_16b:
+		NewFormat = Substance_PF_DXT1;
+		break;
+
+		//defaults to 8bit 4 channels (swizzled)
+	default:
+	{
+		NewFormat = Substance_PF_DXT1;
+		break;
+	}
+	}
+
+	FormatOverride.format = NewFormat;
+	Output->overrideFormat(FormatOverride);
+}
+
+
+ETextureSourceFormat SubstanceToUE4SourceFormat(const SubstancePixelFormat Format)
+{
+	switch ((unsigned int)Format)
+	{
+	case Substance_PF_L:
+		return TSF_G8;
+
+	case Substance_PF_16F:
+	case Substance_PF_L | Substance_PF_16F:
+		return TSF_RGBA16F;
+
+		//Prevent crash because there is no one to one format conversion between R8G8 to the Source formats
+	case Substance_PF_RGBA:
+	case Substance_PF_RGBx:
+	case Substance_PF_RGB:
+		return TSF_BGRA8;
+
+	case Substance_PF_L | Substance_PF_16b:
+	case Substance_PF_RGBA | Substance_PF_16b:
+	case Substance_PF_RGB | Substance_PF_16b:
+	case Substance_PF_RGBx | Substance_PF_16b:
+		return TSF_RGBA16;
+	}
+
+	return TSF_Invalid;
 }
 
 bool AreInputValuesEqual(SubstanceAir::InputInstanceBase& A, SubstanceAir::InputInstanceBase& B)
@@ -1423,26 +1374,25 @@ void TearDownSubstance()
 	DelayedImageInputs.Empty();
 
 	GSubstanceRenderer.Reset();
-	SubstanceCache::Shutdown();
 }
 
 void Disable(SubstanceAir::OutputInstance* Output, bool FlagToDelete)
 {
 	Output->mEnabled = false;
 
-	if (Output->mUserData != 0 && reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture.Get())
+	if (Output->mUserData != 0 && reinterpret_cast<USubstanceOutputData*>(Output->mUserData)->GetData())
 	{
-		TWeakObjectPtr<USubstanceTexture2D> Texture = reinterpret_cast<OutputInstanceData*>(Output->mUserData)->Texture;
-		Texture->OutputCopy = nullptr;
+		TWeakObjectPtr<UTexture2D> Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(Output->mUserData)->GetData());
 
 		//Clear flag allowing texture to be garbage collected
 		if (IsGarbageCollecting() && Texture.IsValid() && FlagToDelete)
 		{
+			//Output->mUserData = 0;
 			Texture->ClearFlags(RF_Standalone);
 		}
-
-		Output->mUserData = 0;
 	}
+
+
 }
 
 const SubstanceAir::GraphDesc* FindParentGraph(const std::vector<SubstanceAir::GraphDesc>& Graphs, SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance)
@@ -1475,155 +1425,20 @@ const SubstanceAir::GraphDesc* FindParentGraph(const std::vector<SubstanceAir::G
 	return nullptr;
 }
 
-void DecompressJpeg(const void* Buffer, const int32 Length, TArray<uint8>& outRawData, int32* outWidth, int32* outHeight, int32 NumComp)
+void PrepareFileImageInput_GetBGRA(UTexture2D* Input, uint8** Outptr, int32& outWidth, int32& outHeight)
 {
-	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-	TSharedPtr<IImageWrapper> ImageWrapper;
-
-	if (NumComp == 1)
-	{
-		ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::GrayscaleJPEG);
-	}
-	else
-	{
-		ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::JPEG);
-	}
-
-	const TArray<uint8>* outRawDataPtr;
-	ImageWrapper->SetCompressed(Buffer, Length);
-	ImageWrapper->GetRaw(NumComp == 1 ? ERGBFormat::Gray : ERGBFormat::BGRA, 8, outRawDataPtr);
-	outRawData = *outRawDataPtr;
-
-	*outWidth = ImageWrapper->GetWidth();
-	*outHeight = ImageWrapper->GetHeight();
-}
-
-void CompressJpeg(const void* InBuffer, const int32 InLength, const int32 W, const int32 H, const int32 NumComp, TArray<uint8>& outCompressedData, int32 Quality)
-{
-	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-	TSharedPtr<IImageWrapper> ImageWrapper;
-
-	EImageFormat formatType = (NumComp == 1) ? EImageFormat::GrayscaleJPEG : EImageFormat::JPEG;
-	ImageWrapper = ImageWrapperModule.CreateImageWrapper(formatType);
-
-	ImageWrapper->SetRaw(InBuffer, InLength, W, H, NumComp == 1 ? ERGBFormat::Gray : ERGBFormat::BGRA, 8);
-
-	const int32 JPEGQuality = Quality;
-
-	outCompressedData = ImageWrapper->GetCompressed(JPEGQuality);
-}
-
-void Join_RGBA_8bpp(int32 Width, int32 Height, uint8* DecompressedImageRGBA, const int32 TextureDataSizeRGBA, uint8* DecompressedImageA, const int32 TextureDataSizeA)
-{
-	check(DecompressedImageRGBA);
-
-	if (DecompressedImageA)
-	{
-		uint8* DstImagePtrA = DecompressedImageRGBA + 3;
-		uint8* ImagePtrA = DecompressedImageA;
-
-		for (int32 Y = 0; Y < Height; Y++)
-		{
-			for (int32 X = 0; X < Width; X++)
-			{
-				*DstImagePtrA = *ImagePtrA++;
-				DstImagePtrA += 4;
-			}
-		}
-	}
-}
-
-void PrepareFileImageInput_GetBGRA(USubstanceImageInput* Input, uint8** Outptr, int32& outWidth, int32& outHeight)
-{
-	TArray<uint8> UncompressedImageRGBA;
-	TArray<uint8> UncompressedImageA;
-
-	//Decompress both parts, color and alpha
-	if (Input->ImageRGB.GetBulkDataSize())
-	{
-		if (Input->CompressionLevelRGB)
-		{
-			uint8* CompressedImageRGB = (uint8*)Input->ImageRGB.Lock(LOCK_READ_ONLY);
-			int32 SizeCompressedImageRGB = Input->ImageRGB.GetBulkDataSize();
-			Substance::Helpers::DecompressJpeg(CompressedImageRGB, SizeCompressedImageRGB, UncompressedImageRGBA, &outWidth, &outHeight);
-			Input->ImageRGB.Unlock();
-		}
-		else
-		{
-			UncompressedImageRGBA.Empty();
-			UncompressedImageRGBA.AddUninitialized(Input->ImageRGB.GetBulkDataSize());
-			FMemory::Memcpy(UncompressedImageRGBA.GetData(), Input->ImageRGB.Lock(LOCK_READ_ONLY), Input->ImageRGB.GetBulkDataSize());
-			Input->ImageRGB.Unlock();
-
-			outWidth = Input->SizeX;
-			outHeight = Input->SizeY;
-		}
-	}
-
-	if (Input->ImageA.GetBulkDataSize())
-	{
-		if (Input->CompressionLevelAlpha)
-		{
-			uint8* CompressedImageA = (uint8*)Input->ImageA.Lock(LOCK_READ_ONLY);
-			int32 SizeCompressedImageA = Input->ImageA.GetBulkDataSize();
-			int32 WidthA;
-			int32 HeightA;
-
-			Substance::Helpers::DecompressJpeg(CompressedImageA, SizeCompressedImageA, UncompressedImageA, &WidthA, &HeightA, 1);
-
-			check(WidthA == outWidth);
-			check(HeightA == outHeight);
-
-			Input->ImageA.Unlock();
-		}
-		else
-		{
-			UncompressedImageA.Empty();
-			UncompressedImageA.AddUninitialized(Input->ImageA.GetBulkDataSize());
-			FMemory::Memcpy(UncompressedImageA.GetData(), Input->ImageA.Lock(LOCK_READ_ONLY), Input->ImageA.GetBulkDataSize());
-			Input->ImageA.Unlock();
-
-			outWidth = Input->SizeX;
-			outHeight = Input->SizeY;
-		}
-	}
-
-	//Recompose the two parts in one single image buffer
-	if (UncompressedImageA.Num() && UncompressedImageRGBA.Num())
-	{
-		int32 OutptrSize = outWidth * outHeight * 4;
-		*Outptr = (uint8*)FMemory::Malloc(OutptrSize);
-
-#if SUBSTANCE_MEMORY_STAT
-		INC_MEMORY_STAT_BY(STAT_SubstanceImageMemory, OutptrSize);
+#if WITH_EDITOR
+	Input->PlatformData->TryInlineMipData();
 #endif
+	Input->PlatformData->Mips[0].BulkData.GetCopy((void**)Outptr, false);
 
-		FMemory::Memcpy(*Outptr, UncompressedImageRGBA.GetData(), UncompressedImageRGBA.Num());
-		Join_RGBA_8bpp(outWidth, outHeight, *Outptr, UncompressedImageRGBA.Num(), &UncompressedImageA[0], UncompressedImageA.Num());
-		UncompressedImageA.Empty();
-	}
-	else if (UncompressedImageRGBA.Num())
-	{
-		int32 OutptrSize = outWidth * outHeight * 4;
-		*Outptr = (uint8*)FMemory::Malloc(OutptrSize);
-
-#if SUBSTANCE_MEMORY_STAT
-		INC_MEMORY_STAT_BY(STAT_SubstanceImageMemory, OutptrSize);
-#endif
-
-		FMemory::Memcpy(*Outptr, &UncompressedImageRGBA[0], UncompressedImageRGBA.Num());
-	}
-	else if (UncompressedImageA.Num())
-	{
-		//Unsupported case for the moment
-		UncompressedImageA.Empty();
-		check(0);
-	}
+	outWidth = Input->GetSizeX();
+	outHeight = Input->GetSizeY();
 }
 
-SubstanceAir::shared_ptr<SubstanceAir::InputImage> PrepareFileImageInput(USubstanceImageInput* Input)
+SubstanceAir::shared_ptr<SubstanceAir::InputImage> PrepareFileImageInput(UTexture2D* Input)
 {
-	if (nullptr == Input)
+	if (nullptr == Input || UE4FormatToSubstance(Input->GetPixelFormat()) == Substance_PF_Misc)
 	{
 		return SubstanceAir::shared_ptr<SubstanceAir::InputImage>();
 	}
@@ -1646,7 +1461,7 @@ SubstanceAir::shared_ptr<SubstanceAir::InputImage> PrepareFileImageInput(USubsta
 			UncompressedDataPtr,
 			sWidth,
 			sHeight,
-			Substance_PF_RGBA,
+			(unsigned char)UE4FormatToSubstance(Input->GetPixelFormat()),
 			Substance_ChanOrder_BGRA,
 			1
 		};
@@ -1662,77 +1477,6 @@ SubstanceAir::shared_ptr<SubstanceAir::InputImage> PrepareFileImageInput(USubsta
 	else
 	{
 		return SubstanceAir::shared_ptr<SubstanceAir::InputImage>();
-	}
-}
-
-void LinkImageInput(SubstanceAir::InputInstanceImage* ImgInputInst, USubstanceImageInput* SrcImageInput)
-{
-#if WITH_EDITOR
-	//Don't keep track of graph using the image input when playing in editor
-	FSubstanceCoreModule& SubstanceModule = FModuleManager::LoadModuleChecked<FSubstanceCoreModule>(TEXT("SubstanceCore"));
-	const bool PIE = SubstanceModule.isPie();
-#else
-	const bool PIE = false;
-#endif
-
-	//Source image input changed, unlink previous one if one exists
-	USubstanceImageInput* PrevBmpInput = nullptr;
-	if (ImgInputInst->getImage() != nullptr)
-	{
-		PrevBmpInput = (USubstanceImageInput*)(reinterpret_cast<InputImageData*>(ImgInputInst->getImage()->mUserData)->ImageUObjectSource);
-	}
-
-	//At load, the image src is the same but still needs to be registered
-	if (PrevBmpInput == SrcImageInput && SrcImageInput != nullptr)
-	{
-		USubstanceGraphInstance* ParentGraph = reinterpret_cast<GraphInstanceData*>(ImgInputInst->mParentGraph.mUserData)->ParentGraph.Get();
-		if (!SrcImageInput->Consumers.Contains(ParentGraph) && !PIE)
-		{
-			SrcImageInput->Consumers.AddUnique(ParentGraph);
-		}
-		return;
-	}
-
-	if (PrevBmpInput && reinterpret_cast<InputImageData*>(ImgInputInst->getImage()->mUserData)->ImageUObjectSource != SrcImageInput)
-	{
-		TArray< USubstanceGraphInstance* > DeprecatedConsumers;
-
-		//Iterate through consumers of the previous image input object,
-		for (auto itConsumer = PrevBmpInput->Consumers.CreateIterator(); itConsumer; ++itConsumer)
-		{
-			int32 ConsumeCount = 0;
-
-			for (const auto& itInput : (*itConsumer)->Instance->getInputs())
-			{
-				//If there is only one image input instance using the previous image input, remove it from the consumers
-				if (itInput->mDesc.isImage())
-				{
-					SubstanceAir::InputInstanceImage* image = (SubstanceAir::InputInstanceImage*)itInput;
-					if (image->getImage() && image->getImage()->mUserData)
-					{
-						if (reinterpret_cast<InputImageData*>(image->getImage()->mUserData)->ImageUObjectSource == PrevBmpInput)
-						{
-							++ConsumeCount;
-						}
-					}
-				}
-			}
-
-			if (ConsumeCount == 1)
-			{
-				DeprecatedConsumers.Add(*itConsumer);
-			}
-		}
-
-		for (auto itDepConsumers = DeprecatedConsumers.CreateIterator(); itDepConsumers; ++itDepConsumers)
-		{
-			PrevBmpInput->Consumers.Remove(*itDepConsumers);
-		}
-	}
-
-	if (SrcImageInput && !PIE)
-	{
-		SrcImageInput->Consumers.AddUnique(reinterpret_cast<GraphInstanceData*>(ImgInputInst->mParentGraph.mUserData)->ParentGraph.Get());
 	}
 }
 
@@ -1752,9 +1496,10 @@ void SetImageInput(SubstanceAir::InputInstanceImage* Input, UObject* InValue, Su
 
 		if (NewInputImage.get())
 		{
-			USubstanceImageInput* SubstanceImage = (USubstanceImageInput*)InValue;
-			NewInputImage->mUserData = (size_t)&SubstanceImage->mUserData;
+			UTexture2D* InputTexture = Cast<UTexture2D>(InValue);
+			NewInputImage->mUserData = (size_t)InputTexture;
 		}
+
 		Input->setImage(NewInputImage);
 		reinterpret_cast<GraphInstanceData*>(Input->mParentGraph.mUserData)->bHasPendingImageInputRendering = true;
 	}
@@ -1765,12 +1510,11 @@ SubstanceAir::shared_ptr<SubstanceAir::InputImage> PrepareImageInput(UObject* Im
 {
 	if (Image)
 	{
-		USubstanceImageInput* BmpImageInput = Cast<USubstanceImageInput>(Image);
+		UTexture2D* BmpImageInput = Cast<UTexture2D>(Image);
 
-		if (BmpImageInput)
+		if (BmpImageInput && BmpImageInput->IsValidLowLevel())
 		{
 			//Link the image input with the input
-			LinkImageInput(ImgInputInst, BmpImageInput);
 			return PrepareFileImageInput(BmpImageInput);
 		}
 	}
@@ -1826,7 +1570,7 @@ FString GetValueString(const SubstanceAir::InputInstanceBase& Input)
 {
 	if (Input.mDesc.mType != Substance_IOType_String)
 	{
-		UE_LOG(LogSubstanceCore, Warning, TEXT("Attepted to get the string value of an input that is not a string"))
+		UE_LOG(LogSubstanceCore, Warning, TEXT("Attempted to get the string value of an input that is not a string"))
 		return FString();
 	}
 
@@ -1940,7 +1684,7 @@ FString GetValueAsString(const SubstanceAir::InputInstanceBase& InInput)
 
 			if (Input->getImage())
 			{
-				reinterpret_cast<InputImageData*>(Input->getImage()->mUserData)->ImageUObjectSource->GetFullName().Split(TEXT(" "), nullptr, &ValueStr);
+				reinterpret_cast<UTexture2D*>(Input->getImage()->mUserData)->GetFullName().Split(TEXT(" "), nullptr, &ValueStr);
 			}
 			else
 			{
@@ -2000,7 +1744,7 @@ bool IsSupportedImageInput(UObject* CandidateImageInput)
 	}
 
 	//Make sure the image is a supported object
-	if (Cast<USubstanceImageInput>(CandidateImageInput) || Cast<USubstanceTexture2D>(CandidateImageInput))
+	if (Cast<UTexture2D>(CandidateImageInput))
 	{
 		return true;
 	}
@@ -2043,7 +1787,7 @@ void GetSuitableName(SubstanceAir::OutputInstance* Instance, FString& OutAssetNa
 	}
 	else
 	{
-		UEGraphInstance = reinterpret_cast<OutputInstanceData*>(Instance->mUserData)->ParentInstance.Get();
+		UEGraphInstance = reinterpret_cast<USubstanceOutputData*>(Instance->mUserData)->ParentInstance;
 	}
 
 #if WITH_EDITOR
@@ -2071,11 +1815,22 @@ void GetSuitableName(SubstanceAir::OutputInstance* Instance, FString& OutAssetNa
 
 	//Still got to find a name, and still got to have it unique
 	FString BaseName(TEXT("TEXTURE_NAME_NOT_FOUND"));
-	AssetToolsModule.Get().CreateUniqueAssetName(reinterpret_cast<OutputInstanceData*>(Instance->mUserData)->ParentInstance->GetPathName() + TEXT("/") + BaseName,
-	        TEXT(""), OutPackageName, OutAssetName);
+	AssetToolsModule.Get().CreateUniqueAssetName(reinterpret_cast<USubstanceOutputData*>(Instance->mUserData)->ParentInstance->GetPathName() + TEXT("/") + BaseName,
+		TEXT(""), OutPackageName, OutAssetName);
 #else
-	OutPackageName.Empty();
-	OutAssetName = UEGraphInstance->ParentFactory->GetName();
+	const SubstanceAir::GraphDesc& Graph = UEGraphInstance->Instance->mDesc;
+	for (const auto& OutputItr : Graph.mOutputs)
+	{
+		//Look for the original description
+		if (OutputItr.mUid == Instance->mDesc.mUid)
+		{
+			FString BaseName = UEGraphInstance->GetName() + TEXT("_") + OutputItr.mIdentifier.c_str();
+			FString PackageName = UEGraphInstance->GetOuter()->GetName() + TEXT("_") + BaseName;
+			OutPackageName = PackageName;
+			OutAssetName = UEGraphInstance->ParentFactory->GetName();
+			return;
+		}
+	}
 #endif
 }
 
@@ -2114,17 +1869,20 @@ USubstanceGraphInstance* InstantiateGraph(
     UObject* Outer,
     FString InstanceName,
     bool bCreateOutputs,
-    EObjectFlags Flags)
+    EObjectFlags Flags,
+	UMaterial* InParentMaterial)
 {
 	USubstanceGraphInstance* GraphInstance = NewObject<USubstanceGraphInstance>(Outer, *InstanceName, Flags);
 	GraphInstance->MarkPackageDirty();
 
 	//Set the URL to save for relinking later
 	GraphInstance->PackageURL = Graph.mPackageUrl.c_str();
-
+	
 	//Register Parent Factory
 	GraphInstance->ParentFactory = ParentFactory;
 	ParentFactory->RegisterGraphInstance(GraphInstance);
+
+	GraphInstance->CreatedMaterial = InParentMaterial;
 
 	//#TODO:: Use make shared post framework update
 	//Create a new instance
@@ -2138,34 +1896,14 @@ USubstanceGraphInstance* InstantiateGraph(
 	if (bCreateOutputs)
 	{
 		Helpers::CreateTextures(GraphInstance);
+#if WITH_EDITORONLY_DATA
+		for (SubstanceAir::OutputInstance* outp : GraphInstance->Instance->getOutputs())
+		{
+			Substance::Helpers::OverwriteSubstancePixelFormatForSourceImage(outp);
+		}
+#endif
+		GraphInstance->MarkPackageDirty();
 	}
-
-	return GraphInstance;
-}
-
-USubstanceGraphInstance* InstantiateGraph(
-    const SubstanceAir::GraphDesc& Graph,
-    UObject* Outer,
-    FString InstanceName,
-    bool bCreateOutputs,
-    EObjectFlags Flags)
-{
-	USubstanceGraphInstance* GraphInstance = NewObject<USubstanceGraphInstance>(Outer, *InstanceName, Flags);
-	GraphInstance->MarkPackageDirty();
-
-	//Find created instance
-	GraphInstance->Instance = SubstanceAir::make_shared<SubstanceAir::GraphInstance>(Graph);
-
-	//Set up the user data for framework access
-	GraphInstance->mUserData.ParentGraph = GraphInstance;
-	GraphInstance->Instance->mUserData = (size_t)&GraphInstance->mUserData;
-
-	//Create outputs
-	if (bCreateOutputs)
-	{
-		Helpers::CreateTextures(GraphInstance);
-	}
-
 	return GraphInstance;
 }
 
@@ -2207,6 +1945,10 @@ void CopyInstance(USubstanceGraphInstance* RefInstance, USubstanceGraphInstance*
 				//#Create new texture - If play in editor (PIE), this means the instance is dynamic / transient
 				Substance::Helpers::CreateSubstanceTexture2D(Output, PIE ? true : false, TextureName, TextureParent);
 			}
+			else
+			{
+				Output->mEnabled = false;
+			}
 		}
 	}
 }
@@ -2223,10 +1965,14 @@ void RegisterForDeletion(USubstanceInstanceFactory* Factory)
 	local::FactoriesToDelete.AddUnique(Cast<UObject>(Factory));
 }
 
-void RegisterForDeletion(USubstanceTexture2D* Texture)
+void RegisterForDeletion(UTexture2D* Texture)
 {
-	Texture->GetOutermost()->FullyLoad();
-	local::TexturesToDelete.AddUnique(Cast<UObject>(Texture));
+	if (Texture && Texture->IsValidLowLevel())
+	{
+		Texture->GetOutermost()->FullyLoad();
+
+		local::TexturesToDelete.AddUnique(Cast<UObject>(Texture));
+	}
 }
 
 //#NOTE:: This functions purpose is to clear objects and all of their references from within the editor. This is called when textures are disabled and
@@ -2271,7 +2017,7 @@ void PerformDelayedDeletion()
 			{
 				if (OutputItr->mUserData != 0)
 				{
-					UTexture* Texture = reinterpret_cast<OutputInstanceData*>(OutputItr->mUserData)->Texture.Get();
+					UTexture* Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputItr->mUserData)->GetData());
 					if (Texture && Texture->IsValidLowLevel())
 					{
 						local::TexturesToDelete.AddUnique(Texture);
@@ -2285,7 +2031,7 @@ void PerformDelayedDeletion()
 		}
 	}
 
-	//Bottom up - Cleanup starting with textures
+	//Next - Cleanup Graph Instance
 	if (local::TexturesToDelete.Num())
 		bDeletedSomething |= (ObjectTools::ForceDeleteObjects(local::TexturesToDelete, false) != 0);
 
@@ -2358,7 +2104,7 @@ int32 SetImageInputHelper(const SubstanceAir::InputDescBase* InputDesc, UObject*
 
 		if (OutputModified && OutputModified->mEnabled && OutputModified->mUserData != 0)
 		{
-			USubstanceTexture2D* CurrentTexture = reinterpret_cast<OutputInstanceData*>(OutputModified->mUserData)->Texture.Get();
+			UTexture2D* CurrentTexture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputModified->mUserData)->GetData());
 			if (CurrentTexture)
 				CurrentTexture->MarkPackageDirty();
 			OutputModified->flagAsDirty();
@@ -2369,7 +2115,7 @@ int32 SetImageInputHelper(const SubstanceAir::InputDescBase* InputDesc, UObject*
 	TWeakObjectPtr<USubstanceGraphInstance> ParentGraph = reinterpret_cast<GraphInstanceData*>(Instance->mUserData)->ParentGraph;
 	if (ModifiedOuputs && ParentGraph.IsValid())
 	{
-		USubstanceImageInput* Image = Cast<USubstanceImageInput>(InValue);
+		UTexture2D* Image = Cast<UTexture2D>(InValue);
 		ParentGraph->ImageSources.Add(InputDesc->mUid, Image);
 		ParentGraph->MarkPackageDirty();
 		return ModifiedOuputs;
@@ -2391,7 +2137,7 @@ int32 UpdateInput(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Instance
 			if (InputItr->mDesc.isImage() && Input)
 			{
 				size_t& ImageUserData = Input->mUserData;
-				if (reinterpret_cast<InputImageData*>(ImageUserData)->ImageUObjectSource == InValue)
+				if (reinterpret_cast<UTexture2D*>(ImageUserData) == InValue)
 				{
 					ModifiedOuputs += SetImageInputHelper(&InputItr->mDesc, InValue, Instance);
 				}
@@ -2436,39 +2182,21 @@ int32 UpdateInputHelper(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> In
 	{
 		if (InputItr->mUid == Uid)
 		{
-			//Instances and description should be stored in the same order
-			check(InputItr->mUid == InputItr->mUid);
-
 			if (InputItr->isNumerical())
 			{
 				for (unsigned int mAlteredOutputUid : InputItr->mAlteredOutputUids)
 				{
 					SubstanceAir::OutputInstance* Output = Instance->findOutput(mAlteredOutputUid);
-					if (Output->mUserData == 0)
-					{
-						continue;
-					}
-
+					
 					if (Output && Output->mEnabled)
 					{
 						Output->invalidate();
 						++ModifiedOuputs;
-						OutputInstanceData* CurrentOutputData = reinterpret_cast<OutputInstanceData*>(Output->mUserData);
-						if (CurrentOutputData->Texture.Get())
-						{
-							CurrentOutputData->Texture.Get()->MarkPackageDirty();
-						}
 					}
 				}
 			}
 			break;
 		}
-	}
-
-	//Flag for re-cache
-	if (ModifiedOuputs != 0)
-	{
-		reinterpret_cast<GraphInstanceData*>(Instance->mUserData)->ParentGraph->bDirtyCache = true;
 	}
 
 	return ModifiedOuputs;
@@ -2489,7 +2217,7 @@ SUBSTANCECORE_API void SetStringInputValue(const SubstanceAir::InputInstanceBase
 	using namespace SubstanceAir;
 	if (Input->mDesc.mType != Substance_IOType_String)
 	{
-		UE_LOG(LogSubstanceCore, Warning, TEXT("Attepted to set the string value of an input that is not a string input type"))
+		UE_LOG(LogSubstanceCore, Warning, TEXT("Attempted to set the string value of an input that is not a string input type"))
 		return;
 	}
 
@@ -2623,27 +2351,134 @@ SUBSTANCECORE_API SubstanceAir::shared_ptr<SubstanceAir::Preset> EmptyPresetAsSh
 	return SubstanceAir::shared_ptr<SubstanceAir::Preset>(AIR_NEW(SubstanceAir::Preset));
 }
 
-void CreateMaterialExpression(SubstanceAir::OutputInstance* OutputInst, UMaterial* UnrealMaterial);
-
-UMaterialExpressionTextureSampleParameter2D* CreateSampler(UMaterial* UnrealMaterial, UTexture* UnrealTexture, const SubstanceAir::OutputDesc* OutputDesc)
+TWeakObjectPtr<UMaterialInstance> CreateMaterial(USubstanceGraphInstance* Instance, const FString& MaterialName, UObject* Outer)
 {
 #if WITH_EDITOR
-	UMaterialExpressionTextureSampleParameter2D* UnrealTextureExpression =
-	    NewObject<UMaterialExpressionTextureSampleParameter2D>(UnrealMaterial);
 
-	UnrealTextureExpression->MaterialExpressionEditorX = -200;
-	UnrealTextureExpression->MaterialExpressionEditorY = UnrealMaterial->Expressions.Num() * 180;
-	UnrealTextureExpression->Texture = UnrealTexture;
-	UnrealTextureExpression->ParameterName = FName(OutputDesc->mIdentifier.c_str());
-	UnrealTextureExpression->SamplerType = UnrealTextureExpression->GetSamplerTypeForTexture(UnrealTexture);
+	if (Instance->CreatedMaterial == nullptr)
+	{
+		FString TemplateName = MaterialName + "_Template";
+		Instance->CreatedMaterial = GenerateTemplateMaterial(Instance, TemplateName, Outer);
+	}
 
-	return UnrealTextureExpression;
-#else
-	return nullptr;
-#endif //WITH_EDITOR
+	//Create MaterialInstanceConstant
+	UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
+
+	Instance->ConstantCreatedMaterial = (UMaterialInstanceConstant*)Factory->FactoryCreateNew(
+		UMaterialInstanceConstant::StaticClass(),
+		Substance::Helpers::CreateObjectPackage(Outer, MaterialName),
+		*MaterialName,
+		RF_Standalone | RF_Public, nullptr, GWarn);
+
+	Instance->ConstantCreatedMaterial->SetParentEditorOnly(Instance->CreatedMaterial);
+
+	GenerateMaterialExpressions(Instance->Instance.get(), Instance->ConstantCreatedMaterial, Instance, true);
+
+	Instance->PostEditChange();
+	TArray<UObject*> AssetList;
+	AssetList.Add(Instance->ConstantCreatedMaterial);
+
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+	ContentBrowserModule.Get().SyncBrowserToAssets(AssetList, true);
+
+	Instance->ConstantCreatedMaterial->MarkPackageDirty();
+#endif
+	return Instance->ConstantCreatedMaterial;
 }
 
-TWeakObjectPtr<UMaterial> CreateMaterial(USubstanceGraphInstance* Instance, const FString& MaterialName, UObject* Outer)
+SUBSTANCECORE_API void GenerateMaterialExpressions(SubstanceAir::GraphInstance* Instance, UMaterialInstance* MaterialInstance, USubstanceGraphInstance* Graph, bool IsOnImport)
+{
+	if(MaterialInstance == nullptr)
+		return;
+
+	TArray<FMaterialParameterInfo> TextureInfoSet;
+	TArray<FGuid> TextureGuids;
+	MaterialInstance->GetAllTextureParameterInfo(TextureInfoSet, TextureGuids);
+
+	TArray<FMaterialParameterInfo> ScalarInfoSet;
+	TArray<FGuid> ScalarGuids;
+	MaterialInstance->GetAllScalarParameterInfo(ScalarInfoSet, ScalarGuids);
+
+	TArray<FMaterialParameterInfo> VectorInfoSet;
+	TArray<FGuid> VectorGuids;
+	MaterialInstance->GetAllVectorParameterInfo(VectorInfoSet, VectorGuids);
+
+	TArray<FMaterialParameterInfo> AllInfoSets;
+	AllInfoSets.Append(TextureInfoSet);
+	AllInfoSets.Append(ScalarInfoSet);
+	AllInfoSets.Append(VectorInfoSet);
+
+	TMap<SubstanceAir::OutputInstance*, FMaterialParameterInfo> MaterialExpressionMap;
+
+	TArray<SubstanceAir::OutputInstance*> UnsetOutputs;
+	UnsetOutputs.Append(&Instance->getOutputs()[0], Instance->getOutputs().size());
+
+	//Connect Usage Type to map
+	for (int i = 0; i < UnsetOutputs.Num(); ++i)
+	{
+		for (FMaterialParameterInfo currInfo : AllInfoSets)
+		{
+			if (FName(UnsetOutputs[i]->mDesc.defaultChannelUseStr().c_str()) == currInfo.Name)
+			{
+				if (!MaterialExpressionMap.Contains(UnsetOutputs[i]))
+				{
+					MaterialExpressionMap.Add(UnsetOutputs[i], currInfo);
+					UnsetOutputs.RemoveAt(i);
+					--i;
+					break;
+				}
+			}
+		}
+	}
+	//Connect identifier to map if Output has not been used and no usage type for it exists
+	for (int i = 0; i < UnsetOutputs.Num(); ++i)
+	{
+		for (FMaterialParameterInfo currInfo : AllInfoSets)
+		{
+			if (UnsetOutputs[i]->mDesc.mIdentifier.c_str() == currInfo.Name)
+			{
+				if (!MaterialExpressionMap.Contains(UnsetOutputs[i]))
+				{
+					MaterialExpressionMap.Add(UnsetOutputs[i], currInfo);
+					UnsetOutputs.RemoveAt(i);
+					--i;
+					break;
+				}
+			}
+		}
+	}
+
+	//The template material used did not contain parameter nodes for all of the outputs
+	if (UnsetOutputs.Num() && IsOnImport)
+	{
+		FString OutputWarning = FString("Import Warning- ");
+		OutputWarning.Append(FString(Instance->mDesc.mPackageUrl.c_str()));
+		OutputWarning.Append(FString("\nCould not find material nodes in template to connect outputs :"));
+		for (SubstanceAir::OutputInstance* RemainingOutput : UnsetOutputs)
+		{
+			OutputWarning.Append(TEXT("\n - "));
+			OutputWarning.Append(FString(RemainingOutput->mDesc.mIdentifier.c_str()));
+			if (RemainingOutput->mUserData)
+			{
+				UTexture2D* UnusedTexture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(RemainingOutput->mUserData)->GetData());
+				Substance::Helpers::RegisterForDeletion(UnusedTexture);
+				Graph->OutputInstances.Remove(RemainingOutput->mDesc.mUid);
+				RemainingOutput->mUserData = 0;
+			}
+		}
+		UE_LOG(LogSubstanceCore, Warning, TEXT("%s"), *OutputWarning);
+	}
+
+	for (TTuple<SubstanceAir::OutputInstance*, FMaterialParameterInfo> OutputTuple : MaterialExpressionMap)
+	{
+		USubstanceOutputData* OutputData = reinterpret_cast<USubstanceOutputData*>(OutputTuple.Key->mUserData);
+		if (OutputData)
+			OutputData->ParamInfo = OutputTuple.Value; // Store the material param info for use later setting values
+		SetMaterialExpression(OutputTuple.Key, MaterialInstance, OutputTuple.Value);
+	}
+}
+
+SUBSTANCECORE_API UMaterial* GenerateTemplateMaterial(USubstanceGraphInstance* Instance, const FString& MaterialName, UObject* Outer)
 {
 #if WITH_EDITOR
 	//Create an unreal material asset
@@ -2651,10 +2486,10 @@ TWeakObjectPtr<UMaterial> CreateMaterial(USubstanceGraphInstance* Instance, cons
 	UMaterial* UnrealMaterial = nullptr;
 
 	UnrealMaterial = (UMaterial*)MaterialFactory->FactoryCreateNew(
-	                     UMaterial::StaticClass(),
-	                     Substance::Helpers::CreateObjectPackage(Outer, MaterialName),
-	                     *MaterialName,
-	                     RF_Standalone | RF_Public, nullptr, GWarn);
+		UMaterial::StaticClass(),
+		Substance::Helpers::CreateObjectPackage(Outer, MaterialName),
+		*MaterialName,
+		RF_Standalone | RF_Public, nullptr, GWarn);
 
 	//Assign the Instance reference to the material
 	Instance->CreatedMaterial = UnrealMaterial;
@@ -2713,12 +2548,12 @@ TWeakObjectPtr<UMaterial> CreateMaterial(USubstanceGraphInstance* Instance, cons
 			const SubstanceAir::OutputDesc* Desc = &OutputInst->mDesc;
 
 			//If mUserData is not valid - Output is not supported
-			if (OutputInst->mUserData == 0)
+			if (!OutputInst->mEnabled)
 			{
 				continue;
 			}
 
-			UTexture* Texture = reinterpret_cast<OutputInstanceData*>(OutputInst->mUserData)->Texture.Get();
+			UTexture* Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputInst->mUserData)->GetData());
 
 			if (OutputInst->mDesc.defaultChannelUse() == SubstanceAir::Channel_Glossiness && Texture)
 			{
@@ -2746,17 +2581,17 @@ TWeakObjectPtr<UMaterial> CreateMaterial(USubstanceGraphInstance* Instance, cons
 		for (SubstanceAir::OutputInstance* OutputInst : Instance->Instance->getOutputs())
 		{
 			//If mUserData is not valid - Output is not supported
-			if (OutputInst->mUserData == 0)
+			if (!OutputInst->mEnabled)
 			{
 				continue;
 			}
 
-			UTexture* Texture = reinterpret_cast<OutputInstanceData*>(OutputInst->mUserData)->Texture.Get();
+			UTexture* Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputInst->mUserData)->GetData());
 
 			if (OutputInst->mDesc.defaultChannelUse() == SubstanceAir::Channel_Specular && Texture)
 			{
 				UMaterialExpressionTextureSampleParameter2D* UnrealTextureExpression =
-				    CreateSampler(UnrealMaterial, Texture, &OutputInst->mDesc);
+					CreateSampler(UnrealMaterial, Texture, &OutputInst->mDesc);
 
 				UnrealMaterial->Specular.Expression = UnrealTextureExpression;
 
@@ -2771,80 +2606,36 @@ TWeakObjectPtr<UMaterial> CreateMaterial(USubstanceGraphInstance* Instance, cons
 
 	return UnrealMaterial;
 #else
+return nullptr;
+
+#endif //WITH_EDITOR
+}
+
+UMaterialExpressionTextureSampleParameter2D* CreateSampler(UMaterial* UnrealMaterial, UTexture* UnrealTexture, const SubstanceAir::OutputDesc* OutputDesc)
+{
+#if WITH_EDITOR
+	UMaterialExpressionTextureSampleParameter2D* UnrealTextureExpression =
+		NewObject<UMaterialExpressionTextureSampleParameter2D>(UnrealMaterial);
+
+	UnrealTextureExpression->MaterialExpressionEditorX = -200;
+	UnrealTextureExpression->MaterialExpressionEditorY = UnrealMaterial->Expressions.Num() * 180;
+	UnrealTextureExpression->Texture = UnrealTexture;
+	UnrealTextureExpression->ParameterName = FName(OutputDesc->mIdentifier.c_str());
+	UnrealTextureExpression->SamplerType = UnrealTextureExpression->GetSamplerTypeForTexture(UnrealTexture);;
+
+	return UnrealTextureExpression;
+#else
 	return nullptr;
-
-#endif //WITH_EDITOR
-}
-
-/** This is used to reset material texture parameter values post reimport of a graph instance */
-void ResetMaterialTexturesFromGraph(USubstanceGraphInstance* Graph, UMaterial* OwnedMaterial, const TArray<MaterialParameterSet>& Materials)
-{
-#if WITH_EDITOR
-	for (const auto& MatItr : Materials)
-	{
-		for (const auto& OutItr : Graph->Instance->getOutputs())
-		{
-			//Check to see if this output is referenced in the current material
-			if (MatItr.ParameterNames.Contains(OutItr->mDesc.mIdentifier.c_str()) && OutItr->mUserData)
-			{
-				//Loop through all of the expressions - Check if they are a texture sampler and make sure it is
-				//sampler that lines up with this output.
-				UTexture* Texture = reinterpret_cast<OutputInstanceData*>(OutItr->mUserData)->Texture.Get();
-
-				//Assign the previous referenced slot back to the recreated output
-				UMaterialExpressionTextureSample* TextureSampler = MatItr.ParameterNames[OutItr->mDesc.mIdentifier.c_str()];
-				if (Texture && Texture->IsValidLowLevel() && TextureSampler)
-					TextureSampler->Texture = Texture;
-			}
-		}
-
-		//Let the material update itself if necessary
-		if (MatItr.Material && MatItr.Material->IsValidLowLevel())
-		{
-			MatItr.Material->PreEditChange(nullptr);
-			MatItr.Material->PostEditChange();
-		}
-	}
-
-	//Reset the material created when the graph was created
-	Graph->CreatedMaterial = OwnedMaterial;
-
-#endif //WITH_EDITOR
-}
-
-//Used to reset material instance parameter references to substance outputs post reimport
-void ResetMaterialInstanceTexturesFromGraph(USubstanceGraphInstance* Graph, const TArray<MaterialInstanceParameterSet>& Materials)
-{
-#if WITH_EDITOR
-	for (const auto& MatItr : Materials)
-	{
-		for (const auto& OutItr : Graph->Instance->getOutputs())
-		{
-			if (MatItr.ParameterNames.Contains(OutItr->mDesc.mIdentifier.c_str()) && OutItr->mUserData)
-			{
-				UTexture* Texture = reinterpret_cast<OutputInstanceData*>(OutItr->mUserData)->Texture.Get();
-
-				for (int32 ParameterIndex = 0; ParameterIndex < MatItr.MaterialInstance->TextureParameterValues.Num(); ++ParameterIndex)
-				{
-					if (MatItr.MaterialInstance->TextureParameterValues[ParameterIndex].ParameterInfo.Name == MatItr.ParameterNames[OutItr->mDesc.mIdentifier.c_str()])
-					{
-						MatItr.MaterialInstance->TextureParameterValues[ParameterIndex].ParameterValue = Texture;
-					}
-				}
-			}
-		}
-	}
 #endif //WITH_EDITOR
 }
 
 void CreateMaterialExpression(SubstanceAir::OutputInstance* OutputInst, UMaterial* UnrealMaterial)
 {
 #if WITH_EDITOR
-	//Early out when the output instance is not active
-	if (OutputInst->mUserData == 0)
-	{
+	if (!OutputInst->mEnabled)
 		return;
-	}
+
+	UTexture* Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutputInst->mUserData)->GetData());
 
 	using namespace SubstanceAir;
 	FExpressionInput* MaterialInput = nullptr;
@@ -2897,33 +2688,214 @@ void CreateMaterialExpression(SubstanceAir::OutputInstance* OutputInst, UMateria
 		break;
 	}
 
-	UTexture* UnrealTexture = reinterpret_cast<OutputInstanceData*>(OutputInst->mUserData)->Texture.Get();
-
 	if (MaterialInput->IsConnected())
 	{
 		//Slot already used by another output
 		return;
 	}
 
-	if (UnrealTexture)
+	UMaterialExpressionTextureSampleParameter2D* UnrealTextureExpression =
+			CreateSampler(UnrealMaterial, Texture, &OutputInst->mDesc);
+
+	UnrealMaterial->Expressions.Add(UnrealTextureExpression);
+	MaterialInput->Expression = UnrealTextureExpression;
+
+	TArray<FExpressionOutput> Outputs;
+	Outputs = MaterialInput->Expression->GetOutputs();
+
+	FExpressionOutput* Output = &Outputs[0];
+	MaterialInput->Mask = Output->Mask;
+	MaterialInput->MaskR = Output->MaskR;
+	MaterialInput->MaskG = Output->MaskG;
+	MaterialInput->MaskB = Output->MaskB;
+	MaterialInput->MaskA = Output->MaskA;
+
+#endif //WITH_EDITOR
+}
+
+/** This is used to reset material texture parameter values post reimport of a graph instance */
+void ResetMaterialTexturesFromGraph(USubstanceGraphInstance* Graph, UMaterialInstanceConstant* OwnedMaterial, const TArray<MaterialParameterSet>& Materials)
+{
+#if WITH_EDITOR
+	for (const auto& MatItr : Materials)
 	{
-		UMaterialExpressionTextureSampleParameter2D* UnrealTextureExpression =
-		    CreateSampler(UnrealMaterial, UnrealTexture, &OutputInst->mDesc);
+		for (const auto& OutItr : Graph->Instance->getOutputs())
+		{
+			//Check to see if this output is referenced in the current material
+			if (MatItr.ParameterNames.Contains(OutItr->mDesc.mIdentifier.c_str()) && OutItr->mUserData)
+			{
+				//Loop through all of the expressions - Check if they are a texture sampler and make sure it is
+				//sampler that lines up with this output.
+				UTexture* Texture = (UTexture2D*)reinterpret_cast<USubstanceOutputData*>(OutItr->mUserData)->GetData();
 
-		UnrealMaterial->Expressions.Add(UnrealTextureExpression);
-		MaterialInput->Expression = UnrealTextureExpression;
+				//Assign the previous referenced slot back to the recreated output
+				UMaterialExpressionTextureSample* TextureSampler = MatItr.ParameterNames[OutItr->mDesc.mIdentifier.c_str()];
+				if (Texture && Texture->IsValidLowLevel() && TextureSampler)
+					TextureSampler->Texture = Texture;
+			}
+		}
 
-		TArray<FExpressionOutput> Outputs;
-		Outputs = MaterialInput->Expression->GetOutputs();
+		//Let the material update itself if necessary
+		if (MatItr.Material && MatItr.Material->IsValidLowLevel())
+		{
+			MatItr.Material->PreEditChange(nullptr);
+			MatItr.Material->PostEditChange();
+		}
+	}
 
-		FExpressionOutput* Output = &Outputs[0];
-		MaterialInput->Mask = Output->Mask;
-		MaterialInput->MaskR = Output->MaskR;
-		MaterialInput->MaskG = Output->MaskG;
-		MaterialInput->MaskB = Output->MaskB;
-		MaterialInput->MaskA = Output->MaskA;
+	//Reset the material created when the graph was created
+	Graph->ConstantCreatedMaterial = OwnedMaterial;
+
+	GenerateMaterialExpressions(Graph->Instance.get(), Graph->ConstantCreatedMaterial, Graph);
+
+#endif //WITH_EDITOR
+}
+
+//Used to reset material instance parameter references to substance outputs post reimport
+void ResetMaterialInstanceTexturesFromGraph(USubstanceGraphInstance* Graph, const TArray<MaterialInstanceParameterSet>& Materials)
+{
+#if WITH_EDITOR
+	for (const auto& MatItr : Materials)
+	{
+		for (const auto& OutItr : Graph->Instance->getOutputs())
+		{
+			if (MatItr.ParameterNames.Contains(OutItr->mDesc.mIdentifier.c_str()) && OutItr->mUserData)
+			{
+				UTexture* Texture = Cast<UTexture2D>(reinterpret_cast<USubstanceOutputData*>(OutItr->mUserData)->GetData());
+
+				for (int32 ParameterIndex = 0; ParameterIndex < MatItr.MaterialInstance->TextureParameterValues.Num(); ++ParameterIndex)
+				{
+					if (MatItr.MaterialInstance->TextureParameterValues[ParameterIndex].ParameterInfo.Name == MatItr.ParameterNames[OutItr->mDesc.mIdentifier.c_str()])
+					{
+						MatItr.MaterialInstance->TextureParameterValues[ParameterIndex].ParameterValue = Texture;
+					}
+				}
+			}
+		}
+		//Let the material update itself if necessary
+		if (MatItr.MaterialInstance && MatItr.MaterialInstance->IsValidLowLevel())
+		{
+			MatItr.MaterialInstance->PreEditChange(nullptr);
+			MatItr.MaterialInstance->PostEditChange();
+		}
 	}
 #endif //WITH_EDITOR
+}
+
+void SetMaterialExpression(SubstanceAir::OutputInstance* OutputInst, UMaterialInstance* MaterialInstance, FMaterialParameterInfo &Info)
+{
+	//Early out when the output instance is not active
+	if (OutputInst->mUserData == 0 || MaterialInstance == 0)
+	{
+		return;
+	}
+
+	SubstanceAir::OutputInstance::Result result = OutputInst->grabResult();
+
+
+	USubstanceOutputData* OutputData = reinterpret_cast<USubstanceOutputData*>(OutputInst->mUserData);
+
+#if WITH_EDITOR
+	switch (OutputInst->mDesc.mType)
+	{
+	case Substance_IOType_Float:
+		if (result != nullptr)
+		{
+			((UMaterialInstanceConstant*)MaterialInstance)->SetScalarParameterValueEditorOnly(Info, ((SubstanceAir::RenderResultFloat*)result.get())->mValue);
+		}
+		break;
+	case Substance_IOType_Integer:
+		if (result != nullptr)
+		{
+			((UMaterialInstanceConstant*)MaterialInstance)->SetScalarParameterValueEditorOnly(Info, ((SubstanceAir::RenderResultInt*)result.get())->mValue);
+		}
+		break;
+	case Substance_IOType_Float2:
+	case Substance_IOType_Float3:
+	case Substance_IOType_Float4:
+	case Substance_IOType_Integer2:
+	case Substance_IOType_Integer3:
+	case Substance_IOType_Integer4:
+		if (result != nullptr)
+		{
+			((UMaterialInstanceConstant*)MaterialInstance)->SetVectorParameterValueEditorOnly(Info, SubstanceIOVectorToParameter((SubstanceAir::RenderResultNumericalBase*)result.get()));
+		}
+		break;
+	case Substance_IOType_Image:
+		((UMaterialInstanceConstant*)MaterialInstance)->SetTextureParameterValueEditorOnly(Info, (UTexture*)OutputData->GetData());
+		break;
+	default:
+		break;
+	}
+#else
+	switch (OutputInst->mDesc.mType)
+	{
+	case Substance_IOType_Float:
+		((UMaterialInstanceDynamic*)MaterialInstance)->SetScalarParameterValue(Info.Name, ((SubstanceAir::RenderResultFloat*)OutputInst->grabResult().get())->mValue);
+		break;
+	case Substance_IOType_Integer:
+		((UMaterialInstanceDynamic*)MaterialInstance)->SetScalarParameterValue(Info.Name, ((SubstanceAir::RenderResultInt*)OutputInst->grabResult().get())->mValue);
+		break;
+	case Substance_IOType_Float2:
+	case Substance_IOType_Float3:
+	case Substance_IOType_Float4:
+	case Substance_IOType_Integer2:
+	case Substance_IOType_Integer3:
+	case Substance_IOType_Integer4:
+		((UMaterialInstanceDynamic*)MaterialInstance)->SetVectorParameterValue(Info.Name, SubstanceIOVectorToParameter((SubstanceAir::RenderResultNumericalBase*)OutputInst->grabResult().get()));
+		break;
+	case Substance_IOType_Image:
+		((UMaterialInstanceDynamic*)MaterialInstance)->SetTextureParameterValue(Info.Name, (UTexture*)OutputData->GetData());
+		break;
+	default:
+		break;
+	}
+#endif //WITH_EDITORz
+
+}
+
+SUBSTANCECORE_API FLinearColor SubstanceIOVectorToParameter(SubstanceAir::RenderResultNumericalBase* NumericOutput)
+{
+	FLinearColor OutColor = FLinearColor(0,0,0,0);
+	switch (NumericOutput->mType)
+	{
+
+	case Substance_IOType_Float2:
+		OutColor.R = ((SubstanceAir::RenderResultFloat2*)NumericOutput)->mValue.x;
+		OutColor.G = ((SubstanceAir::RenderResultFloat2*)NumericOutput)->mValue.y;
+		break;
+	case Substance_IOType_Float3:
+		OutColor.R = ((SubstanceAir::RenderResultFloat3*)NumericOutput)->mValue.x;
+		OutColor.G = ((SubstanceAir::RenderResultFloat3*)NumericOutput)->mValue.y;
+		OutColor.B = ((SubstanceAir::RenderResultFloat3*)NumericOutput)->mValue.z;
+		break;
+	case Substance_IOType_Float4:
+		OutColor.R = ((SubstanceAir::RenderResultFloat4*)NumericOutput)->mValue.x;
+		OutColor.G = ((SubstanceAir::RenderResultFloat4*)NumericOutput)->mValue.y;
+		OutColor.B = ((SubstanceAir::RenderResultFloat4*)NumericOutput)->mValue.z;
+		OutColor.A = ((SubstanceAir::RenderResultFloat4*)NumericOutput)->mValue.w;
+		break;
+
+	case Substance_IOType_Integer2:
+		OutColor.R = ((SubstanceAir::RenderResultInt2*)NumericOutput)->mValue.x;
+		OutColor.G = ((SubstanceAir::RenderResultInt2*)NumericOutput)->mValue.y;
+		break;
+	case Substance_IOType_Integer3:
+		OutColor.R = ((SubstanceAir::RenderResultInt3*)NumericOutput)->mValue.x;
+		OutColor.G = ((SubstanceAir::RenderResultInt3*)NumericOutput)->mValue.y;
+		OutColor.B = ((SubstanceAir::RenderResultInt3*)NumericOutput)->mValue.z;
+		break;
+	case Substance_IOType_Integer4:
+		OutColor.R = ((SubstanceAir::RenderResultInt4*)NumericOutput)->mValue.x;
+		OutColor.G = ((SubstanceAir::RenderResultInt4*)NumericOutput)->mValue.y;
+		OutColor.B = ((SubstanceAir::RenderResultInt4*)NumericOutput)->mValue.z;
+		OutColor.A = ((SubstanceAir::RenderResultInt4*)NumericOutput)->mValue.w;
+		break;
+	default:
+		break;
+
+	}
+	return OutColor;
 }
 
 void CopyPresetData(SubstanceAir::shared_ptr<SubstanceAir::GraphInstance> Source, SubstanceAir::Preset& Dest)
@@ -3021,6 +2993,17 @@ bool OpenFiles(const FString& Title, const FString& FileTypes, FString& InOutLas
 }
 #endif
 
+SUBSTANCECORE_API FString GetPresetAsXMLString(USubstanceGraphInstance* GraphInstance)
+{
+	SubstanceAir::Preset CurrentPreset;
+	FString Data;
+
+	CurrentPreset.fill(*GraphInstance->Instance);
+	Substance::Helpers::WriteSubstanceXmlPreset(CurrentPreset, Data);
+	
+	return Data;
+}
+
 bool ExportPresetFromGraph(USubstanceGraphInstance* GraphInstance)
 {
 #if WITH_EDITOR
@@ -3064,7 +3047,7 @@ bool ImportAndApplyPresetForGraph(USubstanceGraphInstance* GraphInstance)
 	//Apply it the first preset
 	if (CurretPreset.apply(*GraphInstance->Instance, SubstanceAir::Preset::Apply_Merge))
 	{
-		Substance::Helpers::RenderAsync(GraphInstance->Instance);
+		GraphInstance->PrepareOutputsForSave();
 		return true;
 	}
 
@@ -3167,28 +3150,73 @@ void RebuildAllSubstanceGraphInstances()
 #define LOCTEXT_NAMESPACE "SubstanceHelpers"
 
 	//Get a list of all of our graph instances
-	TArray<UObject*> AllGraphInstances;
-	for (TObjectIterator<USubstanceGraphInstance> Itr; Itr; ++Itr)
-	{
-		AllGraphInstances.AddUnique(*Itr);
-	}
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	AssetRegistryModule.Get().SearchAllAssets(true);
+	TArray<FAssetData> AssetData;
+	const UClass* Class = USubstanceGraphInstance::StaticClass();
+	AssetRegistryModule.Get().GetAssetsByClass(Class->GetFName(), AssetData);
 
-	//Get a list of all of our textures
-	TArray<UObject*> AllSubstanceTextures;
-	for (TObjectIterator<USubstanceTexture2D> Itr; Itr; ++Itr)
+	
+	TArray<USubstanceGraphInstance*> AllGraphInstances;
+	for (auto& Itr : AssetData)
 	{
-		AllSubstanceTextures.AddUnique(*Itr);
+		AllGraphInstances.AddUnique((USubstanceGraphInstance*)Itr.GetAsset());
 	}
 
 	//Create a slow task for the loading percentage
-	FScopedSlowTask SlowTask(AllGraphInstances.Num(), LOCTEXT("Rebuilding all Substance Graph Instances", "Rebuilding Graphs"));
+	FScopedSlowTask SlowTask(AllGraphInstances.Num(), LOCTEXT("Rebuilding all Substance Graph Instances", "Rebuilding Substance Graphs"));
 	SlowTask.MakeDialog();
 
 	//Recompute every graph instance
-	for (TObjectIterator<USubstanceGraphInstance> Itr; Itr; ++Itr)
+	for (auto& Itr : AllGraphInstances)
 	{
+		if (!Itr->GraphRequiresUpdate())
+		{
+			//Update the progress each loop
+			SlowTask.EnterProgressFrame();
+			continue;
+		}
 		//Store graph locally
-		USubstanceGraphInstance* Graph = *Itr;
+		USubstanceGraphInstance* Graph = Itr;
+
+		CreateTextures(Graph);
+
+		//TODO:: Replace references for existing textures
+		TArray<uint32> OutputsToRemove;
+		for (auto& OutputInst : Graph->OutputInstances)
+		{
+			bool textureUsed = false;
+			for (TObjectIterator<USubstanceTexture2D> TexItr; TexItr; ++TexItr)
+			{
+				if (OutputInst.Key == TexItr->mUid && OutputInst.Value->GetData() && TexItr->ParentInstance == Graph)
+				{
+					USubstanceTexture2D* Texture = *TexItr;
+					UTexture2D* GeneratedTexture = Cast<UTexture2D>(OutputInst.Value->GetData());
+					GeneratedTexture->MarkPackageDirty();
+
+					TArray<UObject*> ObjectsConsolidatingTo{ Texture };
+					ObjectTools::FConsolidationResults conResults = ObjectTools::ConsolidateObjects(GeneratedTexture, ObjectsConsolidatingTo, false);
+					textureUsed = true;
+				}
+			}
+			if (!textureUsed && OutputInst.Value->GetData())
+			{
+				for (auto& Output : Graph->Instance->getOutputs())
+				{
+					if (Output->mDesc.mUid == OutputInst.Key)
+					{
+						Output->mUserData = 0;
+					}
+				}
+				RegisterForDeletion(Cast<UTexture2D>(OutputInst.Value->GetData()));
+				OutputsToRemove.Add(OutputInst.Key);
+			}
+		}
+
+		for (auto& OutputID : OutputsToRemove)
+		{
+			Graph->OutputInstances.FindAndRemoveChecked(OutputID);
+		}
 
 		//Flag all outputs to be recomputed
 		for (const auto& Output : Graph->Instance->getOutputs())
@@ -3198,16 +3226,16 @@ void RebuildAllSubstanceGraphInstances()
 				//Force update the output
 				Output->flagAsDirty();
 
-				OutputInstanceData* CurrentOutputData = reinterpret_cast<OutputInstanceData*>(Output->mUserData);
-				if (CurrentOutputData->Texture.IsValid())
+				USubstanceOutputData* CurrentOutputData = reinterpret_cast<USubstanceOutputData*>(Output->mUserData);
+				if (CurrentOutputData && CurrentOutputData->GetData())
 				{
-					CurrentOutputData->Texture.Get()->MarkPackageDirty();
+					CurrentOutputData->GetData()->MarkPackageDirty();
 				}
 			}
 		}
 
-		//#NOTE:: This needs to be sync for this loop to properly work!
-		RenderSync(Graph->Instance);
+		//Force a sync render and cache of texture data to prepare new objects for use in the editor
+		Graph->PrepareOutputsForSave(true);
 
 		//Update the progress each loop
 		SlowTask.EnterProgressFrame();
@@ -3215,7 +3243,7 @@ void RebuildAllSubstanceGraphInstances()
 #undef LOCTEXT_NAMESPACE
 }
 
-void CreateDefaultNamedMaterial(USubstanceGraphInstance* Graph)
+void CreateDefaultNamedMaterial(USubstanceGraphInstance* Graph, FString Extention)
 {
 	check(Graph)
 	check(Graph->Instance)
@@ -3229,11 +3257,55 @@ void CreateDefaultNamedMaterial(USubstanceGraphInstance* Graph)
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>(AssetToolsModuleName);
 	FString NewMaterialName;
 
-	AssetToolsModule.Get().CreateUniqueAssetName(MaterialPath + TEXT("/"), Graph->Instance->mDesc.mLabel.c_str(), MaterialPath, NewMaterialName);
+	FString InMaterialName(Graph->Instance->mDesc.mLabel.c_str());
+	InMaterialName.Append(Extention);
+
+	AssetToolsModule.Get().CreateUniqueAssetName(MaterialPath + TEXT("/"), InMaterialName, MaterialPath, NewMaterialName);
 
 	UObject* MaterialBasePackage = CreatePackage(nullptr, *MaterialPath);
 
 	Substance::Helpers::CreateMaterial(Graph, NewMaterialName, MaterialBasePackage);
+}
+
+SUBSTANCECORE_API TArray<UMaterial*> GetSubstanceIncludedMaterials()
+{
+	TArray<UMaterial*> SubstanceTemplates;
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	TArray<FAssetData> AssetDataArray;
+
+	FString ContentDir = IPluginManager::Get().FindPlugin(TEXT("Substance"))->GetMountedAssetPath();
+	ContentDir.Append("Templates/parent_materials");
+
+	AssetRegistryModule.Get().GetAssetsByPath(FName(*ContentDir), AssetDataArray);
+
+	for (FAssetData data : AssetDataArray)
+	{
+		SubstanceTemplates.AddUnique((UMaterial*)data.GetAsset());
+	}
+
+	return SubstanceTemplates;
+}
+
+SUBSTANCECORE_API bool SubstancesRequireUpdate()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	AssetRegistryModule.Get().SearchAllAssets(true);
+
+	//Get a list of all of our graph instances
+	TArray<USubstanceGraphInstance*> AllGraphInstances;
+	for (TObjectIterator<USubstanceGraphInstance> Itr; Itr; ++Itr)
+	{
+		AllGraphInstances.AddUnique(*Itr);
+	}
+
+	for (USubstanceGraphInstance* graph : AllGraphInstances)
+	{
+		if (graph->GraphRequiresUpdate())
+			return true;
+	}
+
+	return false;
 }
 
 #endif //WITH_EDITOR

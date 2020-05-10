@@ -45,6 +45,8 @@ public:
 	/** Called when we reset all inputs to reset thumbnails */
 	void ResetThumbnailInputs(SubstanceAir::GraphInstance* Graph);
 
+	virtual void OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath, const FFocusEvent& InFocusEvent) override;
+
 private:
 	template<typename T> struct FInputValue
 	{
@@ -78,6 +80,10 @@ private:
 
 	uint32 OutputSizePow2Min;
 	uint32 OutputSizePow2Max;
+
+	FString LastCachedValuesPreset;
+	void CachePresetValues();
+	bool HasPresetChanged();
 
 	void ConstructDescription();
 	void ConstructOutputs();
@@ -115,6 +121,7 @@ private:
 	FLinearColor GetColor(SubstanceAir::InputInstanceBase* Input) const;
 	void UpdateColor(FLinearColor NewColor, SubstanceAir::InputInstanceBase* Input);
 	void CancelColor(FLinearColor OldColor, SubstanceAir::InputInstanceBase* Input);
+	void CloseColorPicker(const TSharedRef<SWindow>&);
 	void UpdateString(const FText& NewValue, SubstanceAir::InputInstanceBase* Input);
 
 	void OnComboboxSelectionChanged(TSharedPtr<FString> Item, ESelectInfo::Type SelectInfo, SubstanceAir::InputInstanceBase* Input);
