@@ -27,9 +27,6 @@
 [submodule "MayaLiveLink"]
 	path = MayaLiveLink
 	url = https://github.com/ProjectBorealis/MayaLiveLink.git
-[submodule "MagicConsole"]
-	path = MagicConsole
-	url = https://github.com/ProjectBorealis/MagicConsole.git
 [submodule "modio"]
 	path = modio
 	url = https://github.com/ProjectBorealis/modio.git
