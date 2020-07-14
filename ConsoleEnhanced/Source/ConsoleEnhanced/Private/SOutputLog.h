@@ -10,7 +10,7 @@
 #include <regex>
 #include "Framework/Text/SlateTextLayout.h"
 #include "Framework/Text/SlateHyperlinkRun.h"
-#include "Framework/Text/TextRange.h"
+#include "Containers/UnrealString.h"
 #include "LogDisplaySettings.h"
 
 class FOutputLogTextLayoutMarshaller;
