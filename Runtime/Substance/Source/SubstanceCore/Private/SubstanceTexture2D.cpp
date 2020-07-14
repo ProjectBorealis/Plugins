@@ -224,7 +224,7 @@ void USubstanceTexture2D::BeginDestroy()
 }
 
 #if WITH_EDITOR
-bool USubstanceTexture2D::CanEditChange(const UProperty* InProperty) const
+bool USubstanceTexture2D::CanEditChange(const FProperty* InProperty) const
 {
 	bool bIsEditable = Super::CanEditChange(InProperty);
 

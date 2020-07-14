@@ -159,7 +159,7 @@ void FAssetTypeActions_SubstanceGraphInstance::ExecuteEdit(TArray<TWeakObjectPtr
 		auto Object = (*ObjIt).Get();
 		if (Object)
 		{
-			FAssetEditorManager::Get().OpenEditorForAsset(Object);
+			GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OpenEditorForAsset(Object);
 		}
 	}
 }

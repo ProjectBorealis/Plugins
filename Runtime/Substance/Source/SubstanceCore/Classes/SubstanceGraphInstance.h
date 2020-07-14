@@ -257,7 +257,7 @@ public:
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 
 #if WITH_EDITOR
-	virtual bool CanEditChange(const UProperty* InProperty) const;
+	virtual bool CanEditChange(const FProperty* InProperty) const;
 	virtual void PostEditUndo() override;
 	virtual void PreSave(const ITargetPlatform* TargetPlatform) override;
 

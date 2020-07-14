@@ -34,7 +34,7 @@ public:
 	 * @param Host the hostname to connect to
 	 * @param Port the port to connect to on the host
 	 */
-	void Connect(const ANSICHAR* Host, int Port);
+	void Connect(const TCHAR* Host, int Port);
 
 	/**
 	 * Disconnect from existing connection (if valid)

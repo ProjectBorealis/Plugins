@@ -601,6 +601,21 @@ void FSubstanceToolkit::SetMenuOverlay(TSharedRef<SWidget> Widget)
 	SubstanceHost.Pin()->SetMenuOverlay(Widget);
 }
 
+UEdMode* FSubstanceToolkit::GetScriptableEditorMode() const
+{
+	return nullptr;
+}
+
+FText FSubstanceToolkit::GetEditorModeDisplayName() const
+{
+	return FText::GetEmpty();
+}
+
+FSlateIcon FSubstanceToolkit::GetEditorModeIcon() const
+{
+	return FSlateIcon();
+}
+
 /** Returns the icon that will be displayed on the index tab */
 const FSlateBrush* FSubstanceToolkit::GetDefaultTabIcon() const
 {
