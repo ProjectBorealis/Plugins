@@ -262,7 +262,7 @@ FNGAEventContex NGAInputProcessor::InitEventContex(FSlateApplication& SlateApp, 
 			}
 		}
 
-		if (widgetName == "SGraphNodeComment" || widgetName == "SGraphNodeMaterialComment")
+		if (widgetName.Contains("Node") && widgetName.Contains("Comment"))
 		{
 			//if SComment is the second last widget,the cursor must be inside the blank area of the comment frame.
 			if (i == widgetsUnderCursor.Widgets.Num()-2)
@@ -273,7 +273,7 @@ FNGAEventContex NGAInputProcessor::InitEventContex(FSlateApplication& SlateApp, 
 
 		if (widgetName.Contains("GraphNode") || widgetName == "SNiagaraGraphParameterMapGetNode" || widgetName == "SReferenceNode")
 		{
-			if (widgetName != "SGraphNodeComment" && widgetName != "SGraphNodeMaterialComment")
+			if (!widgetName.Contains("Comment"))
 			{
 				//physics node
 				if (!widgetName.Contains("OutputPin") && !widgetName.Contains("InputPin"))
@@ -638,16 +638,14 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingDragNPanEvent(FSlateApplicati
 		{
 			LastGraphCursorScreenPosClamped = MouseEvent.GetScreenSpacePosition();
 		}
-		bool OutsideBound = !LastPanelScreenSpaceRect.ExtendBy(FMargin(-40, -40)).ContainsPoint(LastGraphCursorScreenPosClamped);
+		
 		//when cursor is getting close to the edge of the panel,drag operation will send deferred pan request to accelerate pan speed, no need that.
-		if (OutsideBound)
-		{
-			LastGraphCursorScreenPosClamped = FVector2D
-			(
-				FMath::Clamp(LastGraphCursorScreenPosClamped.X, LastPanelScreenSpaceRect.Left + 40.0f, LastPanelScreenSpaceRect.Right - 40.0f),
-				FMath::Clamp(LastGraphCursorScreenPosClamped.Y, LastPanelScreenSpaceRect.Top + 40.0f, LastPanelScreenSpaceRect.Bottom - 40.0f)
-			);
-		}
+		//do not check if it is outside of rect,doing correction anyway,or problem will occurs.
+		LastGraphCursorScreenPosClamped = FVector2D
+		(
+			FMath::Clamp(LastGraphCursorScreenPosClamped.X, LastPanelScreenSpaceRect.Left + 40.0f, LastPanelScreenSpaceRect.Right - 40.0f),
+			FMath::Clamp(LastGraphCursorScreenPosClamped.Y, LastPanelScreenSpaceRect.Top + 40.0f, LastPanelScreenSpaceRect.Bottom - 40.0f)
+		);
 
 		TSet<FKey> keys;
 		if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
@@ -679,27 +677,8 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingDragNPanEvent(FSlateApplicati
 		{
 			const_cast<FPointerEvent&>(MouseEvent) = mouseEvent;
 		}
-		if (OutsideBound)
-		{
-			SlateApp.SetCursorPos(LastGraphCursorScreenPosClamped);
+		SlateApp.SetCursorPos(LastGraphCursorScreenPosClamped);
 
-			//update dragging node's position,so it stay in view.
-			//seem not necessary.
-			//if (NodeBeingDrag.IsValid() && Ctx.GraphPanel.IsValid())
-			//{
-			//	TSet<FKey> keys;
-			//	keys.Add(EKeys::LeftMouseButton);
-			//	FPointerEvent DragNodeMouseEvent(
-			//		MouseEvent.GetPointerIndex(),
-			//		LastGraphCursorScreenPosClamped, //[drag-pan]use clamped position,so deferred pan amount will be 0.
-			//		LastGraphCursorScreenPosClamped - MouseEvent.GetCursorDelta(),
-			//		MouseEvent.GetCursorDelta(),//original delta is needed for panning.
-			//		keys,
-			//		FModifierKeysState()
-			//	);
-			//	Ctx.GraphPanel->OnMouseMove(Ctx.PanelGeometry, DragNodeMouseEvent);
-			//}
-		}
 		if (SlateApp.GetPlatformCursor().IsValid())
 		{
 			SlateApp.GetPlatformCursor()->Show(false);
@@ -870,6 +849,21 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 				//[editable text pin]blueprint node pin can have editable text box area,do not multi connect when inside it.
 				if (Ctx.GraphPin.IsValid() && !Ctx.IsInPinEditableBox)
 				{
+					if (!GetDefault<UNodeGraphAssistantConfig>()->EnableLeftClickMultiConnect && !MouseEvent.IsShiftDown())
+					{
+						TArray<UEdGraphPin*> draggingPins;
+						dragConnection->ValidateGraphPinList(draggingPins);
+						for (UEdGraphPin* draggingPin : draggingPins)
+						{
+							if (Ctx.GraphPin->GetPinObj()->GetSchema()->CanCreateConnection(Ctx.GraphPin->GetPinObj(), draggingPin).Response != CONNECT_RESPONSE_DISALLOW)
+							{
+								Ctx.GraphPin->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
+								CancelDraggingReset(MouseEvent.GetUserIndex());
+								return FNGAEventReply::BlockSlateInput();
+							}
+						}
+					}
+
 					Ctx.GraphPin->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
 					return FNGAEventReply::BlockSlateInput();
 				}
@@ -878,6 +872,22 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 					TWeakPtr<SGraphPin> lazyConnectiblePin = MyPinFactory->GetLazyConnectiblePin();
 					if (lazyConnectiblePin.IsValid())
 					{
+						if (!GetDefault<UNodeGraphAssistantConfig>()->EnableLeftClickMultiConnect && !MouseEvent.IsShiftDown())
+						{
+							dragConnection->SetHoveredPin(lazyConnectiblePin.Pin()->GetPinObj());
+							TArray<UEdGraphPin*> draggingPins;
+							dragConnection->ValidateGraphPinList(draggingPins);
+							for (UEdGraphPin* draggingPin : draggingPins)
+							{
+								if (lazyConnectiblePin.Pin()->GetPinObj()->GetSchema()->CanCreateConnection(lazyConnectiblePin.Pin()->GetPinObj(), draggingPin).Response != CONNECT_RESPONSE_DISALLOW)
+								{
+									lazyConnectiblePin.Pin()->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
+									CancelDraggingReset(MouseEvent.GetUserIndex());
+									return FNGAEventReply::BlockSlateInput();
+								}
+							}
+						}
+
 						dragConnection->SetHoveredPin(lazyConnectiblePin.Pin()->GetPinObj());
 						lazyConnectiblePin.Pin()->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
 						dragConnection->SetHoveredPin(nullptr);//otherwise will always show pin info.
@@ -1316,6 +1326,28 @@ void NGAInputProcessor::BypassSelectedNodes(bool ForceKeepNode)
 		FSlateNotificationManager::Get().AddNotification(Info);
 		//do not cancel transaction here,cause node can be changed if even return false.
 	}
+	else
+	{
+		if ((BypassSuccess || GetDefault<UNodeGraphAssistantConfig>()->BypassNodeAnyway) && !ForceKeepNode)
+		{
+			FSlateApplication& slateApp = FSlateApplication::Get();
+			FWidgetPath widgetsUnderCursor = slateApp.LocateWindowUnderMouse(slateApp.GetCursorPos(), slateApp.GetInteractiveTopLevelWindows());
+			FScopedSwitchWorldHack SwitchWorld(widgetsUnderCursor);
+			for (int i = widgetsUnderCursor.Widgets.Num() - 1; i >= 0; i--)
+			{
+				FString widgetName = widgetsUnderCursor.Widgets[i].Widget->GetTypeAsString();
+				if (widgetName == "SGraphEditorImpl")
+				{
+					TSharedRef<SGraphEditorImpl> PanelImpl = StaticCastSharedRef<SGraphEditorImpl>(widgetsUnderCursor.Widgets[i].Widget);
+					PanelImpl->OnKeyDown(
+						FGeometry(),
+						FKeyEvent(EKeys::Delete, FModifierKeysState(false, false, false, false, false, false, false, false, false), 0, false, 0, 0)
+					);
+					break;
+				}
+			}
+		}
+	}
 	return;
 }
 
@@ -1438,64 +1470,54 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireEvent(FSlateApplic
 			NGADeferredEventDele deferredDele;
 			deferredDele.BindLambda([selectedNode, graphPanel, pinA, pinB, tranIndex,this](int* tryTimes)
 			{
-				//only exit
-				if (*tryTimes == 0)
+				if (FSlateApplication::Get().AnyMenusVisible())
 				{
-					//maybe node not created,cancel
-					if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
-					{
-						if (GEditor->IsTransactionActive() && tranIndex)
-						{
-							GEditor->CancelTransaction(tranIndex);//tranIndex equal INDEX_NONE will cause assertion in vs 
-						}
-					}
-					BlockNextClick = false;
-					return true;
+					return false;
 				}
-				if (!FSlateApplication::Get().AnyMenusVisible())
+				else
 				{
-					if (graphPanel.IsValid() && graphPanel->SelectionManager.SelectedNodes.Num() > 0)  //>0, possible auto conversion node.
+					if (--(*tryTimes) > 0)
 					{
-						//selection set might still be the old one(blueprint graph),so don't do it right away.
-						if (*tryTimes > 1)
+						//selection set might still be the old one,so wait another tick.
+						return false;
+					}
+					else
+					{
+						if (graphPanel.IsValid() && graphPanel->SelectionManager.SelectedNodes.Num() > 0)  //>0, possible auto conversion node.
 						{
-							(*tryTimes)--;
-							return false;
-						}
-						UEdGraphNode* newSelectedNode = Cast<UEdGraphNode>(graphPanel->SelectionManager.SelectedNodes.Array()[0]);
-						if (newSelectedNode && newSelectedNode != selectedNode)
-						{
-							bool insertSuccess = false;
-							for (auto newNodePin : newSelectedNode->Pins)
+							UEdGraphNode* newSelectedNode = Cast<UEdGraphNode>(graphPanel->SelectionManager.SelectedNodes.Array()[0]);
+							if (newSelectedNode && newSelectedNode != selectedNode)
 							{
-								if (newNodePin->Direction == EGPD_Output)
+								bool insertSuccess = false;
+								for (auto newNodePin : newSelectedNode->Pins)
 								{
-									if (newSelectedNode->GetSchema()->CanCreateConnection(newNodePin, pinB).Response != CONNECT_RESPONSE_DISALLOW)
+									if (newNodePin->Direction == EGPD_Output)
 									{
-										newSelectedNode->GetSchema()->TryCreateConnection(newNodePin, pinB);
-										insertSuccess = true;
-										FNodeHelper::BreakSinglePinLink(pinA, pinB);
-										break;
+										if (newSelectedNode->GetSchema()->CanCreateConnection(newNodePin, pinB).Response != CONNECT_RESPONSE_DISALLOW)
+										{
+											newSelectedNode->GetSchema()->TryCreateConnection(newNodePin, pinB);
+											insertSuccess = true;
+											FNodeHelper::BreakSinglePinLink(pinA, pinB);
+											break;
+										}
 									}
 								}
-							}
-							if (!insertSuccess)
-							{
-								FNotificationInfo Info(NSLOCTEXT("NodeGraphAssistant", "InsertNode", "Can not insert this node"));
-								Info.ExpireDuration = 3.0f;
-								FSlateNotificationManager::Get().AddNotification(Info);
-							}
-							//new node must be created now,end.
-							if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
-							{
-								if (GEditor->IsTransactionActive())
+								if (!insertSuccess)
 								{
-									GEditor->EndTransaction();
+									FNotificationInfo Info(NSLOCTEXT("NodeGraphAssistant", "InsertNode", "Can not insert this node"));
+									Info.ExpireDuration = 3.0f;
+									FSlateNotificationManager::Get().AddNotification(Info);
 								}
 							}
 						}
+						if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor && GEditor->IsTransactionActive())
+						{
+							GEditor->EndTransaction();
+						}
+						delete tryTimes;
+						BlockNextClick = false;
+						return true;
 					}
-					(*tryTimes)--;
 				}
 				return false;
 			}, tryTimes);
@@ -2146,28 +2168,15 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireWithHotkeyEvent(FS
 			NGADeferredEventDele deferredDele;
 			deferredDele.BindLambda([selectedNode, graphPanel, pinA, pinB, tranIndex, this](int* tryTimes)
 			{
-				//only exit
-				if (*tryTimes == 0)
+				if (--(*tryTimes) > 0)
 				{
-					if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
-					{
-						if (GEditor->IsTransactionActive() && tranIndex)
-						{
-							GEditor->CancelTransaction(tranIndex);//tranIndex equal INDEX_NONE will cause assertion in vs 
-						}
-					}
+					//selection set might still be the old one,so wait another tick.
 					return false;
 				}
-				if (!FSlateApplication::Get().AnyMenusVisible())
+				else
 				{
 					if (graphPanel.IsValid() && graphPanel->SelectionManager.SelectedNodes.Num() > 0)  //>0, possible auto conversion node.
 					{
-						//selection set might still be the old one(blueprint graph),so don't do it right away.
-						if (*tryTimes > 1)
-						{
-							(*tryTimes)--;
-							return false;
-						}
 						UEdGraphNode* newSelectedNode = Cast<UEdGraphNode>(graphPanel->SelectionManager.SelectedNodes.Array()[0]);
 						if (newSelectedNode && newSelectedNode != selectedNode)
 						{
@@ -2204,19 +2213,15 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireWithHotkeyEvent(FS
 								Info.ExpireDuration = 3.0f;
 								FSlateNotificationManager::Get().AddNotification(Info);
 							}
-							//new node must be created now,end.
-							if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
-							{
-								if (GEditor->IsTransactionActive())
-								{
-									GEditor->EndTransaction();
-								}
-							}
 						}
 					}
-					(*tryTimes)--;
+					if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor && GEditor->IsTransactionActive())
+					{
+						GEditor->EndTransaction();
+					}
+					delete tryTimes;
+					return true;
 				}
-				return false;
 			}, tryTimes);
 			TickEventListener.Add(deferredDele);
 		}
