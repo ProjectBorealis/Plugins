@@ -29,9 +29,6 @@
 [submodule "ObjectBrowser"]
 	path = ObjectBrowser
 	url = https://github.com/ProjectBorealis/ObjectBrowser.git
-[submodule "Discord-UE4"]
-	path = Discord-UE4
-	url = https://github.com/ProjectBorealis/Discord-UE4.git
 [submodule "GameViewportSync"]
 	path = GameViewportSync
 	url = https://github.com/ProjectBorealis/GameViewportSync.git
