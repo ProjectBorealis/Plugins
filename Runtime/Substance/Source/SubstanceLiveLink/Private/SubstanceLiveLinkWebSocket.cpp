@@ -19,7 +19,7 @@ FSubstanceLiveLinkWebSocket::~FSubstanceLiveLinkWebSocket()
 	Disconnect();
 }
 
-void FSubstanceLiveLinkWebSocket::Connect(const ANSICHAR* Host, int Port)
+void FSubstanceLiveLinkWebSocket::Connect(const TCHAR* Host, int Port)
 {
 	Disconnect();
 
@@ -30,9 +30,8 @@ void FSubstanceLiveLinkWebSocket::Connect(const ANSICHAR* Host, int Port)
 	Socket = SocketSubsystem->CreateSocket(NAME_Stream, TEXT("SubstanceLiveLinkWebSocket"));
 	Socket->SetNonBlocking(true);
 
-	TSharedRef<FInternetAddr> Addr = SocketSubsystem->CreateInternetAddr(0, 0);
-
-	if (SE_NO_ERROR != SocketSubsystem->GetHostByName(Host, *Addr))
+	auto AddressInfoResult = SocketSubsystem->GetAddressInfo(Host, nullptr, EAddressInfoFlags::Default, NAME_None);
+	if (AddressInfoResult.ReturnCode != SE_NO_ERROR)
 	{
 		UE_LOG(LogSubstanceLiveLink, Warning, TEXT("Unable to resolve Host %s for Web Socket Connection"), UTF8_TO_TCHAR(Host));
 		ConnectionStatus = ESubstanceLiveLinkWebSocketConnectionStatus::Disconnected;
@@ -40,6 +39,7 @@ void FSubstanceLiveLinkWebSocket::Connect(const ANSICHAR* Host, int Port)
 		return;
 	}
 
+	auto Addr = AddressInfoResult.Results.GetData()[0].Address;
 	Addr->SetPort(Port);
 
 	if (Socket->Connect(*Addr))

@@ -429,14 +429,14 @@ public:
 
 			if (ImageWrapper.IsValid() && ImageWrapper->SetCompressed(&imageData.front(), imageData.size()))
 			{
-				const TArray<uint8>* UncompressedBGRA = nullptr;
+				TArray<uint8> UncompressedBGRA;
 				if (ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, UncompressedBGRA))
 				{
 					Texture = nullptr;
 
 					TArray<FColor> ColorArr;
-					ColorArr.AddUninitialized(UncompressedBGRA->Num() / 4);
-					FMemory::Memcpy(&ColorArr[0], UncompressedBGRA->GetData(), UncompressedBGRA->Num());
+					ColorArr.AddUninitialized(UncompressedBGRA.Num() / 4);
+					FMemory::Memcpy(&ColorArr[0], UncompressedBGRA.GetData(), UncompressedBGRA.Num());
 
 					CacheImage(ColorArr, image->getDesiredImageWidth(), image->getDesiredImageHeight(), FString(asset->getTitle().c_str()) + "_" + FString(AttachmentName));
 

@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
-	"Version": 64,
-	"VersionName": "4.24.0.3",
+	"Version": 66,
+	"VersionName": "4.25.0.1",
 	"FriendlyName": "Substance in UE4",
 	"Description": "Adds support for Substance (sbsar) textures",
 	"Category": "Editor",
@@ -10,7 +10,7 @@
 	"DocsURL": "https://docs.substance3d.com/display/integrations/Unreal+Engine",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/2f6439c2f9584f49809d9b13b16c2ba4",
 	"SupportURL": "",
-	"EngineVersion": "4.24.0",
+	"EngineVersion": "4.25.0",
 	"CanContainContent": true,
 	"Installed": true,
 	"Modules": [

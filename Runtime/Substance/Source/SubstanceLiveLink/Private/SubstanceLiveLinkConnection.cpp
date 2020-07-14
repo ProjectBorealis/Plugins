@@ -132,7 +132,7 @@ void FSubstanceLiveLinkConnection::ConnectToSubstancePainter()
 
 	WebSocket = MakeUnique<FSubstanceLiveLinkWebSocket>();
 	WebSocket->OnMessageReceived().AddRaw(this, &FSubstanceLiveLinkConnection::OnMessageReceived);
-	WebSocket->Connect("localhost", 6404);
+	WebSocket->Connect(ANSI_TO_TCHAR("localhost"), 6404);
 	WebSocket->SendMessage("SEND_PROJECT_INFO {}");
 }
 

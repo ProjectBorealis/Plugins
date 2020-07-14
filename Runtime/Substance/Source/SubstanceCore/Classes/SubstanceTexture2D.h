@@ -65,7 +65,7 @@ public:
 	bool bLinkLegacy;
 
 	/** Sets the properties of the texture to expose to the end user */
-	bool CanEditChange(const UProperty* InProperty) const;
+	bool CanEditChange(const FProperty* InProperty) const;
 
 	/** Used to link to the output instance */
 	void LinkOutputInstance();

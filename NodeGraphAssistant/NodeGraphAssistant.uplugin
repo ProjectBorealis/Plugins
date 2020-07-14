@@ -10,7 +10,6 @@
 	"DocsURL": "https://github.com/pdlogingithub/UE4-Node-Graph-Assistant/blob/master/README.md",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/d9baaaeadeaf41dcb52b3f6e134e9514",
 	"SupportURL": "https://forums.unrealengine.com/unreal-engine/marketplace/1435240-node-graph-assistant",
-	"EngineVersion": "4.24.0",
 	"CanContainContent": false,
 	"Installed": true,
 	"Modules": [

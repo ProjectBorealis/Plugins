@@ -137,6 +137,15 @@ public:
 
 	void SetMenuOverlay(TSharedRef<SWidget> Widget);
 
+	/** @returns the scriptable editor mode this toolkit is used for, or null if not relevant. */
+	virtual UEdMode* GetScriptableEditorMode() const override;
+
+	/** @return the editor mode display name if there is an editor mode associated with this toolkit.  An empty FText is returned otherwise */
+	virtual FText GetEditorModeDisplayName() const override;
+
+	/** @return the editor mode icon if there is an editor mode associated with this toolkit.  An empty icon is returned otherwise */
+	virtual FSlateIcon GetEditorModeIcon() const override;
+
 protected:
 
 	/** Called when this toolkit would close */

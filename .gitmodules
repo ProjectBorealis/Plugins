@@ -17,15 +17,9 @@
 [submodule "SocketIOClient"]
 	path = SocketIOClient
 	url = https://github.com/ProjectBorealis/socketio-client-ue4.git
-[submodule "DiscordGameSDK"]
-	path = DiscordGameSDK
-	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
 [submodule "LoadingScreen"]
 	path = LoadingScreen
 	url = https://github.com/ProjectBorealis/LoadingScreen.git
-[submodule "MayaLiveLink"]
-	path = MayaLiveLink
-	url = https://github.com/ProjectBorealis/MayaLiveLink.git
 [submodule "modio"]
 	path = modio
 	url = https://github.com/ProjectBorealis/modio.git
@@ -35,6 +29,9 @@
 [submodule "ObjectBrowser"]
 	path = ObjectBrowser
 	url = https://github.com/ProjectBorealis/ObjectBrowser.git
-[submodule "Designer"]
-	path = Designer
-	url = https://github.com/ProjectBorealis/Designer.git
+[submodule "Discord-UE4"]
+	path = Discord-UE4
+	url = https://github.com/ProjectBorealis/Discord-UE4.git
+[submodule "GameViewportSync"]
+	path = GameViewportSync
+	url = https://github.com/ProjectBorealis/GameViewportSync.git

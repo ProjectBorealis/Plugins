@@ -293,13 +293,6 @@ bool FNodeHelper::BypassNodes(UEdGraph* EdGraph, TArray<UEdGraphNode*> TargetNod
 				bypassOutputPin->BreakLinkTo(bypassOutput.NodePin);
 			}
 		}
-		if (!ForceKeepNode)
-		{
-			for (auto targetNode : TargetNodes)
-			{
-				EdGraph->RemoveNode(targetNode);
-			}
-		}
 		return true;
 	}
 
@@ -393,14 +386,7 @@ bool FNodeHelper::BypassNodes(UEdGraph* EdGraph, TArray<UEdGraphNode*> TargetNod
 	}
 
 	bool success = bypassPinInfosInput.Num() == 0 && bypassPinInfosOutput.Num() == 0;
-	if ((success || ForceBypass) && !ForceKeepNode)
-	{
-		for (auto targetNode : TargetNodes)
-		{
-			EdGraph->RemoveNode(targetNode);
-		}
-		return true;
-	}
+	
 
 	return success;
 }

@@ -105,11 +105,11 @@ public class SubstanceCore : ModuleRules
 			if ((SDKDir != null) && (SDKDir.Length > 0))
 			{
 				PublicIncludePaths.Add(SDKDir + "/target/include_common");
-				PublicLibraryPaths.Add(SDKDir + "/host_tools/lib");
 
-				PublicAdditionalLibraries.Add("libSceGpuAddress.lib");
+				PublicAdditionalLibraries.Add(Path.Combine(SDKDir, "host_tools", "lib", "libSceGpuAddress.lib"));
+				PublicAdditionalLibraries.Add(Path.Combine(SDKDir, "host_tools", "lib", "libSceGnm.lib"));
+
 				PublicDelayLoadDLLs.Add("libSceGpuAddress.dll");
-				PublicAdditionalLibraries.Add("libSceGnm.lib");
 				PublicDelayLoadDLLs.Add("libSceGnm.dll");
 
 				//Toggle on our flag if we are building for PS4

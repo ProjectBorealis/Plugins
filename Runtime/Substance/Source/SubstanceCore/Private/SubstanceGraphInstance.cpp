@@ -401,7 +401,7 @@ void USubstanceGraphInstance::PostLoad()
 }
 
 #if WITH_EDITOR
-bool USubstanceGraphInstance::CanEditChange(const UProperty* InProperty) const
+bool USubstanceGraphInstance::CanEditChange(const FProperty*) const
 {
 	return true;
 }

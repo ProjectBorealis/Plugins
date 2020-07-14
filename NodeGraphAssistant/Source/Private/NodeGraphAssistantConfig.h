@@ -33,6 +33,10 @@ public:
 		InsertNodeShowDeletedWireAsRed = false;
 	}
 
+	/** Keep connection wire alive after making pin connection.*/
+	UPROPERTY(EditAnywhere, config, Category = Features)
+	bool EnableLeftClickMultiConnect = true;
+
 	/** When dragging a wire over a node,wire automatically align to closest connectible pin*/
 	UPROPERTY(EditAnywhere, config, Category = Features)
 	bool EnableLazyConnect = true;
