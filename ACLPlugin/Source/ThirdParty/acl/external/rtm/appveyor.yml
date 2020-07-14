@@ -1,0 +1,43 @@
+version: 1.1.0.{build}
+
+environment:
+  PYTHON: "C:\\Python36-x64"
+
+image:
+- Visual Studio 2015
+- Visual Studio 2017
+- Visual Studio 2019
+
+configuration:
+  - Debug
+  - Release
+
+platform:
+  - x86
+  - x64
+  - arm64
+
+matrix:
+  exclude:
+    - image: Visual Studio 2015
+      platform: arm64
+
+install:
+- cmd: >-
+    git submodule update --init --recursive
+
+build_script:
+- cmd: >-
+    IF "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2015" (SET COMPILER=vs2015)
+
+    IF "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2017" (SET COMPILER=vs2017)
+
+    IF "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2019" (SET COMPILER=vs2019)
+
+    SET UNIT_TEST_FLAG=-unit_test
+
+    IF "%platform%"=="arm64" (SET "UNIT_TEST_FLAG= ")
+
+    %PYTHON%\\python.exe make.py -build %UNIT_TEST_FLAG% -compiler %COMPILER% -config %configuration% -cpu %platform% -clean
+
+    %PYTHON%\\python.exe make.py -build %UNIT_TEST_FLAG% -compiler %COMPILER% -config %configuration% -cpu %platform% -nosimd
