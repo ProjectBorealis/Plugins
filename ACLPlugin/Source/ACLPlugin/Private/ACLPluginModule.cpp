@@ -95,10 +95,6 @@ void FACLPlugin::ListCodecs(const TArray<FString>& Args)
 	// Turn off log times to make diffing easier
 	TGuardValue<ELogTimes::Type> DisableLogTimes(GPrintLogTimes, ELogTimes::None);
 
-	// Make sure to log everything
-	const ELogVerbosity::Type OldVerbosity = LogAnimationCompression.GetVerbosity();
-	LogAnimationCompression.SetVerbosity(ELogVerbosity::All);
-
 	const TArray<UAnimBoneCompressionSettings*> BoneSettings = GetObjectInstancesSorted<UAnimBoneCompressionSettings>();
 	const TArray<UAnimBoneCompressionCodec*> BoneCodecs = GetObjectInstancesSorted<UAnimBoneCompressionCodec>();
 	const TArray<UAnimCurveCompressionSettings*> CurveSettings = GetObjectInstancesSorted<UAnimCurveCompressionSettings>();
@@ -200,18 +196,12 @@ void FACLPlugin::ListCodecs(const TArray<FString>& Args)
 		UE_LOG(LogAnimationCompression, Log, TEXT("    used by %d / %d (%.1f %%) anim sequences"), NumReferences, AnimSequences.Num(), Percentage(NumReferences, AnimSequences.Num()));
 		UE_LOG(LogAnimationCompression, Log, TEXT("    uses %.2f MB / %.2f MB (%.1f %%)"), BytesToMB(UsedSize), BytesToMB(TotalSize), Percentage(UsedSize, TotalSize));
 	}
-
-	LogAnimationCompression.SetVerbosity(OldVerbosity);
 }
 
 void FACLPlugin::ListAnimSequences(const TArray<FString>& Args)
 {
 	// Turn off log times to make diffing easier
 	TGuardValue<ELogTimes::Type> DisableLogTimes(GPrintLogTimes, ELogTimes::None);
-
-	// Make sure to log everything
-	const ELogVerbosity::Type OldVerbosity = LogAnimationCompression.GetVerbosity();
-	LogAnimationCompression.SetVerbosity(ELogVerbosity::All);
 
 	const TArray<UAnimSequence*> AnimSequences = GetObjectInstancesSorted<UAnimSequence>();
 
@@ -253,8 +243,6 @@ void FACLPlugin::ListAnimSequences(const TArray<FString>& Args)
 
 	UE_LOG(LogAnimationCompression, Log, TEXT("Total bone data size: %.2f MB"), BytesToMB(BoneDataTotalSize));
 	UE_LOG(LogAnimationCompression, Log, TEXT("Total curve data size: %.2f MB"), BytesToMB(CurveDataTotalSize));
-
-	LogAnimationCompression.SetVerbosity(OldVerbosity);
 }
 #endif
 

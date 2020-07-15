@@ -119,7 +119,7 @@ void USubstanceTexture2D::SerializeCurrent(FArchive& Ar)
 
 		for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
 		{
-			new (Mips) FTexture2DMipMap();
+			Mips.Add(new FTexture2DMipMap());
 			SerializeTexture2DMip(Mips[MipIndex], Ar, this, MipIndex);
 		}
 	}
@@ -153,7 +153,7 @@ void USubstanceTexture2D::SerializeLegacy(FArchive& Ar)
 
 	for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
 	{
-		new (Mips) FTexture2DMipMap();
+		Mips.Add(new FTexture2DMipMap());
 		SerializeTexture2DMip(Mips[MipIndex], Ar, this, MipIndex);
 	}
 
