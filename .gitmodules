@@ -32,3 +32,6 @@
 [submodule "GameViewportSync"]
 	path = GameViewportSync
 	url = https://github.com/ProjectBorealis/GameViewportSync.git
+[submodule "DiscordGameSDK"]
+	path = DiscordGameSDK
+	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
