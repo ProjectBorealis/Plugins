@@ -10,7 +10,6 @@
 	"DocsURL": "https://help.thefoundry.co.uk/modo/#help/pages/appendices/unreal_modo_bridge.html",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/7f317bcd79c5421d9af437b9165f55c2",
 	"SupportURL": "https://www.thefoundry.co.uk/support/",
-	"EngineVersion": "4.24.0",
 	"CanContainContent": false,
 	"Installed": true,
 	"Modules": [
