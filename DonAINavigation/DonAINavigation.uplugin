@@ -10,7 +10,6 @@
 	"DocsURL": "https://www.youtube.com/watch?v=6Tr_K551zvI",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/81b4bd085c8c41508edfeb160b6ddf62",
 	"SupportURL": "https://forums.unrealengine.com/showthread.php?102933-DoN-s-3D-Pathfinding-Flying-AI-system-(with-full-source!)/",
-	"EngineVersion": "4.24.0",
 	"CanContainContent": true,
 	"Installed": true,
 	"Modules": [
