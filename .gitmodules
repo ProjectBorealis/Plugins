@@ -32,3 +32,6 @@
 [submodule "GameViewportSync"]
 	path = GameViewportSync
 	url = https://github.com/ProjectBorealis/GameViewportSync.git
+[submodule "ALSV4_CPP"]
+	path = ALSV4_CPP
+	url = https://github.com/dyanikoglu/ALSV4_CPP.git
