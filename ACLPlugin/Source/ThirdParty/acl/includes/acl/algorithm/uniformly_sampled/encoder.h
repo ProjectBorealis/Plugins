@@ -90,6 +90,9 @@ namespace acl
 			if (error_result.any())
 				return error_result;
 
+			if (clip.get_num_samples() > 50000U)
+				return ErrorResult("ACL only supports up to 50000 samples");
+
 			// Disable floating point exceptions during compression because we leverage all SIMD lanes
 			// and we might intentionally divide by zero, etc.
 			scope_disable_fp_exceptions fp_off;
@@ -220,6 +223,7 @@ namespace acl
 			buffer_size += 15;
 
 			uint8_t* buffer = allocate_type_array_aligned<uint8_t>(allocator, buffer_size, 16);
+			std::memset(buffer, 0, buffer_size);
 
 			CompressedClip* compressed_clip = make_compressed_clip(buffer, buffer_size, AlgorithmType8::UniformlySampled);
 
