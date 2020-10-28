@@ -5,9 +5,9 @@
 #include "CoreMinimal.h"
 #include "ACLImpl.h"
 
-#include <acl/decompression/decompress.h>
+#include <acl/algorithm/uniformly_sampled/decoder.h>
 
-constexpr acl::sample_rounding_policy get_rounding_policy(EAnimInterpolationType InterpType) { return InterpType == EAnimInterpolationType::Step ? acl::sample_rounding_policy::floor : acl::sample_rounding_policy::none; }
+constexpr acl::SampleRoundingPolicy get_rounding_policy(EAnimInterpolationType InterpType) { return InterpType == EAnimInterpolationType::Step ? acl::SampleRoundingPolicy::Floor : acl::SampleRoundingPolicy::None; }
 
 /*
  * The FTransform type does not support setting the members directly from vector types
@@ -15,30 +15,30 @@ constexpr acl::sample_rounding_policy get_rounding_policy(EAnimInterpolationType
  */
 struct FACLTransform final : public FTransform
 {
-	void RTM_SIMD_CALL SetRotationRaw(rtm::quatf_arg0 Rotation_)
+	void SetRotationRaw(const acl::Quat_32& Rotation_)
 	{
 #if PLATFORM_ENABLE_VECTORINTRINSICS
 		Rotation = Rotation_;
 #else
-		rtm::quat_store(Rotation_, &Rotation.X);
+		acl::quat_unaligned_write(Rotation_, &Rotation.X);
 #endif
 	}
 
-	void RTM_SIMD_CALL SetTranslationRaw(rtm::vector4f_arg0 Translation_)
+	void SetTranslationRaw(const acl::Vector4_32& Translation_)
 	{
 #if PLATFORM_ENABLE_VECTORINTRINSICS
 		Translation = VectorSet_W0(Translation_);
 #else
-		rtm::vector_store3(Translation_, &Translation.X);
+		acl::vector_unaligned_write3(Translation_, &Translation.X);
 #endif
 	}
 
-	void RTM_SIMD_CALL SetScale3DRaw(rtm::vector4f_arg0 Scale_)
+	void SetScale3DRaw(const acl::Vector4_32& Scale_)
 	{
 #if PLATFORM_ENABLE_VECTORINTRINSICS
 		Scale3D = VectorSet_W0(Scale_);
 #else
-		rtm::vector_store3(Scale_, &Scale3D.X);
+		acl::vector_unaligned_write3(Scale_, &Scale3D.X);
 #endif
 	}
 };
@@ -54,7 +54,7 @@ struct FAtomIndices
 /*
  * Output pose writer that can selectively skip certain tracks.
  */
-struct FUE4OutputWriter final : public acl::track_writer
+struct FUE4OutputWriter final : public acl::OutputWriter
 {
 	// Raw pointer for performance reasons, caller is responsible for ensuring data is valid
 	FACLTransform* Atoms;
@@ -67,15 +67,15 @@ struct FUE4OutputWriter final : public acl::track_writer
 
 	//////////////////////////////////////////////////////////////////////////
 	// Override the OutputWriter behavior
-	bool skip_track_rotation(uint32_t BoneIndex) const { return TrackToAtomsMap[BoneIndex].Rotation == 0xFFFF; }
-	bool skip_track_translation(uint32_t BoneIndex) const { return TrackToAtomsMap[BoneIndex].Translation == 0xFFFF; }
-	bool skip_track_scale(uint32_t BoneIndex) const { return TrackToAtomsMap[BoneIndex].Scale == 0xFFFF; }
+	bool skip_bone_rotation(uint16_t BoneIndex) const { return TrackToAtomsMap[BoneIndex].Rotation == 0xFFFF; }
+	bool skip_bone_translation(uint16_t BoneIndex) const { return TrackToAtomsMap[BoneIndex].Translation == 0xFFFF; }
+	bool skip_bone_scale(uint16_t BoneIndex) const { return TrackToAtomsMap[BoneIndex].Scale == 0xFFFF; }
 
 	//////////////////////////////////////////////////////////////////////////
 	// Called by the decoder to write out a quaternion rotation value for a specified bone index
-	void RTM_SIMD_CALL write_rotation(uint32_t BoneIndex, rtm::quatf_arg0 Rotation)
+	void write_bone_rotation(uint16_t BoneIndex, const acl::Quat_32& Rotation)
 	{
-		const uint32 AtomIndex = TrackToAtomsMap[BoneIndex].Rotation;
+		const uint16 AtomIndex = TrackToAtomsMap[BoneIndex].Rotation;
 
 		FACLTransform& BoneAtom = Atoms[AtomIndex];
 		BoneAtom.SetRotationRaw(Rotation);
@@ -83,9 +83,9 @@ struct FUE4OutputWriter final : public acl::track_writer
 
 	//////////////////////////////////////////////////////////////////////////
 	// Called by the decoder to write out a translation value for a specified bone index
-	void RTM_SIMD_CALL write_translation(uint32_t BoneIndex, rtm::vector4f_arg0 Translation)
+	void write_bone_translation(uint16_t BoneIndex, const acl::Vector4_32& Translation)
 	{
-		const uint32 AtomIndex = TrackToAtomsMap[BoneIndex].Translation;
+		const uint16 AtomIndex = TrackToAtomsMap[BoneIndex].Translation;
 
 		FACLTransform& BoneAtom = Atoms[AtomIndex];
 		BoneAtom.SetTranslationRaw(Translation);
@@ -93,85 +93,67 @@ struct FUE4OutputWriter final : public acl::track_writer
 
 	//////////////////////////////////////////////////////////////////////////
 	// Called by the decoder to write out a scale value for a specified bone index
-	void RTM_SIMD_CALL write_scale(uint32_t BoneIndex, rtm::vector4f_arg0 Scale)
+	void write_bone_scale(uint16_t BoneIndex, const acl::Vector4_32& Scale)
 	{
-		const uint32 AtomIndex = TrackToAtomsMap[BoneIndex].Scale;
+		const uint16 AtomIndex = TrackToAtomsMap[BoneIndex].Scale;
 
 		FACLTransform& BoneAtom = Atoms[AtomIndex];
 		BoneAtom.SetScale3DRaw(Scale);
 	}
 };
 
-/*
-* Output track writer for a single track.
-*/
-struct UE4OutputTrackWriter final : public acl::track_writer
-{
-	// Raw pointer for performance reasons, caller is responsible for ensuring data is valid
-	FACLTransform* Atom;
-
-	UE4OutputTrackWriter(FTransform& Atom_)
-		: Atom(static_cast<FACLTransform*>(&Atom_))
-	{}
-
-	//////////////////////////////////////////////////////////////////////////
-	// Called by the decoder to write out a quaternion rotation value for a specified bone index
-	void RTM_SIMD_CALL write_rotation(uint32_t BoneIndex, rtm::quatf_arg0 Rotation)
-	{
-		Atom->SetRotationRaw(Rotation);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	// Called by the decoder to write out a translation value for a specified bone index
-	void RTM_SIMD_CALL write_translation(uint32_t BoneIndex, rtm::vector4f_arg0 Translation)
-	{
-		Atom->SetTranslationRaw(Translation);
-	}
-
-	//////////////////////////////////////////////////////////////////////////
-	// Called by the decoder to write out a scale value for a specified bone index
-	void RTM_SIMD_CALL write_scale(uint32_t BoneIndex, rtm::vector4f_arg0 Scale)
-	{
-		Atom->SetScale3DRaw(Scale);
-	}
-};
-
-using UE4DefaultDecompressionSettings = acl::default_transform_decompression_settings;
-using UE4CustomDecompressionSettings = acl::debug_transform_decompression_settings;
+using UE4DefaultDecompressionSettings = acl::uniformly_sampled::DefaultDecompressionSettings;
+using UE4CustomDecompressionSettings = acl::uniformly_sampled::DebugDecompressionSettings;
 
 struct UE4SafeDecompressionSettings final : public UE4DefaultDecompressionSettings
 {
-	static constexpr bool is_rotation_format_supported(acl::rotation_format8 format) { return format == acl::rotation_format8::quatf_full; }
-	static constexpr acl::rotation_format8 get_rotation_format(acl::rotation_format8 /*format*/) { return acl::rotation_format8::quatf_full; }
+	constexpr bool is_rotation_format_supported(acl::RotationFormat8 format) const { return format == acl::RotationFormat8::Quat_128; }
+	constexpr acl::RotationFormat8 get_rotation_format(acl::RotationFormat8 /*format*/) const { return acl::RotationFormat8::Quat_128; }
+
+	constexpr acl::RangeReductionFlags8 get_clip_range_reduction(acl::RangeReductionFlags8 /*flags*/) const { return acl::RangeReductionFlags8::Translations | acl::RangeReductionFlags8::Scales; }
+
+	constexpr bool supports_mixed_packing() const { return true; }
 };
 
 template<typename DecompressionSettingsType>
 FORCEINLINE_DEBUGGABLE void DecompressBone(FAnimSequenceDecompressionContext& DecompContext, int32 TrackIndex, FTransform& OutAtom)
 {
-	const FACLCompressedAnimData& AnimData = static_cast<const FACLCompressedAnimData&>(DecompContext.CompressedAnimData);
-	const acl::compressed_tracks* CompressedClipData = acl::make_compressed_tracks(AnimData.CompressedByteStream.GetData());
-	check(CompressedClipData != nullptr && CompressedClipData->is_valid(false).empty());
+	using namespace acl;
 
-	acl::decompression_context<DecompressionSettingsType> Context;
+	const FACLCompressedAnimData& AnimData = static_cast<const FACLCompressedAnimData&>(DecompContext.CompressedAnimData);
+	const CompressedClip* CompressedClipData = reinterpret_cast<const CompressedClip*>(AnimData.CompressedByteStream.GetData());
+	check(CompressedClipData->is_valid(false).empty());
+
+	uniformly_sampled::DecompressionContext<DecompressionSettingsType> Context;
 	Context.initialize(*CompressedClipData);
 	Context.seek(DecompContext.Time, get_rounding_policy(DecompContext.Interpolation));
 
-	UE4OutputTrackWriter Writer(OutAtom);
-	Context.decompress_track(TrackIndex, Writer);
+	Quat_32 Rotation;
+	Vector4_32 Translation;
+	Vector4_32 Scale;
+	Context.decompress_bone(TrackIndex, &Rotation, &Translation, &Scale);
+
+	FACLTransform& BoneAtom = static_cast<FACLTransform&>(OutAtom);
+	BoneAtom.SetRotationRaw(Rotation);
+	BoneAtom.SetTranslationRaw(Translation);
+	BoneAtom.SetScale3DRaw(Scale);
 }
 
 template<typename DecompressionSettingsType>
 FORCEINLINE_DEBUGGABLE void DecompressPose(FAnimSequenceDecompressionContext& DecompContext, const BoneTrackArray& RotationPairs, const BoneTrackArray& TranslationPairs, const BoneTrackArray& ScalePairs, TArrayView<FTransform>& OutAtoms)
 {
-	const FACLCompressedAnimData& AnimData = static_cast<const FACLCompressedAnimData&>(DecompContext.CompressedAnimData);
-	const acl::compressed_tracks* CompressedClipData = acl::make_compressed_tracks(AnimData.CompressedByteStream.GetData());
-	check(CompressedClipData != nullptr && CompressedClipData->is_valid(false).empty());
+	using namespace acl;
 
-	acl::decompression_context<DecompressionSettingsType> Context;
+	const FACLCompressedAnimData& AnimData = static_cast<const FACLCompressedAnimData&>(DecompContext.CompressedAnimData);
+	const CompressedClip* CompressedClipData = reinterpret_cast<const CompressedClip*>(AnimData.CompressedByteStream.GetData());
+	check(CompressedClipData->is_valid(false).empty());
+
+	uniformly_sampled::DecompressionContext<DecompressionSettingsType> Context;
 	Context.initialize(*CompressedClipData);
 	Context.seek(DecompContext.Time, get_rounding_policy(DecompContext.Interpolation));
 
-	const int32 ACLBoneCount = CompressedClipData->get_num_tracks();
+	const ClipHeader& ClipHeader = get_clip_header(*CompressedClipData);
+	const int32 ACLBoneCount = ClipHeader.num_bones;
 
 	// TODO: Allocate this with padding and use SIMD to set everything to 0xFF
 	FAtomIndices* TrackToAtomsMap = new(FMemStack::Get()) FAtomIndices[ACLBoneCount];
@@ -184,8 +166,6 @@ FORCEINLINE_DEBUGGABLE void DecompressPose(FAnimSequenceDecompressionContext& De
 	// All reads will be aligned, can we pack further with 1x uint16 and 1x uint8 and do unaligned loads?
 	// Need to double check what the ASM looks like on x64 and ARM first to make sure it's good
 	// Maybe having two arrays side by side is better with uint16/uint8? Or having 1 bitset array?
-	// Ultimately, when we load these indices, they will be in the L1 since we write them here just before
-	// we use them during decompression. Optimizing for quick loading/unpacking it best.
 
 #if DO_CHECK
 	int32 MinAtomIndex = OutAtoms.Num();
@@ -218,8 +198,7 @@ FORCEINLINE_DEBUGGABLE void DecompressPose(FAnimSequenceDecompressionContext& De
 #endif
 	}
 
-	const acl::acl_impl::tracks_header& TracksHeader = acl::acl_impl::get_tracks_header(*CompressedClipData);
-	if (TracksHeader.get_has_scale())
+	if (ClipHeader.has_scale)
 	{
 		for (const BoneTrackPair& Pair : ScalePairs)
 		{
@@ -246,5 +225,5 @@ FORCEINLINE_DEBUGGABLE void DecompressPose(FAnimSequenceDecompressionContext& De
 	// This ensures we read the compressed pose data once, linearly.
 
 	FUE4OutputWriter PoseWriter(OutAtoms, TrackToAtomsMap);
-	Context.decompress_tracks(PoseWriter);
+	Context.decompress_pose(PoseWriter);
 }
