@@ -35,3 +35,6 @@
 [submodule "ALSV4_CPP"]
 	path = ALSV4_CPP
 	url = https://github.com/ProjectBorealis/ALSV4_CPP.git
+[submodule "Discord-UE4"]
+	path = Discord-UE4
+	url = https://github.com/ProjectBorealis/Discord-UE4.git
