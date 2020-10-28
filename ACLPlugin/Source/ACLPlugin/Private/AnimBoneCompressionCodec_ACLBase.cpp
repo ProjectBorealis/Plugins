@@ -7,17 +7,16 @@
 #if WITH_EDITORONLY_DATA
 #include "AnimBoneCompressionCodec_ACLSafe.h"
 #include "Animation/AnimationSettings.h"
-#include "Rendering/SkeletalMeshModel.h"
 
 #include "ACLImpl.h"
 
-#include <acl/compression/compress.h>
-#include <acl/compression/transform_error_metrics.h>
-#include <acl/compression/track_error.h>
-#include <acl/decompression/decompress.h>
+#include <acl/algorithm/uniformly_sampled/encoder.h>
+#include <acl/algorithm/uniformly_sampled/decoder.h>
+#include <acl/compression/skeleton_error_metric.h>
+#include <acl/compression/utils.h>
 #endif	// WITH_EDITORONLY_DATA
 
-#include <acl/core/compressed_tracks.h>
+#include <acl/core/compressed_clip.h>
 
 bool FACLCompressedAnimData::IsValid() const
 {
@@ -26,8 +25,8 @@ bool FACLCompressedAnimData::IsValid() const
 		return false;
 	}
 
-	const acl::compressed_tracks* CompressedClipData = acl::make_compressed_tracks(CompressedByteStream.GetData());
-	return CompressedClipData != nullptr && CompressedClipData->is_valid(false).empty();
+	const acl::CompressedClip* CompressedClipData = reinterpret_cast<const acl::CompressedClip*>(CompressedByteStream.GetData());
+	return CompressedClipData->is_valid(false).empty();
 }
 
 UAnimBoneCompressionCodec_ACLBase::UAnimBoneCompressionCodec_ACLBase(const FObjectInitializer& ObjectInitializer)
@@ -47,164 +46,31 @@ UAnimBoneCompressionCodec_ACLBase::UAnimBoneCompressionCodec_ACLBase(const FObje
 }
 
 #if WITH_EDITORONLY_DATA
-static void AppendMaxVertexDistances(USkeletalMesh* OptimizationTarget, TMap<FName, float>& BoneMaxVertexDistanceMap)
-{
-	USkeleton* Skeleton = OptimizationTarget != nullptr ? OptimizationTarget->Skeleton : nullptr;
-	if (Skeleton == nullptr)
-	{
-		return; // No data to work with
-	}
-
-	const FSkeletalMeshModel* MeshModel = OptimizationTarget->GetImportedModel();
-	if (MeshModel == nullptr || MeshModel->LODModels.Num() == 0)
-	{
-		return;	// No data to work with
-	}
-
-	const FReferenceSkeleton& RefSkeleton = Skeleton->GetReferenceSkeleton();
-	const TArray<FTransform>& RefSkeletonPose = RefSkeleton.GetRefBonePose();
-	const uint32 NumBones = RefSkeletonPose.Num();
-
-	TArray<FTransform> RefSkeletonObjectSpacePose;
-	RefSkeletonObjectSpacePose.AddUninitialized(NumBones);
-	for (uint32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
-	{
-		const int32 ParentBoneIndex = RefSkeleton.GetParentIndex(BoneIndex);
-		if (ParentBoneIndex != INDEX_NONE)
-		{
-			RefSkeletonObjectSpacePose[BoneIndex] = RefSkeletonPose[BoneIndex] * RefSkeletonObjectSpacePose[ParentBoneIndex];
-		}
-		else
-		{
-			RefSkeletonObjectSpacePose[BoneIndex] = RefSkeletonPose[BoneIndex];
-		}
-	}
-
-	// Iterate over every vertex and track which one is the most distant for every bone
-	TArray<float> MostDistantVertexDistancePerBone;
-	MostDistantVertexDistancePerBone.AddZeroed(NumBones);
-
-	const uint32 NumSections = MeshModel->LODModels[0].Sections.Num();
-	for (uint32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
-	{
-		const FSkelMeshSection& Section = MeshModel->LODModels[0].Sections[SectionIndex];
-		const uint32 NumVertices = Section.SoftVertices.Num();
-		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
-		{
-			const FSoftSkinVertex& VertexInfo = Section.SoftVertices[VertexIndex];
-			for (uint32 InfluenceIndex = 0; InfluenceIndex < MAX_TOTAL_INFLUENCES; ++InfluenceIndex)
-			{
-				if (VertexInfo.InfluenceWeights[InfluenceIndex] != 0)
-				{
-					const uint32 SectionBoneIndex = VertexInfo.InfluenceBones[InfluenceIndex];
-					const uint32 BoneIndex = Section.BoneMap[SectionBoneIndex];
-
-					const FTransform& BoneTransform = RefSkeletonObjectSpacePose[BoneIndex];
-
-					const float VertexDistanceToBone = FVector::Distance(VertexInfo.Position, BoneTransform.GetTranslation());
-
-					float& MostDistantVertexDistance = MostDistantVertexDistancePerBone[BoneIndex];
-					MostDistantVertexDistance = FMath::Max(MostDistantVertexDistance, VertexDistanceToBone);
-				}
-			}
-		}
-	}
-
-	// Store the results in a map by bone name since the optimizing target might use a different
-	// skeleton mapping.
-	for (uint32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
-	{
-		const FName BoneName = RefSkeleton.GetBoneName(BoneIndex);
-		const float MostDistantVertexDistance = MostDistantVertexDistancePerBone[BoneIndex];
-
-		float& BoneMaxVertexDistance = BoneMaxVertexDistanceMap.FindOrAdd(BoneName, 0.0f);
-		BoneMaxVertexDistance = FMath::Max(BoneMaxVertexDistance, MostDistantVertexDistance);
-	}
-}
-
-static void PopulateShellDistanceFromOptimizationTargets(const FCompressibleAnimData& CompressibleAnimData, const TArray<USkeletalMesh*>& OptimizationTargets, acl::track_array_qvvf& ACLTracks)
-{
-	// For each bone, get the furtest vertex distance
-	TMap<FName, float> BoneMaxVertexDistanceMap;
-	for (USkeletalMesh* OptimizationTarget : OptimizationTargets)
-	{
-		AppendMaxVertexDistances(OptimizationTarget, BoneMaxVertexDistanceMap);
-	}
-
-	const uint32 NumBones = ACLTracks.get_num_tracks();
-	for (uint32 ACLBoneIndex = 0; ACLBoneIndex < NumBones; ++ACLBoneIndex)
-	{
-		acl::track_qvvf& ACLTrack = ACLTracks[ACLBoneIndex];
-		const FName BoneName(ACLTrack.get_name().c_str());
-
-		const float* MostDistantVertexDistance = BoneMaxVertexDistanceMap.Find(BoneName);
-		if (MostDistantVertexDistance == nullptr || *MostDistantVertexDistance <= 0.0F)
-		{
-			continue;	// No skinned vertices for this bone, skipping
-		}
-
-		const FBoneData& UE4Bone = CompressibleAnimData.BoneData[ACLBoneIndex];
-
-		acl::track_desc_transformf& Desc = ACLTrack.get_description();
-
-		// We set our shell distance to the most distant vertex distance.
-		// This ensures that we measure the error where that vertex lies.
-		// Together with the precision value, all vertices skinned to this bone
-		// will be guaranteed to have an error smaller or equal to the precision
-		// threshold used.
-		if (UE4Bone.bHasSocket || UE4Bone.bKeyEndEffector)
-		{
-			// Bones that have sockets or are key end effectors require extra precision, make sure
-			// that our shell distance is at least what we ask of it regardless of the skinning
-			// information.
-			Desc.shell_distance = FMath::Max(Desc.shell_distance, *MostDistantVertexDistance);
-		}
-		else
-		{
-			// This could be higher or lower than the default value used by ordinary bones.
-			// This thus taylors the shell distance to the visual mesh.
-			Desc.shell_distance = *MostDistantVertexDistance;
-		}
-	}
-}
-
 bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& CompressibleAnimData, FCompressibleAnimDataResult& OutResult)
 {
+	using namespace acl;
+
 	ACLAllocator AllocatorImpl;
 
-	acl::track_array_qvvf ACLTracks = BuildACLTransformTrackArray(AllocatorImpl, CompressibleAnimData, DefaultVirtualVertexDistance, SafeVirtualVertexDistance, false);
+	TUniquePtr<RigidSkeleton> ACLSkeleton = BuildACLSkeleton(AllocatorImpl, CompressibleAnimData, DefaultVirtualVertexDistance, SafeVirtualVertexDistance);
+	TUniquePtr<AnimationClip> ACLClip = BuildACLClip(AllocatorImpl, CompressibleAnimData, *ACLSkeleton, false);
+	TUniquePtr<AnimationClip> ACLBaseClip = nullptr;
 
-	acl::track_array_qvvf ACLBaseTracks;
+	UE_LOG(LogAnimationCompression, Verbose, TEXT("ACL Animation raw size: %u bytes"), ACLClip->get_raw_size());
+
 	if (CompressibleAnimData.bIsValidAdditive)
-		ACLBaseTracks = BuildACLTransformTrackArray(AllocatorImpl, CompressibleAnimData, DefaultVirtualVertexDistance, SafeVirtualVertexDistance, true);
-
-	UE_LOG(LogAnimationCompression, Verbose, TEXT("ACL Animation raw size: %u bytes"), ACLTracks.get_raw_size());
-
-	// If we have an optimization target, use it
-	TArray<USkeletalMesh*> OptimizationTargets = GetOptimizationTargets();
-	if (OptimizationTargets.Num() != 0)
 	{
-		PopulateShellDistanceFromOptimizationTargets(CompressibleAnimData, OptimizationTargets, ACLTracks);
+		ACLBaseClip = BuildACLClip(AllocatorImpl, CompressibleAnimData, *ACLSkeleton, true);
+
+		ACLClip->set_additive_base(ACLBaseClip.Get(), AdditiveClipFormat8::Additive1);
 	}
 
-	// Set our error threshold
-	for (acl::track_qvvf& Track : ACLTracks)
-		Track.get_description().precision = ErrorThreshold;
-
-	// Override track settings if we need to
-	if (IsA<UAnimBoneCompressionCodec_ACLSafe>())
-	{
-		// Disable constant rotation track detection
-		for (acl::track_qvvf& Track : ACLTracks)
-			Track.get_description().constant_rotation_threshold_angle = 0.0f;
-	}
-
-	acl::compression_settings Settings;
+	CompressionSettings Settings;
 	GetCompressionSettings(Settings);
 
-	acl::qvvf_transform_error_metric DefaultErrorMetric;
-	acl::additive_qvvf_transform_error_metric<acl::additive_clip_format8::additive1> AdditiveErrorMetric;
-	if (!ACLBaseTracks.is_empty())
+	TransformErrorMetric DefaultErrorMetric;
+	AdditiveTransformErrorMetric<AdditiveClipFormat8::Additive1> AdditiveErrorMetric;
+	if (ACLBaseClip != nullptr)
 	{
 		Settings.error_metric = &AdditiveErrorMetric;
 	}
@@ -213,21 +79,19 @@ bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& Co
 		Settings.error_metric = &DefaultErrorMetric;
 	}
 
-	const acl::additive_clip_format8 AdditiveFormat = acl::additive_clip_format8::additive0;
-
-	acl::output_stats Stats;
-	acl::compressed_tracks* CompressedTracks = nullptr;
-	acl::error_result CompressionResult = acl::compress_track_list(AllocatorImpl, ACLTracks, Settings, ACLBaseTracks, AdditiveFormat, CompressedTracks, Stats);
+	OutputStats Stats;
+	CompressedClip* CompressedClipData = nullptr;
+	ErrorResult CompressionResult = uniformly_sampled::compress_clip(AllocatorImpl, *ACLClip, Settings, CompressedClipData, Stats);
 
 	// Make sure if we managed to compress, that the error is acceptable and if it isn't, re-compress again with safer settings
 	// This should be VERY rare with the default threshold
 	if (CompressionResult.empty())
 	{
-		const ACLSafetyFallbackResult FallbackResult = ExecuteSafetyFallback(AllocatorImpl, Settings, ACLTracks, ACLBaseTracks, *CompressedTracks, CompressibleAnimData, OutResult);
+		const ACLSafetyFallbackResult FallbackResult = ExecuteSafetyFallback(AllocatorImpl, Settings, *ACLClip, *CompressedClipData, CompressibleAnimData, OutResult);
 		if (FallbackResult != ACLSafetyFallbackResult::Ignored)
 		{
-			AllocatorImpl.deallocate(CompressedTracks, CompressedTracks->get_size());
-			CompressedTracks = nullptr;
+			AllocatorImpl.deallocate(CompressedClipData, CompressedClipData->get_size());
+			CompressedClipData = nullptr;
 
 			return FallbackResult == ACLSafetyFallbackResult::Success;
 		}
@@ -239,13 +103,13 @@ bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& Co
 		return false;
 	}
 
-	checkSlow(CompressedTracks->is_valid(true).empty());
+	checkSlow(CompressedClipData->is_valid(true).empty());
 
-	const uint32 CompressedClipDataSize = CompressedTracks->get_size();
+	const uint32 CompressedClipDataSize = CompressedClipData->get_size();
 
 	OutResult.CompressedByteStream.Empty(CompressedClipDataSize);
 	OutResult.CompressedByteStream.AddUninitialized(CompressedClipDataSize);
-	FMemory::Memcpy(OutResult.CompressedByteStream.GetData(), CompressedTracks, CompressedClipDataSize);
+	FMemory::Memcpy(OutResult.CompressedByteStream.GetData(), CompressedClipData, CompressedClipDataSize);
 
 	OutResult.Codec = this;
 
@@ -255,16 +119,16 @@ bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& Co
 
 #if !NO_LOGGING
 	{
-		acl::decompression_context<acl::debug_transform_decompression_settings> Context;
-		Context.initialize(*CompressedTracks);
-		const acl::track_error TrackError = acl::calculate_compression_error(AllocatorImpl, ACLTracks, Context, *Settings.error_metric, ACLBaseTracks);
+		uniformly_sampled::DecompressionContext<uniformly_sampled::DebugDecompressionSettings> Context;
+		Context.initialize(*CompressedClipData);
+		const BoneError bone_error = calculate_compressed_clip_error(AllocatorImpl, *ACLClip, *Settings.error_metric, Context);
 
 		UE_LOG(LogAnimationCompression, Verbose, TEXT("ACL Animation compressed size: %u bytes"), CompressedClipDataSize);
-		UE_LOG(LogAnimationCompression, Verbose, TEXT("ACL Animation error: %.4f cm (bone %u @ %.3f)"), TrackError.error, TrackError.index, TrackError.sample_time);
+		UE_LOG(LogAnimationCompression, Verbose, TEXT("ACL Animation error: %.4f cm (bone %u @ %.3f)"), bone_error.error, bone_error.index, bone_error.sample_time);
 	}
 #endif
 
-	AllocatorImpl.deallocate(CompressedTracks, CompressedClipDataSize);
+	AllocatorImpl.deallocate(CompressedClipData, CompressedClipDataSize);
 	return true;
 }
 
@@ -286,7 +150,7 @@ void UAnimBoneCompressionCodec_ACLBase::PopulateDDCKey(FArchive& Ar)
 	}
 }
 
-ACLSafetyFallbackResult UAnimBoneCompressionCodec_ACLBase::ExecuteSafetyFallback(acl::iallocator& Allocator, const acl::compression_settings& Settings, const acl::track_array_qvvf& RawClip, const acl::track_array_qvvf& BaseClip, const acl::compressed_tracks& CompressedClipData, const FCompressibleAnimData& CompressibleAnimData, FCompressibleAnimDataResult& OutResult)
+ACLSafetyFallbackResult UAnimBoneCompressionCodec_ACLBase::ExecuteSafetyFallback(acl::IAllocator& Allocator, const acl::CompressionSettings& Settings, const acl::AnimationClip& RawClip, const acl::CompressedClip& CompressedClipData, const FCompressibleAnimData& CompressibleAnimData, FCompressibleAnimDataResult& OutResult)
 {
 	return ACLSafetyFallbackResult::Ignored;
 }

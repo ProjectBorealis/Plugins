@@ -42,12 +42,11 @@ void UAnimCurveCompressionCodec_ACL::PopulateDDCKey(FArchive& Ar)
 		}
 	}
 
-	uint32 ForceRebuildVersion = 1;
+	uint32 ForceRebuildVersion = 0;
 	Ar << ForceRebuildVersion;
 
-	acl::compression_settings Settings;
-	uint32 SettingsHash = Settings.get_hash();
-	Ar << SettingsHash;
+	uint16 AlgorithmVersion = acl::get_algorithm_version(acl::AlgorithmType8::UniformlySampled);
+	Ar << AlgorithmVersion;
 }
 
 // For each curve, returns its largest position delta if the curve is for a morph target, 0.0 otherwise
@@ -148,6 +147,7 @@ bool UAnimCurveCompressionCodec_ACL::Compress(const FCompressibleAnimData& AnimS
 		acl::track_desc_scalarf Desc;
 		Desc.output_index = CurveIndex;
 		Desc.precision = Precision;
+		Desc.constant_threshold = Precision;
 
 		acl::track_float1f Track = acl::track_float1f::make_reserve(Desc, AllocatorImpl, NumSamples, SampleRate);
 		for (int32 SampleIndex = 0; SampleIndex < NumSamples; ++SampleIndex)
@@ -164,8 +164,8 @@ bool UAnimCurveCompressionCodec_ACL::Compress(const FCompressibleAnimData& AnimS
 	acl::compression_settings Settings;
 
 	acl::compressed_tracks* CompressedTracks = nullptr;
-	acl::output_stats Stats;
-	const acl::error_result CompressionResult = acl::compress_track_list(AllocatorImpl, Tracks, Settings, CompressedTracks, Stats);
+	acl::OutputStats Stats;
+	const acl::ErrorResult CompressionResult = acl::compress_track_list(AllocatorImpl, Tracks, Settings, CompressedTracks, Stats);
 
 	if (CompressionResult.any())
 	{
@@ -185,9 +185,7 @@ bool UAnimCurveCompressionCodec_ACL::Compress(const FCompressibleAnimData& AnimS
 
 #if !NO_LOGGING
 	{
-		acl::decompression_context<acl::debug_scalar_decompression_settings> Context;
-		Context.initialize(*CompressedTracks);
-		const acl::track_error Error = acl::calculate_compression_error(AllocatorImpl, Tracks, Context);
+		const acl::track_error Error = acl::calculate_compression_error(AllocatorImpl, Tracks, *CompressedTracks);
 
 		UE_LOG(LogAnimationCompression, Verbose, TEXT("ACL Curves compressed size: %u bytes"), CompressedDataSize);
 		UE_LOG(LogAnimationCompression, Verbose, TEXT("ACL Curves error: %.4f (curve %u @ %.3f)"), Error.error, Error.index, Error.sample_time);
@@ -201,7 +199,7 @@ bool UAnimCurveCompressionCodec_ACL::Compress(const FCompressibleAnimData& AnimS
 
 struct UE4CurveDecompressionSettings final : public acl::decompression_settings
 {
-	static constexpr bool is_track_type_supported(acl::track_type8 type) { return type == acl::track_type8::float1f; }
+	constexpr bool is_track_type_supported(acl::track_type8 type) const { return type == acl::track_type8::float1f; }
 };
 
 struct UE4CurveWriter final : public acl::track_writer
@@ -235,12 +233,12 @@ void UAnimCurveCompressionCodec_ACL::DecompressCurves(const FCompressedAnimSeque
 		return;
 	}
 
-	const acl::compressed_tracks* CompressedTracks = acl::make_compressed_tracks(AnimSeq.CompressedCurveByteStream.GetData());
-	check(CompressedTracks != nullptr && CompressedTracks->is_valid(false).empty());
+	const acl::compressed_tracks* CompressedTracks = reinterpret_cast<const acl::compressed_tracks*>(AnimSeq.CompressedCurveByteStream.GetData());
+	check(CompressedTracks->is_valid(false).empty());
 
 	acl::decompression_context<UE4CurveDecompressionSettings> Context;
 	Context.initialize(*CompressedTracks);
-	Context.seek(CurrentTime, acl::sample_rounding_policy::none);
+	Context.seek(CurrentTime, acl::SampleRoundingPolicy::None);
 
 	UE4CurveWriter TrackWriter(CompressedCurveNames, Curves);
 	Context.decompress_tracks(TrackWriter);
@@ -271,12 +269,12 @@ float UAnimCurveCompressionCodec_ACL::DecompressCurve(const FCompressedAnimSeque
 		return 0.0f;
 	}
 
-	const acl::compressed_tracks* CompressedTracks = acl::make_compressed_tracks(AnimSeq.CompressedCurveByteStream.GetData());
-	check(CompressedTracks != nullptr && CompressedTracks->is_valid(false).empty());
+	const acl::compressed_tracks* CompressedTracks = reinterpret_cast<const acl::compressed_tracks*>(AnimSeq.CompressedCurveByteStream.GetData());
+	check(CompressedTracks->is_valid(false).empty());
 
 	acl::decompression_context<UE4CurveDecompressionSettings> Context;
 	Context.initialize(*CompressedTracks);
-	Context.seek(CurrentTime, acl::sample_rounding_policy::none);
+	Context.seek(CurrentTime, acl::SampleRoundingPolicy::None);
 
 	int32 TrackIndex = -1;
 	for (int32 CurveIndex = 0; CurveIndex < NumCurves; ++CurveIndex)
