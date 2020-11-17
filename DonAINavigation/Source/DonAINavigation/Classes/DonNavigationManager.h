@@ -414,11 +414,15 @@ struct FDoNNavigationQueryData
 	EDonNavigationQueryStatus QueryStatus = EDonNavigationQueryStatus::Unscheduled;
 	
 	
-	FDoNNavigationQueryData(){}
+	FDoNNavigationQueryData(): OriginVolume(nullptr), DestinationVolume(nullptr)
+	{
+		Origin = FVector(ForceInit);
+		Destination = FVector(ForceInit);
+	}
 
 	FDoNNavigationQueryData(AActor* ActorIn, UPrimitiveComponent* CollisionComponentIn, FVector OriginIn, FVector DestinationIn, const FDoNNavigationQueryParams& QueryParamsIn,
-		const FDoNNavigationDebugParams& DebugParamsIn, FDonNavigationVoxel* OriginVolumeIn, FDonNavigationVoxel* DestinationVolumeIn,
-		FVector OriginVolumeCenterIn, FVector DestinationVolumeCenterIn, FDonVoxelCollisionProfile VoxelCollisionProfileIn)
+	                        const FDoNNavigationDebugParams& DebugParamsIn, FDonNavigationVoxel* OriginVolumeIn, FDonNavigationVoxel* DestinationVolumeIn,
+	                        FVector OriginVolumeCenterIn, FVector DestinationVolumeCenterIn, FDonVoxelCollisionProfile VoxelCollisionProfileIn)
 		: Actor(ActorIn), CollisionComponent(CollisionComponentIn), Origin(OriginIn), Destination(DestinationIn), QueryParams(QueryParamsIn), DebugParams(DebugParamsIn),
 		OriginVolumeCenter(OriginVolumeCenterIn), DestinationVolumeCenter(DestinationVolumeCenterIn), VoxelCollisionProfile(VoxelCollisionProfileIn),
 		OriginVolume(OriginVolumeIn), DestinationVolume(DestinationVolumeIn)

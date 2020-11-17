@@ -82,7 +82,7 @@ struct FRandomMinMaxFloat
 private:
 	/** The randomly generated value */
 	UPROPERTY()
-	float RandomValue;
+	float RandomValue = 0.0f;
 
 public:
 	FRandomMinMaxFloat()
