@@ -10,9 +10,7 @@
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "https://twitter.com/HoussineMehnik",
-	"EngineVersion": "4.25.0",
 	"CanContainContent": true,
-	"Installed": true,
 	"Modules": [
 		{
 			"Name": "SplineSnappingTool",
