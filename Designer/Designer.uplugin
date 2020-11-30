@@ -4,7 +4,7 @@
 	"VersionName": "1.0.0",
 	"FriendlyName": "Designer",
 	"Description": "Tool for placing actors in the world using only a single mouse click to position, rotate and scale the asset.",
-	"Category": "Editor Modes",
+	"Category": "Editor",
 	"CreatedBy": "Roel Bartstra",
 	"CreatedByURL": "www.roelbartstra.com/",
 	"DocsURL": "www.unrealengineer.com/designer-manual",
