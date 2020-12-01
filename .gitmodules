@@ -10,7 +10,7 @@
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
 [submodule "IAUS"]
 	path = IAUS
-	url = https://github.com/ProjectBorealisAdmin/IAUS.git
+	url = https://github.com/ProjectBorealisTeam/IAUS.git
 [submodule "GenericGraph"]
 	path = GenericGraph
 	url = https://github.com/ProjectBorealis/GenericGraph.git
