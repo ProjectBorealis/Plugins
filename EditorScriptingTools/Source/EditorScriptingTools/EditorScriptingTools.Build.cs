@@ -31,7 +31,6 @@ public class EditorScriptingTools : ModuleRules
                 "EditorScriptingTools/Private/EditorUserDefinedPlacementCategories",
                 "EditorScriptingTools/Private/EditorUserDefinedSettings",
                 "EditorScriptingTools/Private/EditorUserWidget",
-                "EditorScriptingTools/Private/Misc",
                 "EditorScriptingTools/Private/Utils",
                 "EditorScriptingTools/Private/Widgets",
             });
