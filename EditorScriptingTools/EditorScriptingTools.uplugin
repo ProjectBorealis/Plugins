@@ -10,11 +10,9 @@
 	"DocsURL": "http://ue4resources.com",
 	"MarketplaceURL": "http://ue4resources.com",
 	"SupportURL": "mailto:ue4resources@gmail.com",
-	"EngineVersion": "4.25.0",
 	"CanContainContent": true,
 	"IsBetaVersion": true,
 	"IsExperimentalVersion": true,
-	"Installed": true,
 	"Modules": [
 		{
 			"Name": "EditorScriptingTools",
