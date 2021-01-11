@@ -69,7 +69,6 @@ IEditorScriptingToolsModule* FEditorScriptingToolsModule::Singleton{ nullptr };
 void FEditorScriptingToolsModule::StartupModule()
 {
 	Singleton = this;
-	FEditorScriptingToolsStyle::ReloadTextures();
 	FEditorScriptingToolsStyle::Initialize();
 	RegisterBlueprintCompilers();
 	FCoreDelegates::OnPostEngineInit.AddRaw(this, &FEditorScriptingToolsModule::OnPostEngineInit);
