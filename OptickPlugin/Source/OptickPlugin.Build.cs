@@ -50,28 +50,17 @@ namespace UnrealBuildTool.Rules
 			PublicDefinitions.AddRange(
 				new string[]
 				{
-					"OPTICK_ENABLE_GPU_VULKAN=0",
-					"OPTICK_ENABLE_GPU_D3D12=0",
+					"OPTICK_ENABLE_GPU_VULKAN=1",
+					"OPTICK_ENABLE_GPU_D3D12=1",
 					"_CRT_SECURE_NO_WARNINGS",
 					"OPTICK_UE4=1",
 				}
 				);
 
-/*
-#if UE_4_24_OR_LATER
 			PublicDefinitions.AddRange(
 				new string[]
 				{
 					"OPTICK_UE4_GPU=1",
-				}
-				);
-#endif
-*/
-
-			PublicDefinitions.AddRange(
-				new string[]
-				{
-					"OPTICK_UE4_GPU=0",
 				}
 				);
 
