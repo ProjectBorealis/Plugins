@@ -50,17 +50,17 @@ void FHoudiniNiagaraEditorModule::StartupModule()
 		const FVector2D Icon16x16(16.0f, 16.0f);
 		const FVector2D Icon64x64(64.0f, 64.0f);
 		const FVector2D Icon128x128(128.0f, 128.0f);
-
-		StyleSet->SetContentRoot(IPluginManager::Get().FindPlugin("HoudiniNiagara")->GetBaseDir() / TEXT("Resources"));
+		
+		static FString IconsDir = IPluginManager::Get().FindPlugin("HoudiniNiagara")->GetBaseDir() / TEXT("Resources");
 
 		// Register the Asset icon
 		StyleSet->Set(
 			"ClassIcon.HoudiniPointCache",
-			new FSlateImageBrush(TEXT("HCSVIcon128.png"), Icon16x16));
+			new FSlateImageBrush(IconsDir + TEXT("HCSVIcon128.png"), Icon16x16));
 
 		StyleSet->Set(
 			"ClassThumbnail.HoudiniPointCache",
-			new FSlateImageBrush(TEXT("HCSVIcon128.png"), Icon64x64));
+			new FSlateImageBrush(IconsDir + TEXT("HCSVIcon128.png"), Icon64x64));
 
 		// Register Slate style.
 		FSlateStyleRegistry::RegisterSlateStyle(*StyleSet.Get());
