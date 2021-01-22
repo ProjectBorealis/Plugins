@@ -59,6 +59,7 @@ public class HoudiniNiagaraEditor : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"Projects",
 				"CoreUObject",
 				"Engine",
 				"Slate",
