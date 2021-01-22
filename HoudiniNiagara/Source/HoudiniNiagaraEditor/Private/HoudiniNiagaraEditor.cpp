@@ -24,6 +24,7 @@
 #include "HoudiniNiagaraEditor.h"
 #include "HoudiniPointCacheAssetActions.h"
 #include "AssetRegistryModule.h"
+#include "Interfaces/IPluginManager.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Styling/SlateStyle.h"
 
