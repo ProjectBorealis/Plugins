@@ -106,8 +106,8 @@ public:
 	/** Get the random value currently stored in this struct */
 	FORCEINLINE float GetCurrentRandomValue() { return RandomValue; }
 
-	/** Regenerates the random value and returns it. The value can also be retrieved later as well using GetCurrentRandomValue */
-	FORCEINLINE float RegenerateRandomValue() { return RandomValue = FMath::RandRange(Min, Max) * (FMath::RandBool() && bRandomlyNegate ? -1.F : 1.F); }
+	/** Regenerates the random value. The value can also be retrieved using GetCurrentRandomValue */
+	FORCEINLINE void RegenerateRandomValue() { RandomValue = FMath::RandRange(Min, Max) * (bRandomlyNegate && FMath::RandBool() ? -1.F : 1.F); }
 };
 
 /**
