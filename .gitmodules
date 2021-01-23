@@ -4,7 +4,7 @@
 [submodule "UE4GitPlugin"]
 	path = UE4GitPlugin
 	url = https://github.com/ProjectBorealis/UE4GitPlugin.git
-    branch = pb-changes
+	branch = pb-changes
 [submodule "ArcticAnalytics"]
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
@@ -32,6 +32,7 @@
 [submodule "ALSV4_CPP"]
 	path = ALSV4_CPP
 	url = https://github.com/ProjectBorealis/ALSV4_CPP.git
+	branch = main
 [submodule "DiscordGameSDK"]
 	path = DiscordGameSDK
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
