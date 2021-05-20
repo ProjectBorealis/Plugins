@@ -22,7 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 #include <acl/core/iterator.h>
 #include <acl/core/memory_utils.h>
@@ -36,25 +36,25 @@ TEST_CASE("iterator", "[core][iterator]")
 	constexpr uint32_t num_items = 3;
 	uint32_t items[num_items];
 
-	auto i = Iterator<uint32_t>(items, num_items);
+	auto i = iterator<uint32_t>(items, num_items);
 
 	SECTION("mutable returns correct type")
 	{
-		REQUIRE(std::is_same<uint32_t*, decltype(i.begin())>::value);
-		REQUIRE(std::is_same<uint32_t*, decltype(i.end())>::value);
+		CHECK(std::is_same<uint32_t*, decltype(i.begin())>::value);
+		CHECK(std::is_same<uint32_t*, decltype(i.end())>::value);
 	}
 
 	SECTION("const returns correct type")
 	{
-		auto ci = ConstIterator<uint32_t>(items, num_items);
+		auto ci = const_iterator<uint32_t>(items, num_items);
 
-		REQUIRE(std::is_same<const uint32_t*, decltype(ci.begin())>::value);
-		REQUIRE(std::is_same<const uint32_t*, decltype(ci.end())>::value);
+		CHECK(std::is_same<const uint32_t*, decltype(ci.begin())>::value);
+		CHECK(std::is_same<const uint32_t*, decltype(ci.end())>::value);
 	}
 
 	SECTION("bounds are correct")
 	{
-		REQUIRE(i.begin() == items + 0);
-		REQUIRE(i.end() == items + num_items);
+		CHECK(i.begin() == items + 0);
+		CHECK(i.end() == items + num_items);
 	}
 }

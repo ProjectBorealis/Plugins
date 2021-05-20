@@ -22,7 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 #include <sjson/string_view.h>
 
@@ -32,43 +32,43 @@ using namespace sjson;
 
 TEST_CASE("StringView", "[string]")
 {
-	REQUIRE(StringView() == StringView(""));
-	REQUIRE(StringView() == "");
-	REQUIRE(StringView().size() == 0);
-	REQUIRE(StringView().c_str() != nullptr);
-	REQUIRE(StringView("").size() == 0);
-	REQUIRE(StringView("").c_str() != nullptr);
+	CHECK(StringView() == StringView(""));
+	CHECK(StringView() == "");
+	CHECK(StringView().size() == 0);
+	CHECK(StringView().c_str() != nullptr);
+	CHECK(StringView("").size() == 0);
+	CHECK(StringView("").c_str() != nullptr);
 
 	const char* str0 = "this is a test string";
 	const char* str1 = "this is not a test string";
 	const char* str2 = "this is a test asset!";
 
-	REQUIRE(StringView(str0) == str0);
-	REQUIRE(StringView(str0) != str1);
-	REQUIRE(StringView(str0) != str2);
-	REQUIRE(StringView(str0) == StringView(str0));
-	REQUIRE(StringView(str0) != StringView(str1));
-	REQUIRE(StringView(str0) != StringView(str2));
-	REQUIRE(StringView(str0).c_str() == str0);
-	REQUIRE(StringView(str0).size() == std::strlen(str0));
-	REQUIRE(StringView(str0, 4) == StringView(str1, 4));
-	REQUIRE(StringView(str0, 4) == StringView("this"));
+	CHECK(StringView(str0) == str0);
+	CHECK(StringView(str0) != str1);
+	CHECK(StringView(str0) != str2);
+	CHECK(StringView(str0) == StringView(str0));
+	CHECK(StringView(str0) != StringView(str1));
+	CHECK(StringView(str0) != StringView(str2));
+	CHECK(StringView(str0).c_str() == str0);
+	CHECK(StringView(str0).size() == std::strlen(str0));
+	CHECK(StringView(str0, 4) == StringView(str1, 4));
+	CHECK(StringView(str0, 4) == StringView("this"));
 
 	StringView view0(str0);
-	REQUIRE(view0 == str0);
+	CHECK(view0 == str0);
 	view0 = str1;
-	REQUIRE(view0 == str1);
+	CHECK(view0 == str1);
 
-	REQUIRE(StringView().empty() == true);
-	REQUIRE(StringView("").empty() == true);
-	REQUIRE(view0.empty() == false);
+	CHECK(StringView().empty() == true);
+	CHECK(StringView("").empty() == true);
+	CHECK(view0.empty() == false);
 
-	REQUIRE(view0[0] == 't');
-	REQUIRE(view0[1] == 'h');
-	REQUIRE(view0[2] == 'i');
-	REQUIRE(view0[3] == 's');
-	REQUIRE(view0[4] == ' ');
-	REQUIRE(view0[5] == 'i');
-	REQUIRE(view0[view0.size() - 1] == 'g');
-	REQUIRE_THROWS(view0[view0.size()]);
+	CHECK(view0[0] == 't');
+	CHECK(view0[1] == 'h');
+	CHECK(view0[2] == 'i');
+	CHECK(view0[3] == 's');
+	CHECK(view0[4] == ' ');
+	CHECK(view0[5] == 'i');
+	CHECK(view0[view0.size() - 1] == 'g');
+	CHECK_THROWS(view0[view0.size()]);
 }

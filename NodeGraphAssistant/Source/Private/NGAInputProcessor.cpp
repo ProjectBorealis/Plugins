@@ -362,6 +362,16 @@ FSlateRect NGAInputProcessor::GetWidgetRect(FGeometry Geometry)
 }
 
 
+void NGAInputProcessor::ReleaseMouseCapture(FSlateApplication& SlateApp, int32 UserIndex)
+{
+#if ENGINE_MINOR_VERSION > 22
+	SlateApp.ReleaseAllPointerCapture(UserIndex);
+#else
+	SlateApp.ReleaseMouseCaptureForUser(UserIndex);
+#endif
+}
+
+
 TSharedPtr<SGraphPanel> NGAInputProcessor::GetCurrentGraphPanel()
 {
 	FSlateApplication& slateApp = FSlateApplication::Get();
@@ -409,7 +419,7 @@ void NGAInputProcessor::CancelDraggingReset(int32 UserIndex)
 		slateApp.CancelDragDrop();
 		LocalDragDropContent->OnDrop(true, FPointerEvent());
 	}
-	slateApp.ReleaseMouseCaptureForUser(UserIndex);
+	ReleaseMouseCapture(slateApp, UserIndex);
 	slateApp.GetPlatformApplication()->SetCapture(nullptr);
 	if (slateApp.GetPlatformCursor().IsValid())
 	{
@@ -647,21 +657,26 @@ FNGAEventReply NGAInputProcessor::TryProcessAsBeingDragNPanEvent(FSlateApplicati
 			FMath::Clamp(LastGraphCursorScreenPosClamped.Y, LastPanelScreenSpaceRect.Top + 40.0f, LastPanelScreenSpaceRect.Bottom - 40.0f)
 		);
 
-		TSet<FKey> keys;
+#if ENGINE_MINOR_VERSION > 25
+		DragNPanPressedKeys.Reset();
+#else
+		TSet<FKey> DragNPanPressedKeys;
+#endif
 		if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
 		{
-			keys.Add(EKeys::RightMouseButton);
+			DragNPanPressedKeys.Add(EKeys::RightMouseButton);
 		}
 		if (MouseEvent.IsMouseButtonDown(EKeys::MiddleMouseButton))
 		{
-			keys.Add(EKeys::MiddleMouseButton);
+			DragNPanPressedKeys.Add(EKeys::MiddleMouseButton);
 		}
+
 		FPointerEvent mouseEvent(
 			MouseEvent.GetPointerIndex(),
 			LastGraphCursorScreenPosClamped, //[drag-pan]use clamped position,so deferred pan amount will be 0.
 			LastGraphCursorScreenPosClamped- MouseEvent.GetCursorDelta(),
 			MouseEvent.GetCursorDelta(),//original delta is needed for panning.
-			keys,
+			DragNPanPressedKeys,
 			FModifierKeysState()
 		);
 
@@ -704,7 +719,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndDragNPanEvent(FSlateApplication
 		{
 			if (!Ctx.IsClickGesture)
 			{
-				SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+				ReleaseMouseCapture(SlateApp, MouseEvent.GetUserIndex());
 				if (SlateApp.GetPlatformCursor().IsValid())
 				{
 					SlateApp.GetPlatformCursor()->Show(true);
@@ -836,7 +851,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsMultiConnectEvent(FSlateApplicatio
 				if (Ctx.GraphPin.IsValid())
 				{
 					Ctx.GraphPin->OnDrop(Ctx.PinGeometry, FDragDropEvent(MouseEvent, dragConnection));
-					SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+					ReleaseMouseCapture(SlateApp, MouseEvent.GetUserIndex());
 					return FNGAEventReply::BlockSlateInput();
 				}
 			}
@@ -1067,7 +1082,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsSingleHighlightEvent(FSlateApplica
 					}
 
 					//click on wire will create mouse capture,causing graph pin to be not clickable at first click,so release capture.
-					SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+					ReleaseMouseCapture(SlateApp, MouseEvent.GetUserIndex());
 					SlateApp.GetPlatformApplication()->SetCapture(nullptr);
 					return FNGAEventReply::BlockSlateInput();
 				}
@@ -1227,7 +1242,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsEndCutOffWireEvent(FSlateApplicati
 			HasBegunCuttingWire = false;
 
 			MyPinFactory->PayLoadData->CursorDeltaSquared = 0;
-			SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+			ReleaseMouseCapture(SlateApp, MouseEvent.GetUserIndex());
 			SlateApp.GetPlatformApplication()->SetCapture(nullptr);
 
 			if (GEditor && GEditor->Trans && !GEditor->bIsSimulatingInEditor)
@@ -1523,7 +1538,7 @@ FNGAEventReply NGAInputProcessor::TryProcessAsCreateNodeOnWireEvent(FSlateApplic
 			}, tryTimes);
 			TickEventListener.Add(deferredDele);
 
-			SlateApp.ReleaseMouseCaptureForUser(MouseEvent.GetUserIndex());
+			ReleaseMouseCapture(SlateApp, MouseEvent.GetUserIndex());
 			SlateApp.GetPlatformApplication()->SetCapture(nullptr);
 
 			return FNGAEventReply::BlockSlateInput();
@@ -2963,7 +2978,7 @@ bool NGAInputProcessor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FK
 		PressedCharKey = InKeyEvent.GetCharacter();
 	}
 
-	if (UICommandList->ProcessCommandBindings(InKeyEvent.GetKey(), FSlateApplication::Get().GetModifierKeys(), InKeyEvent.IsRepeat()))
+	if (IsCursorInsidePanel() && UICommandList->ProcessCommandBindings(InKeyEvent.GetKey(), FSlateApplication::Get().GetModifierKeys(), InKeyEvent.IsRepeat()))
 	{
 		return true;
 	}

@@ -23,15 +23,21 @@ Once you have created an instance, simply populate the track data. Note that at 
 
 Each track requires a track description. It contains a number of important properties:
 
-*  **Output index**: after compression, this is the index of the track. This allows re-ordering for LOD processing and other similar use cases.
-*  **Precision**: the precision we aim to attain when optimizing the bit rate. The resulting compression error is nearly guaranteed to be below this threshold.
-*  **Constant threshold**: track with samples within this precision threshold are considered constant and can be collapsed to a single sample. *Use the same value as `Precision`, the `constant threshold` will be removed in ACL 2.0.*
+*  `output_index`: after compression, this is the index of the track. This allows re-ordering for LOD processing and other similar use cases.
+*  `parent_index`: for transform tracks, indicates the parent transform index it is relative to (in local space of).
+*  `precision`: the precision we aim to attain when optimizing the bit rate. The resulting compression error is nearly guaranteed to be below this threshold.
+*  `shell_distance`: for transform tracks, indicates the distance at which we measure the error, see [error metric function](error_metrics.md).
 
 ```c++
 track_desc_scalarf desc0;
 desc0.output_index = 0;
 desc0.precision = 0.001F;
-desc0.constant_threshold = 0.123F;
+
+track_desc_transformf desc1;
+desc1.output_index = 0;
+desc1.parent_index = 0;
+desc1.precision = 0.01F;
+desc1.shell_distance = 3.0F;
 ```
 
 Tracks can be created in one of four ways:
@@ -53,7 +59,19 @@ raw_track0[3] = rtm::float3f{ 4.5F, 91.13F, 41.135F };
 raw_track_list[0] = std::move(raw_track0);
 ```
 
-Once your raw track list has been populated with data, it is ready for [compression](compressing_scalar_tracks.md). The data contained within the `track_array` will be read-only.
+Once your raw track list has been populated with data, it is ready for [compression](compressing_raw_tracks.md). The data contained within the `track_array` will be read-only.
+
+## Additive animation clips
+
+If the clip you are compressing is an additive clip, you will also need to create an instance for the base clip. Once you have both clip instances, you can compress them together with `compress_track_list(..)`. This will allow you to specify the clip instance that represents the base clip as well as the [format](additive_clips.md) used by the additive clip.
+
+The library assumes that the raw clip data has already been transformed to be in additive or relative space.
+
+## Re-ordering or stripping bones
+
+Sometimes it is desirable to re-order the bones being outputted or strip them altogether. This could be to facilitate LOD support or various forms of skeleton changes without needing to re-import the clips. This is easily achieved by setting the desired `output_index` on each `track_desc_transformf` contained in a `track_qvvf`. The default value is the track index. You can use `k_invalid_track_index` to strip the track from the final compressed output.
+
+*Note that each `output_index` needs to be unique and there can be no gaps. If **20** bones are outputted, the indices must run from **[0 .. 20)**.*
 
 ## Compressing morph target blend weights
 

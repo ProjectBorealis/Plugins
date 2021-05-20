@@ -1,7 +1,7 @@
 {
 	"FileVersion": 3,
 	"Version": 0,
-	"VersionName": "1.7",
+	"VersionName": "1.7.2",
 	"FriendlyName": "Node Graph Assistant",
 	"Description": "Introduce new editor features that enable faster node graph creation.",
 	"Category": "Editor",

@@ -84,7 +84,7 @@ namespace sjson
 			if (m_length != length)
 				return false;
 
-			if (m_c_str == c_str)
+			if (m_c_str == c_str || length == 0)
 				return true;
 
 			return std::memcmp(m_c_str, c_str, length) == 0;

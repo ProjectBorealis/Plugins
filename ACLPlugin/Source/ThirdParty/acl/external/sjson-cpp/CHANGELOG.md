@@ -1,8 +1,23 @@
 # Significant changes per release
 
+## 0.8.1
+
+*  Minor static analysis fixes
+
+## 0.8.0
+
+*  Added support for clang 8, 9, and 10
+*  Added support for GCC 10
+*  Added support for clang with VS 2019
+*  Added support for emscripten
+*  Converted android to use gradle instead of NVIDIA CodeWorks
+*  Updated Catch2 to 2.11.0
+*  Migrated from Travis to GitHub Actions
+*  Cleanup and minor misc changes
+
 ## 0.7.0
 
-*  Added support for VS 2019, GCC9, clang 7, and Xcode 11
+*  Added support for VS 2019, GCC 9, clang 7, and Xcode 11
 *  Added custom support for NaN/Inf handling
 *  Cleanup and minor misc changes
 

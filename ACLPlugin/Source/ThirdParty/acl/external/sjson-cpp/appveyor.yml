@@ -1,13 +1,39 @@
-version: 0.7.0.{build}
+version: 0.8.1.{build}
 
 environment:
-  PYTHON: "C:\\Python36-x64"
-  VISUAL_STUDIO: "C:\\Program Files (x86)\\Microsoft Visual Studio"
+  PYTHON: "C:\\Python36-x64\\python.exe"
+  matrix:
+    - toolchain: msvc
+    - toolchain: clang
 
 image:
-- Visual Studio 2015
-- Visual Studio 2017
-- Visual Studio 2019
+  - Visual Studio 2015
+  - Visual Studio 2017
+  - Visual Studio 2019
+
+configuration:
+  - Debug
+  - Release
+
+platform:
+  - x86
+  - x64
+  - arm64
+
+matrix:
+  exclude:
+    - image: Visual Studio 2015
+      platform: arm64
+    - image: Visual Studio 2015
+      toolchain: clang
+    - image: Visual Studio 2017
+      toolchain: clang
+    - image: Visual Studio 2019
+      platform: arm64
+      toolchain: clang
+    - image: Previous Visual Studio 2019
+      platform: arm64
+      toolchain: clang
 
 install:
 - cmd: >-
@@ -15,22 +41,4 @@ install:
 
 build_script:
 - cmd: >-
-    IF "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2015" (SET COMPILER=vs2015)
-
-    IF "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2017" (SET COMPILER=vs2017 && SET ARM64_SUPPORTED=1)
-
-    IF "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2019" (SET COMPILER=vs2019 && SET ARM64_SUPPORTED=1)
-
-    IF "%APPVEYOR_BUILD_WORKER_IMAGE%"=="Visual Studio 2019" "%VISUAL_STUDIO%\\Installer\\vs_installershell.exe" modify --productId Microsoft.VisualStudio.Product.Community --channelId VisualStudio.16.Release --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --add Microsoft.VisualStudio.Component.VC.Runtimes.ARM64.Spectre --quiet
-
-    %PYTHON%\\python.exe make.py -clean -build -unit_test -compiler %COMPILER% -config Debug -cpu x86
-
-    %PYTHON%\\python.exe make.py -clean -build -unit_test -compiler %COMPILER% -config Release -cpu x86
-
-    %PYTHON%\\python.exe make.py -clean -build -unit_test -compiler %COMPILER% -config Debug -cpu x64
-
-    %PYTHON%\\python.exe make.py -clean -build -unit_test -compiler %COMPILER% -config Release -cpu x64
-
-    IF DEFINED ARM64_SUPPORTED %PYTHON%\\python.exe make.py -clean -build -compiler %COMPILER% -config Debug -cpu arm64
-
-    IF DEFINED ARM64_SUPPORTED %PYTHON%\\python.exe make.py -clean -build -compiler %COMPILER% -config Release -cpu arm64
+    .\tools\appveyor_ci.bat "%APPVEYOR_BUILD_WORKER_IMAGE%" %platform% %configuration% %toolchain% "%PYTHON%"

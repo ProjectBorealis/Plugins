@@ -5,11 +5,7 @@
 
 #include "CoreMinimal.h"
 
-#ifdef NGA_WITH_ENGINE_CPP
-	#include "AnimGraphConnectionDrawingPolicy.cpp"
-#else
-	#include "../EngineCppFiles/AnimGraphConnectionDrawingPolicy.cpp"
-#endif
+#include "AnimGraphConnectionDrawingPolicy.h"
 
 #include "NGAGraphConnectionDrawingPolicyCommon.h"
 

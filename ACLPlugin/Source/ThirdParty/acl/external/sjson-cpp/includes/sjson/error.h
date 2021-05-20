@@ -41,7 +41,7 @@
 // Throwing:
 //    In order to enable the throwing behavior, simply define the macro SJSON_CPP_ON_ASSERT_THROW:
 //    #define SJSON_CPP_ON_ASSERT_THROW
-//    Note that the type of the exception thrown is std::runtime_error.
+//    Note that the type of the exception thrown is sjson::runtime_assert.
 //
 // Custom function:
 //    In order to enable the custom function calling behavior, define the macro SJSON_CPP_ON_ASSERT_CUSTOM
@@ -88,7 +88,7 @@
 		}
 	}
 
-	#define SJSON_CPP_ASSERT(expression, format, ...) if (!(expression)) sjson::error_impl::on_assert_abort(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+	#define SJSON_CPP_ASSERT(expression, format, ...) do { if (!(expression)) sjson::error_impl::on_assert_abort(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while (false)
 	#define SJSON_CPP_HAS_ASSERT_CHECKS
 
 #elif defined(SJSON_CPP_ON_ASSERT_THROW)
@@ -102,9 +102,7 @@
 	{
 		class runtime_assert final : public std::runtime_error
 		{
-		public:
-			explicit runtime_assert(const std::string& message) : std::runtime_error(message.c_str()) {}
-			explicit runtime_assert(const char* message) : std::runtime_error(message) {}
+			using std::runtime_error::runtime_error;	// Inherit constructors
 		};
 
 		namespace error_impl
@@ -133,13 +131,13 @@
 		}
 	}
 
-	#define SJSON_CPP_ASSERT(expression, format, ...) if (!(expression)) sjson::error_impl::on_assert_throw(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+	#define SJSON_CPP_ASSERT(expression, format, ...) do { if (!(expression)) sjson::error_impl::on_assert_throw(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(false)
 	#define SJSON_CPP_HAS_ASSERT_CHECKS
 
 #elif defined(SJSON_CPP_ON_ASSERT_CUSTOM)
 
 	#if !defined(SJSON_CPP_ASSERT)
-		#define SJSON_CPP_ASSERT(expression, format, ...) if (!(expression)) SJSON_CPP_ON_ASSERT_CUSTOM(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+		#define SJSON_CPP_ASSERT(expression, format, ...) do { if (!(expression)) SJSON_CPP_ON_ASSERT_CUSTOM(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(false)
 	#endif
 
 	#define SJSON_CPP_HAS_ASSERT_CHECKS

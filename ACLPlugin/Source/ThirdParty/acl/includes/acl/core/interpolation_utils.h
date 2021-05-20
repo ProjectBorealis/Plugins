@@ -25,8 +25,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include "acl/core/error.h"
-#include "acl/core/compiler_utils.h"
-#include "acl/math/scalar_32.h"
+#include "acl/core/impl/compiler_utils.h"
+
+#include <rtm/scalarf.h>
 
 #include <cstdint>
 #include <algorithm>
@@ -37,28 +38,28 @@ namespace acl
 {
 	//////////////////////////////////////////////////////////////////////////
 	// This enum dictates how interpolation samples are calculated based on the sample time.
-	enum class SampleRoundingPolicy
+	enum class sample_rounding_policy
 	{
 		//////////////////////////////////////////////////////////////////////////
 		// If the sample time lies between two samples, both sample indices
 		// are returned and the interpolation alpha lies in between.
-		None,
+		none,
 
 		//////////////////////////////////////////////////////////////////////////
 		// If the sample time lies between two samples, both sample indices
 		// are returned and the interpolation will be 0.0.
-		Floor,
+		floor,
 
 		//////////////////////////////////////////////////////////////////////////
 		// If the sample time lies between two samples, both sample indices
 		// are returned and the interpolation will be 1.0.
-		Ceil,
+		ceil,
 
 		//////////////////////////////////////////////////////////////////////////
 		// If the sample time lies between two samples, both sample indices
 		// are returned and the interpolation will be 0.0 or 1.0 depending
 		// on which sample is nearest.
-		Nearest,
+		nearest,
 	};
 
 	//////////////////////////////////////////////////////////////////////////
@@ -67,7 +68,7 @@ namespace acl
 	// The returned sample indices are clamped and do not loop.
 	// If the sample rate is available, prefer using find_linear_interpolation_samples_with_sample_rate
 	// instead. It is faster and more accurate.
-	inline void find_linear_interpolation_samples_with_duration(uint32_t num_samples, float duration, float sample_time, SampleRoundingPolicy rounding_policy,
+	inline void find_linear_interpolation_samples_with_duration(uint32_t num_samples, float duration, float sample_time, sample_rounding_policy rounding_policy,
 		uint32_t& out_sample_index0, uint32_t& out_sample_index1, float& out_interpolation_alpha)
 	{
 		// Samples are evenly spaced, trivially calculate the indices that we need
@@ -76,7 +77,7 @@ namespace acl
 		ACL_ASSERT(num_samples > 0, "Invalid num_samples: %u", num_samples);
 
 		const float sample_rate = duration == 0.0F ? 0.0F : (float(num_samples - 1) / duration);
-		ACL_ASSERT(sample_rate >= 0.0F && is_finite(sample_rate), "Invalid sample_rate: %f", sample_rate);
+		ACL_ASSERT(sample_rate >= 0.0F && rtm::scalar_is_finite(sample_rate), "Invalid sample_rate: %f", sample_rate);
 
 		const float sample_index = sample_time * sample_rate;
 		const uint32_t sample_index0 = static_cast<uint32_t>(sample_index);
@@ -92,33 +93,26 @@ namespace acl
 		switch (rounding_policy)
 		{
 		default:
-		case SampleRoundingPolicy::None:
+		case sample_rounding_policy::none:
 			out_interpolation_alpha = interpolation_alpha;
 			break;
-		case SampleRoundingPolicy::Floor:
+		case sample_rounding_policy::floor:
 			out_interpolation_alpha = 0.0F;
 			break;
-		case SampleRoundingPolicy::Ceil:
+		case sample_rounding_policy::ceil:
 			out_interpolation_alpha = 1.0F;
 			break;
-		case SampleRoundingPolicy::Nearest:
-			out_interpolation_alpha = floor(interpolation_alpha + 0.5F);
+		case sample_rounding_policy::nearest:
+			out_interpolation_alpha = rtm::scalar_floor(interpolation_alpha + 0.5F);
 			break;
 		}
-	}
-
-	ACL_DEPRECATED("Use find_linear_interpolation_samples_with_duration instead, to be removed in v2.0")
-	inline void find_linear_interpolation_samples(uint32_t num_samples, float duration, float sample_time, SampleRoundingPolicy rounding_policy,
-		uint32_t& out_sample_index0, uint32_t& out_sample_index1, float& out_interpolation_alpha)
-	{
-		find_linear_interpolation_samples_with_duration(num_samples, duration, sample_time, rounding_policy, out_sample_index0, out_sample_index1, out_interpolation_alpha);
 	}
 
 	//////////////////////////////////////////////////////////////////////////
 	// Calculates the sample indices and the interpolation required to linearly
 	// interpolate when the samples are uniform.
 	// The returned sample indices are clamped and do not loop.
-	inline void find_linear_interpolation_samples_with_sample_rate(uint32_t num_samples, float sample_rate, float sample_time, SampleRoundingPolicy rounding_policy,
+	inline void find_linear_interpolation_samples_with_sample_rate(uint32_t num_samples, float sample_rate, float sample_time, sample_rounding_policy rounding_policy,
 		uint32_t& out_sample_index0, uint32_t& out_sample_index1, float& out_interpolation_alpha)
 	{
 		// Samples are evenly spaced, trivially calculate the indices that we need
@@ -145,19 +139,45 @@ namespace acl
 		switch (rounding_policy)
 		{
 		default:
-		case SampleRoundingPolicy::None:
+		case sample_rounding_policy::none:
 			out_interpolation_alpha = interpolation_alpha;
 			break;
-		case SampleRoundingPolicy::Floor:
+		case sample_rounding_policy::floor:
 			out_interpolation_alpha = 0.0F;
 			break;
-		case SampleRoundingPolicy::Ceil:
+		case sample_rounding_policy::ceil:
 			out_interpolation_alpha = 1.0F;
 			break;
-		case SampleRoundingPolicy::Nearest:
-			out_interpolation_alpha = floor(interpolation_alpha + 0.5F);
+		case sample_rounding_policy::nearest:
+			out_interpolation_alpha = rtm::scalar_floor(interpolation_alpha + 0.5F);
 			break;
 		}
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// Calculates the sample indices and the interpolation required to linearly
+	// interpolate when the samples are uniform.
+	// This function does not support looping.
+	inline float find_linear_interpolation_alpha(float sample_index, uint32_t sample_index0, uint32_t sample_index1, sample_rounding_policy rounding_policy)
+	{
+		ACL_ASSERT(sample_index >= 0.0F, "Invalid sample rate: %f", sample_index);
+
+		if (rounding_policy == sample_rounding_policy::floor)
+			return 0.0F;
+		else if (rounding_policy == sample_rounding_policy::ceil)
+			return 1.0F;
+		else if (sample_index0 == sample_index1)
+			return 0.0F;
+
+		ACL_ASSERT(sample_index0 < sample_index1, "Invalid sample indices: %u >= %u", sample_index0, sample_index1);
+
+		const float interpolation_alpha = (sample_index - float(sample_index0)) / float(sample_index1 - sample_index0);
+		ACL_ASSERT(interpolation_alpha >= 0.0F && interpolation_alpha <= 1.0F, "Invalid interpolation alpha: 0.0 <= %f <= 1.0", interpolation_alpha);
+
+		if (rounding_policy == sample_rounding_policy::none)
+			return interpolation_alpha;
+		else // sample_rounding_policy::nearest
+			return rtm::scalar_floor(interpolation_alpha + 0.5F);
 	}
 }
 

@@ -37,7 +37,7 @@ namespace rtm
 	// Returns the quaternion on the hypersphere with a positive [w] component
 	// that represents the same 3D rotation as the input.
 	//////////////////////////////////////////////////////////////////////////
-	inline quatf RTM_SIMD_CALL quat_ensure_positive_w(quatf_arg0 input) RTM_NO_EXCEPT
+	RTM_DISABLE_SECURITY_COOKIE_CHECK RTM_FORCE_INLINE quatf RTM_SIMD_CALL quat_ensure_positive_w(quatf_arg0 input) RTM_NO_EXCEPT
 	{
 #if defined(RTM_SSE2_INTRINSICS)
 		constexpr __m128 sign_bit = { -0.0F, -0.0F, -0.0F, -0.0F };
@@ -60,24 +60,24 @@ namespace rtm
 	// Returns a quaternion constructed from a vector3 representing the [xyz]
 	// components while reconstructing the [w] component by assuming it is positive.
 	//////////////////////////////////////////////////////////////////////////
-	inline quatf RTM_SIMD_CALL quat_from_positive_w(vector4f_arg0 input) RTM_NO_EXCEPT
+	RTM_DISABLE_SECURITY_COOKIE_CHECK RTM_FORCE_INLINE quatf RTM_SIMD_CALL quat_from_positive_w(vector4f_arg0 input) RTM_NO_EXCEPT
 	{
+#if defined(RTM_SSE2_INTRINSICS)
+		const __m128i abs_mask = _mm_set_epi32(0x7FFFFFFFULL, 0x7FFFFFFFULL, 0x7FFFFFFFULL, 0x7FFFFFFFULL);
+
+		__m128 x2y2z2 = _mm_mul_ps(input, input);
+		__m128 one = _mm_set_ss(1.0F);
+		__m128 w_squared = _mm_sub_ss(_mm_sub_ss(_mm_sub_ss(one, x2y2z2), _mm_shuffle_ps(x2y2z2, x2y2z2, _MM_SHUFFLE(1, 1, 1, 1))), _mm_shuffle_ps(x2y2z2, x2y2z2, _MM_SHUFFLE(2, 2, 2, 2)));
+		w_squared = _mm_and_ps(w_squared, _mm_castsi128_ps(abs_mask));
+		__m128 w = _mm_sqrt_ss(w_squared);
+
 #if defined(RTM_SSE4_INTRINSICS)
-		__m128 x2y2z2 = _mm_mul_ps(input, input);
-		__m128 one = _mm_set_ss(1.0F);
-		__m128 w_squared = _mm_sub_ss(_mm_sub_ss(_mm_sub_ss(one, x2y2z2), _mm_shuffle_ps(x2y2z2, x2y2z2, _MM_SHUFFLE(1, 1, 1, 1))), _mm_shuffle_ps(x2y2z2, x2y2z2, _MM_SHUFFLE(2, 2, 2, 2)));
-		w_squared = _mm_andnot_ps(_mm_set_ss(-0.0F), w_squared);
-		__m128 w = _mm_sqrt_ss(w_squared);
 		return _mm_insert_ps(input, w, 0x30);
-#elif defined(RTM_SSE2_INTRINSICS)
-		__m128 x2y2z2 = _mm_mul_ps(input, input);
-		__m128 one = _mm_set_ss(1.0F);
-		__m128 w_squared = _mm_sub_ss(_mm_sub_ss(_mm_sub_ss(one, x2y2z2), _mm_shuffle_ps(x2y2z2, x2y2z2, _MM_SHUFFLE(1, 1, 1, 1))), _mm_shuffle_ps(x2y2z2, x2y2z2, _MM_SHUFFLE(2, 2, 2, 2)));
-		w_squared = _mm_andnot_ps(_mm_set_ss(-0.0F), w_squared);
-		__m128 w = _mm_sqrt_ss(w_squared);
+#else
 		__m128 input_wyzx = _mm_shuffle_ps(input, input, _MM_SHUFFLE(0, 2, 1, 3));
 		__m128 result_wyzx = _mm_move_ss(input_wyzx, w);
 		return _mm_shuffle_ps(result_wyzx, result_wyzx, _MM_SHUFFLE(0, 2, 1, 3));
+#endif
 #elif defined(RTM_NEON_INTRINSICS) && 0
 		// TODO: This is slower on ARMv7-A, measure again on ARM64, fewer instructions but the first
 		// sub is dependent on the result of the mul where the C impl below pipelines a bit better it seems

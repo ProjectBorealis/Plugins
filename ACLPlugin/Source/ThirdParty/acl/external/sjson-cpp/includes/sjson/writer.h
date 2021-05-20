@@ -55,7 +55,7 @@ namespace sjson
 	class StreamWriter
 	{
 	public:
-		virtual ~StreamWriter() {}
+		virtual ~StreamWriter() = default;
 
 		virtual void write(const void* buffer, size_t buffer_size) = 0;
 
@@ -161,7 +161,7 @@ namespace sjson
 		class ValueRef final
 		{
 		public:
-			ValueRef(ValueRef&& other);
+			ValueRef(ValueRef&& other) noexcept;
 			~ValueRef();
 
 			void operator=(const char* value);
@@ -417,7 +417,7 @@ namespace sjson
 		object_writer.m_is_locked = true;
 	}
 
-	inline ObjectWriter::ValueRef::ValueRef(ValueRef&& other)
+	inline ObjectWriter::ValueRef::ValueRef(ValueRef&& other) noexcept
 		: m_object_writer(other.m_object_writer)
 		, m_is_empty(other.m_is_empty)
 		, m_is_locked(other.m_is_locked)

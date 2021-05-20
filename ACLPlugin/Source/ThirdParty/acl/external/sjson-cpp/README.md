@@ -1,6 +1,7 @@
 [![CLA assistant](https://cla-assistant.io/readme/badge/nfrechette/sjson-cpp)](https://cla-assistant.io/nfrechette/sjson-cpp)
+[![All Contributors](https://img.shields.io/github/all-contributors/nfrechette/sjson-cpp)](#contributors-)
 [![Build status](https://ci.appveyor.com/api/projects/status/oynd3x3d9umjaruf/branch/develop?svg=true)](https://ci.appveyor.com/project/nfrechette/sjson-cpp)
-[![Build Status](https://travis-ci.org/nfrechette/sjson-cpp.svg?branch=develop)](https://travis-ci.org/nfrechette/sjson-cpp)
+[![Build status](https://github.com/nfrechette/sjson-cpp/workflows/build/badge.svg)](https://github.com/nfrechette/sjson-cpp/actions)
 [![Sonar Status](https://sonarcloud.io/api/project_badges/measure?project=nfrechette_sjson-cpp&metric=alert_status)](https://sonarcloud.io/dashboard?id=nfrechette_sjson-cpp)
 [![GitHub (pre-)release](https://img.shields.io/github/release/nfrechette/sjson-cpp/all.svg)](https://github.com/nfrechette/sjson-cpp/releases)
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/nfrechette/sjson-cpp/master/LICENSE)
@@ -35,11 +36,15 @@ Unicode formats other than UTF-8 aren't supported.
 
 ## Supported platforms
 
-*  Windows VS2015 x86 and x64, VS2017/2019 x86, x64, and ARM64*
-*  Linux (gcc5, gcc6, gcc7, gcc8, gcc9, clang4, clang5, clang6, clang7) x86 and x64
-*  OS X (Xcode 8.3, 9.4, 10.3, 11.2*) x86 and x64
-*  Android (NVIDIA CodeWorks with clang5) ARMv7-A and ARM64
-*  iOS (Xcode 8.3, 9.4, 10.3) ARM64
+*  Windows VS2015 x86 and x64
+*  Windows (VS2017, VS2019) x86, x64, and ARM64
+*  Windows VS2019 with clang9 x86 and x64
+*  Linux (gcc 5 to 10) x86 and x64
+*  Linux (clang 4 to 11) x86 and x64
+*  OS X (Xcode 10.3, 11.7) x86 and x64
+*  Android (NDK 21) ARMv7-A and ARM64
+*  iOS (Xcode 10.3) ARM64
+*  Emscripten (1.39.11) WASM
 
 The above supported platform list is only what is tested every release but if it compiles, it should run just fine.
 
@@ -59,8 +64,7 @@ This library is **100%** headers as such you just need to include them in your o
 1. Install *CMake 3.2* or higher (*3.14* for Visual Studio 2019, or *3.10* on OS X with *Xcode 10*), *Python 2.7 or 3*, and the proper compiler for your platform.
 2. Execute `git submodule update --init` to get the files of external submodules (e.g. Catch2).
 3. Generate the IDE solution with: `python make.py`  
-   The solution is generated under `./build`  
-   Note that if you do not have CMake in your `PATH`, you should define the `SJSON_CPP_CMAKE_HOME` environment variable to something like `C:\Program Files\CMake`.
+   The solution is generated under `./build`
 4. Build the IDE solution with: `python make.py -build`
 5. Run the unit tests with: `python make.py -unit_test`
 
@@ -70,11 +74,17 @@ For *Windows on ARM64*, the steps are identical to *x86 and x64* but you will ne
 
 ### Android
 
-For *Android*, the steps are identical to *Windows, Linux, and OS X* but you also need to install *NVIDIA CodeWorks 1R5* (or higher).
+For *Android*, the steps are identical to *Windows, Linux, and OS X* but you also need to install *Android NDK 21* (or higher). The build uses `gradle` and `-unit_test` will deploy and run on the device when executed (make sure that the `adb` executable is in your `PATH` for this to work).
+
+*Android Studio v3.5* can be used to launch and debug. After running *CMake* to build and generate everything, the *Android Studio* projects can be found under the `./build` directory.
 
 ### iOS
 
 For *iOS*, the steps are identical to the other platforms but due to code signing, you will need to perform the builds from *Xcode* manually. Note that this is only an issue if you attempt to use the tools or run the unit tests locally.
+
+### Emscripten
+
+Emscripten support currently only has been tested on OS X and Linux. To use it, make sure to install a recent version of Emscripten SDK 1.39.11+.
 
 ## Commit message format
 
@@ -92,3 +102,26 @@ This project uses the [MIT license](LICENSE).
 Copyright (c) 2017 Nicholas Frechette, Cody Jones, and sjson-cpp contributors
 
 Please note that this project is released with a [Contributor Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<table>
+  <tr>
+    <td align="center"><a href="https://github.com/CodyDWJones"><img src="https://avatars.githubusercontent.com/u/28773740?v=4?s=100" width="100px;" alt=""/><br /><sub><b>CodyDWJones</b></sub></a><br /><a href="https://github.com/nfrechette/sjson-cpp/commits?author=CodyDWJones" title="Code">💻</a> <a href="#maintenance-CodyDWJones" title="Maintenance">🚧</a></td>
+    <td align="center"><a href="https://github.com/janisozaur"><img src="https://avatars.githubusercontent.com/u/550290?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Michał Janiszewski</b></sub></a><br /><a href="https://github.com/nfrechette/sjson-cpp/commits?author=janisozaur" title="Code">💻</a> <a href="#maintenance-janisozaur" title="Maintenance">🚧</a></td>
+    <td align="center"><a href="https://github.com/tirpidz"><img src="https://avatars.githubusercontent.com/u/9991876?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Martin Turcotte</b></sub></a><br /><a href="#maintenance-tirpidz" title="Maintenance">🚧</a></td>
+    <td align="center"><a href="https://github.com/Meradrin"><img src="https://avatars.githubusercontent.com/u/7066278?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Meradrin</b></sub></a><br /><a href="https://github.com/nfrechette/sjson-cpp/issues?q=author%3AMeradrin" title="Bug reports">🐛</a></td>
+  </tr>
+</table>
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!

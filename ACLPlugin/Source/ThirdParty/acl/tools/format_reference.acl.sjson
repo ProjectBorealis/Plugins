@@ -10,7 +10,8 @@
 // version = 1		// Initial version
 // version = 2		// Introduced clip compression settings
 //version = 3		// Introduced additive clip related data
-version = 4			// Introduced track list related data
+//version = 4		// Introduced track list related data
+version = 5			// Renamed enums for 2.0 and other related changes
 
 // BEGIN CLIP RELATED DATA
 
@@ -37,9 +38,9 @@ clip =
 	// Introduced in version 2.
 	is_binary_exact = true
 
-	// Additive format of base clip, if present. Optional, defaults to 'None'.
+	// Additive format of base clip, if present. Optional, defaults to 'none'.
 	// Introduced in version 3.
-	additive_format = "None"
+	additive_format = "none"
 
 	// The additive base clip name. Optional, defaults to empty string.
 	// Introduced in version 3.
@@ -59,28 +60,18 @@ clip =
 settings =
 {
 	// The name of the algorithm to use. See function get_algorithm_type(..)
-	// Defaults to 'UniformlySampled'
-	algorithm_name = "UniformlySampled"
+	// Defaults to 'uniformly_sampled'
+	algorithm_name = "uniformly_sampled"
 
 	// The rotation, translation, and scale formats to use. See functions get_rotation_format(..) and get_vector_format(..)
-	// Defaults to raw: 'Quat_128' and 'Vector3_96'
-	rotation_format = "Quat_128"
-	translation_format = "Vector3_96"
-	scale_format = "Vector3_96"
-
-	// Whether to use range reduction or not at the clip level
-	// Defaults to 'false'
-	rotation_range_reduction = false
-	translation_range_reduction = false
-	scale_range_reduction = false
+	// Defaults to raw: 'quatf_full' and 'vector3f_full'
+	rotation_format = "quatf_full"
+	translation_format = "vector3f_full"
+	scale_format = "vector3f_full"
 
 	// Settings used when segmenting clips
 	// Optional
 	segmenting = {
-		// Whether to enable segmenting or not
-		// Defaults to 'false'
-		enabled = false
-
 		// How many samples to try and fit in our segments
 		// Defaults to '16'
 		ideal_num_samples = 16
@@ -88,12 +79,6 @@ settings =
 		// Maximum number of samples per segment
 		// Defaults to '31'
 		max_num_samples = 31
-
-		// Whether to use range reduction or not at the segment level
-		// Defaults to 'false'
-		rotation_range_reduction = false
-		translation_range_reduction = false
-		scale_range_reduction = false
 	}
 
 	// Threshold angle value to use when detecting if a rotation track is constant
@@ -232,6 +217,7 @@ tracks =
 
 		// The constant track detection threshold
 		// Defaults to '0.00001' units
+		// DEPRECATED, NO LONGER USED OR NECESSARY
 		constant_threshold = 0.00001
 
 		// The track output index. When writing out the compressed data stream, this index
@@ -241,12 +227,42 @@ tracks =
 		// Defaults to the track index
 		output_index = 12
 
+		// The track index of our parent track
+		// Transforms only
+		parent_index = 2
+
+		// The shell distance of the transform's error metric
+		// Transforms only
+		shell_distance = 3.0
+
+		// The constant rotation detection threshold
+		// Transforms only
+		constant_rotation_threshold_angle = 0.1
+
+		// The constant translation detection threshold
+		// Transforms only
+		constant_translation_threshold = 0.1
+
+		// The constant scale detection threshold
+		// Transforms only
+		constant_scale_threshold = 0.1
+
+		// Bind pose transform information. All three are optional
+		// The bind pose should be in parent bone local space
+		bind_rotation = [ 0.0, 0.0, 0.0, 1.0 ]
+		bind_translation = [ 0.0, 0.0, 0.0 ]
+		bind_scale = [ 1.0, 1.0, 1.0 ]
+
 		// Track data
+		// The number of samples here must match num_samples
 		data =
 		[
+			// Scalar tracks are of the form: [ x, y, z, .. ] with one entry per scalar component
 			[ 0.0, 0.0, 0.0, 1.0 ]
 			[ 1.0, 0.0, 0.0, 0.0 ]
-			// The number of samples here must match num_samples
+
+			// Transform tracks are of the form: [ [ rot.x, rot.y, rot.z, rot.z ], [ trans.x, trans.y, trans.z ], [ scale.x, scale.y, scale.z ] ]
+			// All three parts must be present and cannot be omitted
 		]
 	}
 ]

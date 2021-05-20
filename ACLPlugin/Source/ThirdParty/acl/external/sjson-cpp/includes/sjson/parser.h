@@ -328,6 +328,8 @@ namespace sjson
 			return true;
 		}
 
+		bool read_comma()			{ return read_symbol(',', ParserError::CommaExpected); }
+
 		bool remainder_is_comments_and_whitespace()
 		{
 			if (!skip_comments_and_whitespace())
@@ -349,7 +351,7 @@ namespace sjson
 				if (eof())
 					return true;
 
-				if (std::isspace(m_state.symbol))
+				if (std::isspace(static_cast<unsigned char>(m_state.symbol)))
 				{
 					advance();
 					continue;
@@ -369,15 +371,15 @@ namespace sjson
 			}
 		}
 
-		void get_position(uint32_t& line, uint32_t& column)
+		void get_position(uint32_t& line, uint32_t& column) const
 		{
 			line = m_state.line;
 			column = m_state.column;
 		}
 
-		bool eof() { return m_state.offset >= m_input_length; }
+		bool eof() const { return m_state.offset >= m_input_length; }
 
-		ParserError get_error() { return m_state.error; }
+		ParserError get_error() const { return m_state.error; }
 		bool is_valid() const { return m_state.error.error == ParserError::None; }
 
 		ParserState save_state() const { return m_state; }
@@ -396,7 +398,6 @@ namespace sjson
 		bool read_closing_brace()	{ return read_symbol('}', ParserError::ClosingBraceExpected); }
 		bool read_opening_bracket()	{ return read_symbol('[', ParserError::OpeningBracketExpected); }
 		bool read_closing_bracket()	{ return read_symbol(']', ParserError::ClosingBracketExpected); }
-		bool read_comma()			{ return read_symbol(',', ParserError::CommaExpected); }
 
 		bool read_symbol(char expected, int32_t reason_if_other_found)
 		{
@@ -602,7 +603,7 @@ namespace sjson
 					break;
 				}
 
-				if (std::isspace(m_state.symbol))
+				if (std::isspace(static_cast<unsigned char>(m_state.symbol)))
 				{
 					end_offset = m_state.offset - 1;
 					advance();
@@ -716,9 +717,9 @@ namespace sjson
 			{
 				advance();
 			}
-			else if (std::isdigit(m_state.symbol))
+			else if (std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 			{
-				while (std::isdigit(m_state.symbol))
+				while (std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 					advance();
 			}
 			else
@@ -731,7 +732,7 @@ namespace sjson
 			{
 				advance();
 
-				while (std::isdigit(m_state.symbol))
+				while (std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 					advance();
 			}
 
@@ -743,13 +744,13 @@ namespace sjson
 				{
 					advance();
 				}
-				else if (!std::isdigit(m_state.symbol))
+				else if (!std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 				{
 					set_error(ParserError::InvalidNumber);
 					return false;
 				}
 
-				while (std::isdigit(m_state.symbol))
+				while (std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 					advance();
 			}
 
@@ -810,13 +811,13 @@ namespace sjson
 				{
 					base = 8;
 
-					while (std::isdigit(m_state.symbol))
+					while (std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 						advance();
 				}
 			}
-			else if (std::isdigit(m_state.symbol))
+			else if (std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 			{
-				while (std::isdigit(m_state.symbol))
+				while (std::isdigit(static_cast<unsigned char>(m_state.symbol)))
 					advance();
 			}
 			else
@@ -901,7 +902,7 @@ namespace sjson
 
 		static bool is_hex_digit(char value)
 		{
-			return std::isdigit(value)
+			return std::isdigit(static_cast<unsigned char>(value))
 				|| value == 'a' || value == 'A'
 				|| value == 'b' || value == 'B'
 				|| value == 'c' || value == 'C'

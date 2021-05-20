@@ -22,7 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
-#include <catch.hpp>
+#include <catch2/catch.hpp>
 
 #include <acl/core/ptr_offset.h>
 
@@ -30,13 +30,15 @@ using namespace acl;
 
 TEST_CASE("ptr_offset", "[core][memory]")
 {
-	REQUIRE(PtrOffset32<uint8_t>(InvalidPtrOffset()).is_valid() == false);
+	CHECK(ptr_offset32<uint8_t>(invalid_ptr_offset()).is_valid() == false);
 
-	PtrOffset32<uint8_t> offset(32);
-	REQUIRE(offset.is_valid() == true);
+	ptr_offset32<uint8_t> offset(32);
+	CHECK(offset.is_valid() == true);
 
 	uint8_t* ptr = nullptr;
-	REQUIRE(offset.add_to(ptr) == (ptr + 32));
-	REQUIRE(offset.add_to(ptr) == offset.safe_add_to(ptr));
-	REQUIRE(uint32_t(offset) == 32);
+	CHECK(offset.add_to(ptr) == (ptr + 32));
+	CHECK(offset.add_to(ptr) == offset.safe_add_to(ptr));
+	CHECK(uint32_t(offset) == 32);
+
+	CHECK(ptr_offset32<uint8_t>(ptr, ptr + 31) == 31);
 }

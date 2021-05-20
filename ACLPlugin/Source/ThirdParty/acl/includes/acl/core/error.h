@@ -24,7 +24,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
-#include "acl/core/compiler_utils.h"
+#include "acl/core/impl/compiler_utils.h"
 
 ACL_IMPL_FILE_PRAGMA_PUSH
 
@@ -45,7 +45,7 @@ ACL_IMPL_FILE_PRAGMA_PUSH
 // Throwing:
 //    In order to enable the throwing behavior, simply define the macro ACL_ON_ASSERT_THROW:
 //    #define ACL_ON_ASSERT_THROW
-//    Note that the type of the exception thrown is std::runtime_error.
+//    Note that the type of the exception thrown is acl::runtime_assert.
 //
 // Custom function:
 //    In order to enable the custom function calling behavior, define the macro ACL_ON_ASSERT_CUSTOM
@@ -92,8 +92,9 @@ ACL_IMPL_FILE_PRAGMA_PUSH
 		}
 	}
 
-	#define ACL_ASSERT(expression, format, ...) if (!(expression)) acl::error_impl::on_assert_abort(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+	#define ACL_ASSERT(expression, format, ...) do { if (!(expression)) acl::error_impl::on_assert_abort(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(0)
 	#define ACL_HAS_ASSERT_CHECKS
+	#define ACL_NO_EXCEPT noexcept
 
 #elif defined(ACL_ON_ASSERT_THROW)
 
@@ -106,9 +107,7 @@ ACL_IMPL_FILE_PRAGMA_PUSH
 	{
 		class runtime_assert final : public std::runtime_error
 		{
-		public:
-			explicit runtime_assert(const std::string& message) : std::runtime_error(message.c_str()) {}
-			explicit runtime_assert(const char* message) : std::runtime_error(message) {}
+			using std::runtime_error::runtime_error;	// Inherit constructors
 		};
 
 		namespace error_impl
@@ -137,20 +136,23 @@ ACL_IMPL_FILE_PRAGMA_PUSH
 		}
 	}
 
-	#define ACL_ASSERT(expression, format, ...) if (!(expression)) acl::error_impl::on_assert_throw(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+	#define ACL_ASSERT(expression, format, ...) do { if (!(expression)) acl::error_impl::on_assert_throw(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(0)
 	#define ACL_HAS_ASSERT_CHECKS
+	#define ACL_NO_EXCEPT
 
 #elif defined(ACL_ON_ASSERT_CUSTOM)
 
 	#if !defined(ACL_ASSERT)
-		#define ACL_ASSERT(expression, format, ...) if (!(expression)) ACL_ON_ASSERT_CUSTOM(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+		#define ACL_ASSERT(expression, format, ...) do { if (!(expression)) ACL_ON_ASSERT_CUSTOM(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(0)
 	#endif
 
 	#define ACL_HAS_ASSERT_CHECKS
+	#define ACL_NO_EXCEPT
 
 #else
 
 	#define ACL_ASSERT(expression, format, ...) ((void)0)
+	#define ACL_NO_EXCEPT noexcept
 
 #endif
 
