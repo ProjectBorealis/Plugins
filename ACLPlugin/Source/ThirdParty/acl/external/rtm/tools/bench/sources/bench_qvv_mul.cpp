@@ -28,7 +28,7 @@
 
 using namespace rtm;
 
-inline qvvf RTM_SIMD_CALL qvv_mul_ref(qvvf_arg0 lhs, qvvf_arg1 rhs) RTM_NO_EXCEPT
+RTM_FORCE_NOINLINE qvvf RTM_SIMD_CALL qvv_mul_ref(qvvf_arg0 lhs, qvvf_arg1 rhs) RTM_NO_EXCEPT
 {
 	const vector4f min_scale = vector_min(lhs.scale, rhs.scale);
 	const vector4f scale = vector_mul(lhs.scale, rhs.scale);
@@ -59,7 +59,10 @@ inline qvvf RTM_SIMD_CALL qvv_mul_ref(qvvf_arg0 lhs, qvvf_arg1 rhs) RTM_NO_EXCEP
 }
 
 #if defined(RTM_SSE2_INTRINSICS)
-inline qvvf RTM_SIMD_CALL qvv_mul_sse2(qvvf_arg0 lhs, qvvf_arg1 rhs) RTM_NO_EXCEPT
+// Wins on Haswell laptop x64 AVX
+// Wins on Ryzen 2990X desktop VS2017 x64 AVX
+// Wins on Ryzen 2990X desktop clang9 x64 AVX
+RTM_FORCE_NOINLINE qvvf RTM_SIMD_CALL qvv_mul_sse2(qvvf_arg0 lhs, qvvf_arg1 rhs) RTM_NO_EXCEPT
 {
 	const vector4f min_scale = vector_min(lhs.scale, rhs.scale);
 	const vector4f scale = vector_mul(lhs.scale, rhs.scale);
@@ -96,9 +99,19 @@ static void bm_qvv_mul_ref(benchmark::State& state)
 {
 	qvvf t0 = qvv_identity();
 	qvvf t1 = qvv_set(quat_identity(), vector_zero(), vector_set(-1.0f));
+	qvvf t2 = qvv_identity();
+	qvvf t3 = qvv_set(quat_identity(), vector_zero(), vector_set(-1.0f));
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(t0 = qvv_mul_ref(t0, t1));
+	{
+		t0 = qvv_mul_ref(t0, t1);
+		t2 = qvv_mul_ref(t2, t3);
+	}
+
+	benchmark::DoNotOptimize(t0);
+	benchmark::DoNotOptimize(t1);
+	benchmark::DoNotOptimize(t2);
+	benchmark::DoNotOptimize(t3);
 }
 
 BENCHMARK(bm_qvv_mul_ref);
@@ -108,9 +121,19 @@ static void bm_qvv_mul_sse2(benchmark::State& state)
 {
 	qvvf t0 = qvv_identity();
 	qvvf t1 = qvv_set(quat_identity(), vector_zero(), vector_set(-1.0f));
+	qvvf t2 = qvv_identity();
+	qvvf t3 = qvv_set(quat_identity(), vector_zero(), vector_set(-1.0f));
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(t0 = qvv_mul_sse2(t0, t1));
+	{
+		t0 = qvv_mul_sse2(t0, t1);
+		t2 = qvv_mul_sse2(t2, t3);
+	}
+
+	benchmark::DoNotOptimize(t0);
+	benchmark::DoNotOptimize(t1);
+	benchmark::DoNotOptimize(t2);
+	benchmark::DoNotOptimize(t3);
 }
 
 BENCHMARK(bm_qvv_mul_sse2);

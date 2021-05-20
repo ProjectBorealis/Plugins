@@ -26,7 +26,7 @@
 
 #if defined(SJSON_CPP_WRITER)
 
-#include "acl/core/compiler_utils.h"
+#include "acl/core/impl/compiler_utils.h"
 #include "acl/core/error.h"
 #include "acl/core/scope_profiler.h"
 #include "acl/compression/impl/track_list_context.h"
@@ -40,16 +40,18 @@ namespace acl
 {
 	namespace acl_impl
 	{
-		inline void write_compression_stats(const track_list_context& context, const compressed_tracks& tracks, const ScopeProfiler& compression_time, OutputStats& stats)
+		inline void write_compression_stats(const track_list_context& context, const compressed_tracks& tracks, const scope_profiler& compression_time, output_stats& stats)
 		{
 			ACL_ASSERT(stats.writer != nullptr, "Attempted to log stats without a writer");
+			if (stats.writer == nullptr)
+				return;
 
 			const uint32_t raw_size = context.reference_list->get_raw_size();
 			const uint32_t compressed_size = tracks.get_size();
 			const double compression_ratio = double(raw_size) / double(compressed_size);
 
 			sjson::ObjectWriter& writer = *stats.writer;
-			writer["algorithm_name"] = get_algorithm_name(AlgorithmType8::UniformlySampled);
+			writer["algorithm_name"] = get_algorithm_name(algorithm_type8::uniformly_sampled);
 			//writer["algorithm_uid"] = settings.get_hash();
 			//writer["clip_name"] = clip.get_name().c_str();
 			writer["raw_size"] = raw_size;

@@ -677,8 +677,8 @@ bool FNodeHelper::RearrangeSelectedNodes(SGraphPanel* graphPanel, FIntPoint Spac
 
 			FVector2D headNodeSize = graphPanel->GetNodeWidgetFromGuid(arrangedNodes[i][0]->NodeGuid)->GetDesiredSize();
 
-			columePos.Insert({ arrangedNodes[i][0]->NodePosX,arrangedNodes[i][0]->NodePosY }, 0);
-			columeSize.Insert({ columeWidth, columeHeight }, 0);
+			columePos.Insert(FIntPoint(arrangedNodes[i][0]->NodePosX,arrangedNodes[i][0]->NodePosY), 0);
+			columeSize.Insert(FIntPoint(columeWidth, columeHeight), 0);
 		}
 		else
 		{
@@ -772,8 +772,8 @@ bool FNodeHelper::RearrangeSelectedNodes(SGraphPanel* graphPanel, FIntPoint Spac
 				columeTempPosX -= FMath::Max(columePinsPosYMax - columePinsPosYMin, columeLinkedPinsPosYMax - columeLinkedPinsPosYMin) / FMath::Max(30,FMath::Min(columePinsPosYMax - columePinsPosYMin, columeLinkedPinsPosYMax - columeLinkedPinsPosYMin)) * SpacingRelax;
 			}
 
-			columePos.Insert({ columeTempPosX,columeTempPosY }, 0);
-			columeSize.Insert({ columeWidth, columeHeight }, 0);
+			columePos.Insert(FIntPoint(columeTempPosX,columeTempPosY), 0);
+			columeSize.Insert(FIntPoint(columeWidth, columeHeight), 0);
 		}
 
 		//move nodes on this colume to new position.
@@ -904,8 +904,8 @@ bool FNodeHelper::RearrangeSelectedNodes_AIGraph(SGraphPanel* graphPanel, FIntPo
 
 			FVector2D headNodeSize = graphPanel->GetNodeWidgetFromGuid(arrangedNodes[i][0]->NodeGuid)->GetDesiredSize();
 
-			columePos.Insert({ arrangedNodes[i][0]->NodePosX, arrangedNodes[i][0]->NodePosY + (columeHeight - (int32)headNodeSize.Y) / 2 }, 0);
-			columeSize.Insert({ columeWidth, columeHeight }, 0);
+			columePos.Insert(FIntPoint(arrangedNodes[i][0]->NodePosX, arrangedNodes[i][0]->NodePosY + (columeHeight - (int32)headNodeSize.Y) / 2), 0);
+			columeSize.Insert(FIntPoint(columeWidth, columeHeight), 0);
 		}
 		else
 		{
@@ -997,8 +997,8 @@ bool FNodeHelper::RearrangeSelectedNodes_AIGraph(SGraphPanel* graphPanel, FIntPo
 				columeTempPosY += FMath::Max(columePinsPosXMax- columePinsPosXMin, columeLinkedPinsPosXMax- columeLinkedPinsPosXMin) / FMath::Max(30,FMath::Min(columePinsPosXMax - columePinsPosXMin, columeLinkedPinsPosXMax - columeLinkedPinsPosXMin)) * SpacingRelax;
 			}
 
-			columePos.Insert({ columeTempPosX,columeTempPosY }, 0);
-			columeSize.Insert({ columeWidth, columeHeight }, 0);
+			columePos.Insert(FIntPoint(columeTempPosX,columeTempPosY), 0);
+			columeSize.Insert(FIntPoint(columeWidth, columeHeight), 0);
 		}
 
 		//move nodes on this colume to new position.

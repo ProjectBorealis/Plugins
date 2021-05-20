@@ -30,13 +30,6 @@ namespace sjson
 {
 	struct ParserError
 	{
-		ParserError()
-			: error(ParserError::None)
-			, line()
-			, column()
-		{
-		}
-
 		enum : uint32_t
 		{
 			None,
@@ -62,9 +55,9 @@ namespace sjson
 			Last
 		};
 
-		uint32_t error;
-		uint32_t line;
-		uint32_t column;
+		uint32_t error		= None;
+		uint32_t line		= 0;
+		uint32_t column		= 0;
 
 		virtual const char* get_description() const
 		{

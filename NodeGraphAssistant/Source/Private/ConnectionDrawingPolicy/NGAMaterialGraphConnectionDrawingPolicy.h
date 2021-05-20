@@ -5,11 +5,7 @@
 
 #include "CoreMinimal.h"
 
-#ifdef NGA_WITH_ENGINE_CPP
-	#include "MaterialGraphConnectionDrawingPolicy.cpp"
-#else
-	#include "../EngineCppFiles/MaterialGraphConnectionDrawingPolicy.cpp"
-#endif
+#include "MaterialGraphConnectionDrawingPolicy.h"
 
 #include "NGAGraphConnectionDrawingPolicyCommon.h"
 

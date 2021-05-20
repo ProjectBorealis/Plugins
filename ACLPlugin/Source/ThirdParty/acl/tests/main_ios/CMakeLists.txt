@@ -17,7 +17,7 @@ set(MACOSX_BUNDLE_BUNDLE_NAME "acl-unit-tests")
 
 include_directories("${PROJECT_SOURCE_DIR}/../../includes")
 include_directories("${PROJECT_SOURCE_DIR}/../../external/rtm/includes")
-include_directories("${PROJECT_SOURCE_DIR}/../../external/catch2/single_include/catch2")
+include_directories("${PROJECT_SOURCE_DIR}/../../external/catch2/single_include")
 
 if(USE_SJSON)
 	include_directories("${PROJECT_SOURCE_DIR}/../../external/sjson-cpp/includes")
@@ -44,7 +44,7 @@ add_definitions(-DRTM_ON_ASSERT_THROW)
 
 # Disable SIMD if not needed
 if(NOT USE_SIMD_INSTRUCTIONS)
-	add_definitions(-DACL_NO_INTRINSICS)
+	add_definitions(-DRTM_NO_INTRINSICS)
 endif()
 
 # Enable SJSON when needed

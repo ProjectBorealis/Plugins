@@ -110,6 +110,7 @@ public:
 	bool IsDraggingConnection() const;
 
 	FSlateRect GetWidgetRect(FGeometry Geometry);
+	inline void ReleaseMouseCapture(FSlateApplication& SlateApp, int32 UserIndex);
 
 	//get the graph panel currently under cursor.
 	TSharedPtr<SGraphPanel> GetCurrentGraphPanel();
@@ -197,4 +198,8 @@ private:
 	void* CusorResource_Scissor;
 
 	int32 PressedCharKey = 0;
+
+#if ENGINE_MINOR_VERSION > 25
+	TSet<FKey> DragNPanPressedKeys;
+#endif
 };

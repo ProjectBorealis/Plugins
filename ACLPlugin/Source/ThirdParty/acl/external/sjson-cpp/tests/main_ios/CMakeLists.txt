@@ -16,7 +16,7 @@ set(MACOSX_BUNDLE_GUI_IDENTIFIER "com.sjson.cpp.unit-tests")
 set(MACOSX_BUNDLE_BUNDLE_NAME "sjson-cpp-unit-tests")
 
 include_directories("${PROJECT_SOURCE_DIR}/../../includes")
-include_directories("${PROJECT_SOURCE_DIR}/../../external/catch2/single_include/catch2")
+include_directories("${PROJECT_SOURCE_DIR}/../../external/catch2/single_include")
 
 # Grab all of our test source files
 file(GLOB_RECURSE ALL_TEST_SOURCE_FILES LIST_DIRECTORIES false

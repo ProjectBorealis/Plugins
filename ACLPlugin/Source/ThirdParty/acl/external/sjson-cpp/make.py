@@ -12,18 +12,18 @@ def parse_argv():
 	actions = parser.add_argument_group(title='Actions', description='If no action is specified, on Windows, OS X, and Linux the solution/make files are generated.  Multiple actions can be used simultaneously.')
 	actions.add_argument('-build', action='store_true')
 	actions.add_argument('-clean', action='store_true')
+	actions.add_argument('-clean_only', action='store_true')
 	actions.add_argument('-unit_test', action='store_true')
 
 	target = parser.add_argument_group(title='Target')
-	target.add_argument('-compiler', choices=['vs2015', 'vs2017', 'vs2019', 'android', 'clang4', 'clang5', 'clang6', 'clang7', 'gcc5', 'gcc6', 'gcc7', 'gcc8', 'gcc9', 'osx', 'ios'], help='Defaults to the host system\'s default compiler')
+	target.add_argument('-compiler', choices=['vs2015', 'vs2017', 'vs2019', 'vs2019-clang', 'android', 'clang4', 'clang5', 'clang6', 'clang7', 'clang8', 'clang9', 'clang10', 'clang11', 'gcc5', 'gcc6', 'gcc7', 'gcc8', 'gcc9', 'gcc10', 'osx', 'ios', 'emscripten'], help='Defaults to the host system\'s default compiler')
 	target.add_argument('-config', choices=['Debug', 'Release'], type=str.capitalize)
-	target.add_argument('-cpu', choices=['x86', 'x64', 'arm64'], help='Only supported for Windows, OS X, and Linux; defaults to the host system\'s architecture')
+	target.add_argument('-cpu', choices=['x86', 'x64', 'armv7', 'arm64', 'wasm'], help='Defaults to the host system\'s architecture')
 
 	misc = parser.add_argument_group(title='Miscellaneous')
 	misc.add_argument('-num_threads', help='No. to use while compiling')
 	misc.add_argument('-tests_matching', help='Only run tests whose names match this regex')
 	misc.add_argument('-help', action='help', help='Display this usage information')
-
 
 	num_threads = multiprocessing.cpu_count()
 	if platform.system() == 'Linux' and sys.version_info >= (3, 4):
@@ -31,28 +31,63 @@ def parse_argv():
 	if not num_threads or num_threads == 0:
 		num_threads = 4
 
-	parser.set_defaults(build=False, clean=False, unit_test=False, compiler=None, config='Release', cpu='x64', num_threads=num_threads, tests_matching='')
+	parser.set_defaults(build=False, clean=False, clean_only=False, unit_test=False, compiler=None, config='Release', cpu=None, num_threads=num_threads, tests_matching='')
 
 	args = parser.parse_args()
 
 	# Sanitize and validate our options
 	if args.compiler == 'android':
-		args.cpu = 'armv7-a'
+		if not args.cpu:
+			args.cpu = 'arm64'
 
 		if not platform.system() == 'Windows':
 			print('Android is only supported on Windows')
 			sys.exit(1)
 
-	if args.compiler == 'ios':
-		args.cpu = 'arm64'
+		if not args.cpu in ['armv7', 'arm64']:
+			print('{} cpu architecture not in supported list [armv7, arm64] for Android'.format(args.cpu))
+			sys.exit(1)
+	elif args.compiler == 'ios':
+		if not args.cpu:
+			args.cpu = 'arm64'
 
 		if not platform.system() == 'Darwin':
 			print('iOS is only supported on OS X')
 			sys.exit(1)
 
+		if args.unit_test:
+			print('Unit tests cannot run from the command line on iOS')
+			sys.exit(1)
+
+		if not args.cpu in ['arm64']:
+			print('{} cpu architecture not in supported list [arm64] for iOS'.format(args.cpu))
+			sys.exit(1)
+	elif args.compiler == 'emscripten':
+		if not args.cpu:
+			args.cpu = 'wasm'
+
+		if not platform.system() == 'Darwin' and not platform.system() == 'Linux':
+			print('Emscripten is only supported on OS X and Linux')
+			sys.exit(1)
+
+		if not args.cpu in ['wasm']:
+			print('{} cpu architecture not in supported list [wasm] for Emscripten'.format(args.cpu))
+			sys.exit(1)
+	else:
+		if not args.cpu:
+			args.cpu = 'x64'
+
 	if args.cpu == 'arm64':
-		if not args.compiler in ['vs2017', 'vs2019', 'ios']:
-			print('ARM64 is only supported with VS2017, VS2019, and iOS')
+		if not args.compiler in ['vs2017', 'vs2019', 'ios', 'android']:
+			print('arm64 is only supported with VS2017, VS2019, Android, and iOS')
+			sys.exit(1)
+	elif args.cpu == 'armv7':
+		if not args.compiler == 'android':
+			print('armv7 is only supported with Android')
+			sys.exit(1)
+	elif args.cpu == 'wasm':
+		if not args.compiler == 'emscripten':
+			print('wasm is only supported with Emscripten')
 			sys.exit(1)
 
 	if platform.system() == 'Darwin' and args.cpu == 'x86':
@@ -62,12 +97,6 @@ def parse_argv():
 			sys.exit(1)
 
 	return args
-
-def get_cmake_exes():
-	if platform.system() == 'Windows':
-		return ('cmake.exe', 'ctest.exe')
-	else:
-		return ('cmake', 'ctest')
 
 def get_generator(compiler, cpu):
 	if compiler == None:
@@ -88,14 +117,22 @@ def get_generator(compiler, cpu):
 				# VS2017 ARM/ARM64 support only works with cmake 3.13 and up and the architecture must be specified with
 				# the -A cmake switch
 				return 'Visual Studio 15 2017'
-		elif compiler == 'vs2019':
+		elif compiler == 'vs2019' or compiler == 'vs2019-clang':
 			return 'Visual Studio 16 2019'
 		elif compiler == 'android':
-			return 'Visual Studio 14'
+			# For Android, we use the default generator since we don't build with CMake
+			return None
 	elif platform.system() == 'Darwin':
 		if compiler == 'osx' or compiler == 'ios':
 			return 'Xcode'
-	else:
+		elif compiler == 'emscripten':
+			# Emscripten uses the default generator
+			return None
+	elif platform.system() == 'Linux':
+		if compiler == 'emscripten':
+			# Emscripten uses the default generator
+			return None
+
 		return 'Unix Makefiles'
 
 	print('Unknown compiler: {}'.format(compiler))
@@ -110,7 +147,7 @@ def get_architecture(compiler, cpu):
 		if compiler == 'vs2017':
 			if cpu == 'arm64':
 				return 'ARM64'
-		elif compiler == 'vs2019':
+		elif compiler == 'vs2019' or compiler == 'vs2019-clang':
 			if cpu == 'x86':
 				return 'Win32'
 			else:
@@ -119,12 +156,11 @@ def get_architecture(compiler, cpu):
 	# This compiler/cpu pair does not need the architecture switch
 	return None
 
-
-def get_toolchain(compiler):
+def get_toolchain(compiler, cmake_script_dir):
 	if platform.system() == 'Windows' and compiler == 'android':
-		return 'Toolchain-Android.cmake'
+		return os.path.join(cmake_script_dir, 'Toolchain-Android.cmake')
 	elif platform.system() == 'Darwin' and compiler == 'ios':
-		return 'Toolchain-iOS.cmake'
+		return os.path.join(cmake_script_dir, 'Toolchain-iOS.cmake')
 
 	# No toolchain
 	return None
@@ -144,6 +180,18 @@ def set_compiler_env(compiler, args):
 		elif compiler == 'clang7':
 			os.environ['CC'] = 'clang-7'
 			os.environ['CXX'] = 'clang++-7'
+		elif compiler == 'clang8':
+			os.environ['CC'] = 'clang-8'
+			os.environ['CXX'] = 'clang++-8'
+		elif compiler == 'clang9':
+			os.environ['CC'] = 'clang-9'
+			os.environ['CXX'] = 'clang++-9'
+		elif compiler == 'clang10':
+			os.environ['CC'] = 'clang-10'
+			os.environ['CXX'] = 'clang++-10'
+		elif compiler == 'clang11':
+			os.environ['CC'] = 'clang-11'
+			os.environ['CXX'] = 'clang++-11'
 		elif compiler == 'gcc5':
 			os.environ['CC'] = 'gcc-5'
 			os.environ['CXX'] = 'g++-5'
@@ -159,11 +207,18 @@ def set_compiler_env(compiler, args):
 		elif compiler == 'gcc9':
 			os.environ['CC'] = 'gcc-9'
 			os.environ['CXX'] = 'g++-9'
+		elif compiler == 'gcc10':
+			os.environ['CC'] = 'gcc-10'
+			os.environ['CXX'] = 'g++-10'
+		elif compiler == 'emscripten':
+			# Nothing to do for Emscripten
+			return
 		else:
 			print('Unknown compiler: {}'.format(compiler))
+			print('See help with: python make.py -help')
 			sys.exit(1)
 
-def do_generate_solution(cmake_exe, build_dir, cmake_script_dir, args):
+def do_generate_solution(build_dir, cmake_script_dir, args):
 	compiler = args.compiler
 	cpu = args.cpu
 	config = args.config
@@ -174,37 +229,46 @@ def do_generate_solution(cmake_exe, build_dir, cmake_script_dir, args):
 	extra_switches = ['--no-warn-unused-cli']
 	extra_switches.append('-DCPU_INSTRUCTION_SET:STRING={}'.format(cpu))
 
-	if not platform.system() == 'Windows' and not platform.system() == 'Darwin':
+	if not platform.system() == 'Windows':
 		extra_switches.append('-DCMAKE_BUILD_TYPE={}'.format(config.upper()))
 
-	toolchain = get_toolchain(compiler)
+	toolchain = get_toolchain(compiler, cmake_script_dir)
 	if toolchain:
-		extra_switches.append('-DCMAKE_TOOLCHAIN_FILE={}'.format(os.path.join(cmake_script_dir, toolchain)))
+		extra_switches.append('-DCMAKE_TOOLCHAIN_FILE={}'.format(toolchain))
 
 	# Generate IDE solution
 	print('Generating build files ...')
-	cmake_cmd = '"{}" .. -DCMAKE_INSTALL_PREFIX="{}" {}'.format(cmake_exe, build_dir, ' '.join(extra_switches))
-	cmake_generator = get_generator(compiler, cpu)
-	if not cmake_generator:
-		print('Using default generator')
+	if compiler == 'emscripten':
+		cmake_cmd = 'emcmake cmake .. -DCMAKE_INSTALL_PREFIX="{}" {}'.format(build_dir, ' '.join(extra_switches))
 	else:
-		print('Using generator: {}'.format(cmake_generator))
-		cmake_cmd += ' -G "{}"'.format(cmake_generator)
+		cmake_generator = get_generator(compiler, cpu)
+		if not cmake_generator:
+			print('Using default generator')
+		else:
+			generator_suffix = ''
+			if compiler == 'vs2019-clang':
+				extra_switches.append('-T ClangCL')
+				generator_suffix = 'Clang CL'
 
-	cmake_arch = get_architecture(compiler, cpu)
-	if cmake_arch:
-		print('Using architecture: {}'.format(cmake_arch))
-		cmake_cmd += ' -A {}'.format(cmake_arch)
+			print('Using generator: {} {}'.format(cmake_generator, generator_suffix))
+			extra_switches.append('-G "{}"'.format(cmake_generator))
+
+		cmake_arch = get_architecture(compiler, cpu)
+		if cmake_arch:
+			print('Using architecture: {}'.format(cmake_arch))
+			extra_switches.append('-A {}'.format(cmake_arch))
+
+		cmake_cmd = 'cmake .. -DCMAKE_INSTALL_PREFIX="{}" {}'.format(build_dir, ' '.join(extra_switches))
 
 	result = subprocess.call(cmake_cmd, shell=True)
 	if result != 0:
 		sys.exit(result)
 
-def do_build(cmake_exe, args):
+def do_build(args):
 	config = args.config
 
 	print('Building ...')
-	cmake_cmd = '"{}" --build .'.format(cmake_exe)
+	cmake_cmd = 'cmake --build .'
 	if platform.system() == 'Windows':
 		if args.compiler == 'android':
 			cmake_cmd += ' --config {}'.format(config)
@@ -222,10 +286,36 @@ def do_build(cmake_exe, args):
 	if result != 0:
 		sys.exit(result)
 
-def do_tests(ctest_exe, args):
-	print('Running unit tests ...')
+def do_tests_android(build_dir, args):
+	# Switch our working directory to where we built everything
+	working_dir = os.path.join(build_dir, 'tests', 'main_android')
+	os.chdir(working_dir)
 
-	ctest_cmd = '"{}" --output-on-failure --parallel {}'.format(ctest_exe, args.num_threads)
+	gradlew_exe = os.path.join(build_dir, '..', 'tests', 'main_android', 'gradlew.bat')
+
+	# We uninstall first and then install
+	if args.config == 'Debug':
+		install_cmd = 'uninstallAll installDebug'
+	elif args.config == 'Release':
+		install_cmd = 'uninstallAll installRelease'
+
+	# Install our app
+	test_cmd = '"{}" {}'.format(gradlew_exe, install_cmd)
+	result = subprocess.call(test_cmd, shell=True)
+	if result != 0:
+		sys.exit(result)
+
+	# Execute through ADB
+	run_cmd = 'adb shell am start -n "com.sjson.unit_tests/com.sjson.unit_tests.MainActivity" -a android.intent.action.MAIN -c android.intent.category.LAUNCHER'
+	result = subprocess.call(run_cmd, shell=True)
+	if result != 0:
+		sys.exit(result)
+
+	# Restore working directory
+	os.chdir(build_dir)
+
+def do_tests_cmake(args):
+	ctest_cmd = 'ctest --output-on-failure --parallel {}'.format(args.num_threads)
 
 	if platform.system() == 'Windows' or platform.system() == 'Darwin':
 		ctest_cmd += ' -C {}'.format(args.config)
@@ -236,23 +326,27 @@ def do_tests(ctest_exe, args):
 	if result != 0:
 		sys.exit(result)
 
+def do_tests(build_dir, args):
+	print('Running unit tests ...')
+
+	if args.compiler == 'android':
+		do_tests_android(build_dir, args)
+	else:
+		do_tests_cmake(args)
+
 if __name__ == "__main__":
 	args = parse_argv()
-	cmake_exe, ctest_exe = get_cmake_exes()
-
-	# Set the SJSON_CPP_CMAKE_HOME environment variable to point to CMake
-	# otherwise we assume it is already in the user PATH
-	if 'SJSON_CPP_CMAKE_HOME' in os.environ:
-		cmake_home = os.environ['SJSON_CPP_CMAKE_HOME']
-		cmake_exe = os.path.join(cmake_home, 'bin', cmake_exe)
-		ctest_exe = os.path.join(cmake_home, 'bin', ctest_exe)
 
 	build_dir = os.path.join(os.getcwd(), 'build')
 	cmake_script_dir = os.path.join(os.getcwd(), 'cmake')
 
-	if args.clean and os.path.exists(build_dir):
+	is_clean_requested = args.clean or args.clean_only
+	if is_clean_requested and os.path.exists(build_dir):
 		print('Cleaning previous build ...')
 		shutil.rmtree(build_dir)
+
+	if args.clean_only:
+		sys.exit(0)
 
 	if not os.path.exists(build_dir):
 		os.makedirs(build_dir)
@@ -261,14 +355,16 @@ if __name__ == "__main__":
 
 	print('Using config: {}'.format(args.config))
 	print('Using cpu: {}'.format(args.cpu))
-	if not args.compiler == None:
+	if args.compiler:
 		print('Using compiler: {}'.format(args.compiler))
 	print('Using {} threads'.format(args.num_threads))
 
-	do_generate_solution(cmake_exe, build_dir, cmake_script_dir, args)
+	do_generate_solution(build_dir, cmake_script_dir, args)
 
 	if args.build:
-		do_build(cmake_exe, args)
+		do_build(args)
 
 	if args.unit_test:
-		do_tests(ctest_exe, args)
+		do_tests(build_dir, args)
+
+	sys.exit(0)

@@ -28,7 +28,7 @@
 
 using namespace rtm;
 
-inline quatf RTM_SIMD_CALL quat_mul_scalar(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_scalar(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
 	const float lhs_x = quat_get_x(lhs);
 	const float lhs_y = quat_get_y(lhs);
@@ -49,7 +49,7 @@ inline quatf RTM_SIMD_CALL quat_mul_scalar(quatf_arg0 lhs, quatf_arg1 rhs) RTM_N
 }
 
 #if defined(RTM_FMA_INTRINSICS)
-inline quatf RTM_SIMD_CALL quat_mul_fma_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_fma_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
 	constexpr __m128 control_wzyx = { 1.0f,-1.0f, 1.0f,-1.0f };
 	constexpr __m128 control_zwxy = { 1.0f, 1.0f,-1.0f,-1.0f };
@@ -75,7 +75,7 @@ inline quatf RTM_SIMD_CALL quat_mul_fma_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_
 	return _mm_fmadd_ps(lyrz_lxrz_lwrz_lzrz, control_yxwz, result1);
 }
 
-inline quatf RTM_SIMD_CALL quat_mul_fma_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_fma_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
 	constexpr __m128 control_wzyx = { 0.0f,-0.0f, 0.0f,-0.0f };
 	constexpr __m128 control_zwxy = { 0.0f, 0.0f,-0.0f,-0.0f };
@@ -108,7 +108,9 @@ inline quatf RTM_SIMD_CALL quat_mul_fma_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_
 #endif
 
 #if defined(RTM_SSE2_INTRINSICS)
-inline quatf RTM_SIMD_CALL quat_mul_sse_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+// Wins on Haswell laptop x64 AVX
+// It seems that on haswell, xor incurs a domain switch penalty and is slower.
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_sse_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
 	constexpr __m128 control_wzyx = { 1.0f,-1.0f, 1.0f,-1.0f };
 	constexpr __m128 control_zwxy = { 1.0f, 1.0f,-1.0f,-1.0f };
@@ -140,7 +142,9 @@ inline quatf RTM_SIMD_CALL quat_mul_sse_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_
 	return _mm_add_ps(result0, result1);
 }
 
-inline quatf RTM_SIMD_CALL quat_mul_sse_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+// Wins on Ryzen 2990X desktop VS2017 x64 AVX
+// Wins on Ryzen 2990X desktop clang9 x64 AVX
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_sse_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
 	constexpr __m128 control_wzyx = { 0.0f,-0.0f, 0.0f,-0.0f };
 	constexpr __m128 control_zwxy = { 0.0f, 0.0f,-0.0f,-0.0f };
@@ -174,7 +178,11 @@ inline quatf RTM_SIMD_CALL quat_mul_sse_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_
 #endif
 
 #if defined(RTM_NEON_INTRINSICS)
-inline quatf RTM_SIMD_CALL quat_mul_neon_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+// Wins on iPad Pro ARM64
+// Wins on Pixel 3 ARM64
+// XOR is slower a bit likely due to pipeline stalls and with ARMV7 the zipping variant doesn't
+// reduce the number of instructions by as much as ARM64.
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_neon_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
 	alignas(16) constexpr float control_wzyx_f[4] = { 1.0f, -1.0f, 1.0f, -1.0f };
 	alignas(16) constexpr float control_zwxy_f[4] = { 1.0f, 1.0f, -1.0f, -1.0f };
@@ -208,7 +216,9 @@ inline quatf RTM_SIMD_CALL quat_mul_neon_mul(quatf_arg0 lhs, quatf_arg1 rhs) RTM
 #endif
 }
 
-inline quatf RTM_SIMD_CALL quat_mul_neon_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+// Wins on Samsung S8 ARMv7
+// XOR is a bit faster than scalar
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_neon_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
 	alignas(16) constexpr uint32x4_t control_wzyx_f[4] = { 0, 0x80000000U, 0, 0x80000000U };
 	alignas(16) constexpr uint32x4_t control_zwxy_f[4] = { 0, 0, 0x80000000U, 0x80000000U };
@@ -239,20 +249,34 @@ inline quatf RTM_SIMD_CALL quat_mul_neon_xor(quatf_arg0 lhs, quatf_arg1 rhs) RTM
 	return vaddq_f32(vreinterpretq_f32_u32(veorq_u32(vreinterpretq_u32_f32(lyrz_lxrz_lwrz_lzrz), control_yxwz)), result1);
 }
 
-inline quatf RTM_SIMD_CALL quat_mul_neon_neg(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
+// Wins on iPad Pro ARM64
+RTM_FORCE_NOINLINE quatf RTM_SIMD_CALL quat_mul_neon_neg(quatf_arg0 lhs, quatf_arg1 rhs) RTM_NO_EXCEPT
 {
-	const float32x4_t neg_lhs = vnegq_f32(lhs);														// -t.x, -t.y, -t.z, -t.w
-	const float32x4_t t_zwxy = vrev64q_f32(lhs);														// t.z, t.w, t.x, t.y
-	const float32x4_t nt_zwxy = vrev64q_f32(neg_lhs);													// -t.z, -t.w, -t.x, -t.y
+	// Use shuffles and negation instead of loading constants and doing mul/xor.
+	// On ARM64, neg and shuffles are usually 2 cycles while xor is still 3 cycles.
+	// We have to shuffle things anyway, might as well leverage everything we can.
 
-	const float32x2x2_t tmp1 = vzip_f32(vget_low_f32(t_zwxy), vget_high_f32(t_zwxy));					// t.z, t.x, t.w, t.y
-	const float32x2x2_t tmp2 = vzip_f32(vget_low_f32(nt_zwxy), vget_high_f32(nt_zwxy));					// -t.z, -t.x, -t.w, -t.y
-	const float32x2x2_t tmp3 = vzip_f32(tmp2.val[1], tmp1.val[0]);										// -t.w, t.z, -t.y, t.x
-	const float32x2x2_t tmp4 = vzip_f32(tmp1.val[1], tmp2.val[0]);										// t.w, -t.z, t.y, -t.x
+	// Dispatch rev first, if we can't dual dispatch with neg below, we won't stall it
+	// [l.y, l.x, l.w, l.z]
+	const float32x4_t y_x_w_z = vrev64q_f32(lhs);
 
-	const float32x4_t l_wzyx = vcombine_f32(tmp3.val[0], tmp3.val[1]);									// -t.w, t.z, -t.y, t.x
-	const float32x4_t l_zwxy = vcombine_f32(vget_high_f32(neg_lhs), vget_low_f32(lhs));				// -t.z, -t.w, t.x, t.y
-	const float32x4_t l_yxwz = vcombine_f32(tmp4.val[1], tmp3.val[0]);									// t.y, -t.x, -t.w, t.z
+	// [-l.x, -l.y, -l.z, -l.w]
+	const float32x4_t neg_lhs = vnegq_f32(lhs);
+
+	// trn([l.y, l.x, l.w, l.z], [-l.x, -l.y, -l.z, -l.w]) = [l.y, -l.x, l.w, -l.z], [l.x, -l.y, l.z, -l.w]
+	float32x4x2_t y_nx_w_nz__x_ny_z_nw = vtrnq_f32(y_x_w_z, neg_lhs);
+
+	// [l.w, -l.z, l.y, -l.x]
+	float32x4_t l_wzyx = vcombine_f32(vget_high_f32(y_nx_w_nz__x_ny_z_nw.val[0]), vget_low_f32(y_nx_w_nz__x_ny_z_nw.val[0]));
+
+	// [l.z, l.w, -l.x, -l.y]
+	float32x4_t l_zwxy = vcombine_f32(vget_high_f32(lhs), vget_low_f32(neg_lhs));
+
+	// neg([l.w, -l.z, l.y, -l.x]) = [-l.w, l.z, -l.y, l.x]
+	float32x4_t nw_z_ny_x = vnegq_f32(l_wzyx);
+
+	// [-l.y, l.x, l.w, -l.z]
+	float32x4_t l_yxwz = vcombine_f32(vget_high_f32(nw_z_ny_x), vget_low_f32(l_wzyx));
 
 	const float32x2_t r_xy = vget_low_f32(rhs);
 	const float32x2_t r_zw = vget_high_f32(rhs);
@@ -274,9 +298,22 @@ inline quatf RTM_SIMD_CALL quat_mul_neon_neg(quatf_arg0 lhs, quatf_arg1 rhs) RTM
 static void bm_quat_mul_scalar(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_scalar(q0, q0));
+	{
+		q0 = quat_mul_scalar(q0, q0);
+		q1 = quat_mul_scalar(q1, q1);
+		q2 = quat_mul_scalar(q2, q2);
+		q3 = quat_mul_scalar(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_scalar);
@@ -285,9 +322,22 @@ BENCHMARK(bm_quat_mul_scalar);
 static void bm_quat_mul_fma_mul(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_fma_mul(q0, q0));
+	{
+		q0 = quat_mul_fma_mul(q0, q0);
+		q1 = quat_mul_fma_mul(q1, q1);
+		q2 = quat_mul_fma_mul(q2, q2);
+		q3 = quat_mul_fma_mul(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_fma_mul);
@@ -295,9 +345,22 @@ BENCHMARK(bm_quat_mul_fma_mul);
 static void bm_quat_mul_fma_xor(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_fma_xor(q0, q0));
+	{
+		q0 = quat_mul_fma_xor(q0, q0);
+		q1 = quat_mul_fma_xor(q1, q1);
+		q2 = quat_mul_fma_xor(q2, q2);
+		q3 = quat_mul_fma_xor(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_fma_xor);
@@ -307,9 +370,22 @@ BENCHMARK(bm_quat_mul_fma_xor);
 static void bm_quat_mul_sse_mul(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_sse_mul(q0, q0));
+	{
+		q0 = quat_mul_sse_mul(q0, q0);
+		q1 = quat_mul_sse_mul(q1, q1);
+		q2 = quat_mul_sse_mul(q2, q2);
+		q3 = quat_mul_sse_mul(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_sse_mul);
@@ -317,9 +393,22 @@ BENCHMARK(bm_quat_mul_sse_mul);
 static void bm_quat_mul_sse_xor(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_sse_xor(q0, q0));
+	{
+		q0 = quat_mul_sse_xor(q0, q0);
+		q1 = quat_mul_sse_xor(q1, q1);
+		q2 = quat_mul_sse_xor(q2, q2);
+		q3 = quat_mul_sse_xor(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_sse_xor);
@@ -329,9 +418,22 @@ BENCHMARK(bm_quat_mul_sse_xor);
 static void bm_quat_mul_neon_mul(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_neon_mul(q0, q0));
+	{
+		q0 = quat_mul_neon_mul(q0, q0);
+		q1 = quat_mul_neon_mul(q1, q1);
+		q2 = quat_mul_neon_mul(q2, q2);
+		q3 = quat_mul_neon_mul(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_neon_mul);
@@ -339,9 +441,22 @@ BENCHMARK(bm_quat_mul_neon_mul);
 static void bm_quat_mul_neon_xor(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_neon_xor(q0, q0));
+	{
+		q0 = quat_mul_neon_xor(q0, q0);
+		q1 = quat_mul_neon_xor(q1, q1);
+		q2 = quat_mul_neon_xor(q2, q2);
+		q3 = quat_mul_neon_xor(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_neon_xor);
@@ -349,9 +464,22 @@ BENCHMARK(bm_quat_mul_neon_xor);
 static void bm_quat_mul_neon_neg(benchmark::State& state)
 {
 	quatf q0 = quat_identity();
+	quatf q1 = quat_identity();
+	quatf q2 = quat_identity();
+	quatf q3 = quat_identity();
 
 	for (auto _ : state)
-		benchmark::DoNotOptimize(q0 = quat_mul_neon_neg(q0, q0));
+	{
+		q0 = quat_mul_neon_neg(q0, q0);
+		q1 = quat_mul_neon_neg(q1, q1);
+		q2 = quat_mul_neon_neg(q2, q2);
+		q3 = quat_mul_neon_neg(q3, q3);
+	}
+
+	benchmark::DoNotOptimize(q0);
+	benchmark::DoNotOptimize(q1);
+	benchmark::DoNotOptimize(q2);
+	benchmark::DoNotOptimize(q3);
 }
 
 BENCHMARK(bm_quat_mul_neon_neg);

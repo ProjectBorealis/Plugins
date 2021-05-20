@@ -46,7 +46,7 @@ RTM_IMPL_FILE_PRAGMA_PUSH
 // Throwing:
 //    In order to enable the throwing behavior, simply define the macro RTM_ON_ASSERT_THROW:
 //    #define RTM_ON_ASSERT_THROW
-//    Note that the type of the exception thrown is std::runtime_error.
+//    Note that the type of the exception thrown is rtm::runtime_assert.
 //
 // Custom function:
 //    In order to enable the custom function calling behavior, define the macro RTM_ON_ASSERT_CUSTOM
@@ -74,7 +74,7 @@ RTM_IMPL_FILE_PRAGMA_PUSH
 	{
 		namespace rtm_impl
 		{
-			inline void on_assert_abort(const char* expression, int line, const char* file, const char* format, ...)
+			RTM_DISABLE_SECURITY_COOKIE_CHECK inline void on_assert_abort(const char* expression, int line, const char* file, const char* format, ...)
 			{
 				(void)expression;
 				(void)line;
@@ -93,7 +93,7 @@ RTM_IMPL_FILE_PRAGMA_PUSH
 		}
 	}
 
-	#define RTM_ASSERT(expression, format, ...) if (!(expression)) rtm::rtm_impl::on_assert_abort(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+	#define RTM_ASSERT(expression, format, ...) do { if (!(expression)) rtm::rtm_impl::on_assert_abort(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(false)
 	#define RTM_HAS_ASSERT_CHECKS
 	#define RTM_NO_EXCEPT noexcept
 
@@ -108,14 +108,12 @@ RTM_IMPL_FILE_PRAGMA_PUSH
 	{
 		class runtime_assert final : public std::runtime_error
 		{
-		public:
-			explicit runtime_assert(const std::string& message) : std::runtime_error(message.c_str()) {}
-			explicit runtime_assert(const char* message) : std::runtime_error(message) {}
+			using std::runtime_error::runtime_error;	// Inherit constructors
 		};
 
 		namespace rtm_impl
 		{
-			inline void on_assert_throw(const char* expression, int line, const char* file, const char* format, ...)
+			RTM_DISABLE_SECURITY_COOKIE_CHECK inline void on_assert_throw(const char* expression, int line, const char* file, const char* format, ...)
 			{
 				(void)expression;
 				(void)line;
@@ -139,18 +137,18 @@ RTM_IMPL_FILE_PRAGMA_PUSH
 		}
 	}
 
-	#define RTM_ASSERT(expression, format, ...) if (!(expression)) rtm::rtm_impl::on_assert_throw(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+	#define RTM_ASSERT(expression, format, ...) do { if (!(expression)) rtm::rtm_impl::on_assert_throw(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(false)
 	#define RTM_HAS_ASSERT_CHECKS
 	#define RTM_NO_EXCEPT
 
 #elif defined(RTM_ON_ASSERT_CUSTOM)
 
 	#if !defined(RTM_ASSERT)
-		#define RTM_ASSERT(expression, format, ...) if (!(expression)) RTM_ON_ASSERT_CUSTOM(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__)
+		#define RTM_ASSERT(expression, format, ...) do { if (!(expression)) RTM_ON_ASSERT_CUSTOM(#expression, __LINE__, __FILE__, (format), ## __VA_ARGS__); } while(false)
 	#endif
 
 	#define RTM_HAS_ASSERT_CHECKS
-	#define RTM_NO_EXCEPT noexcept
+	#define RTM_NO_EXCEPT
 
 #else
 
@@ -170,9 +168,9 @@ RTM_IMPL_FILE_PRAGMA_PUSH
 #endif
 
 #if !defined(RTM_DEPRECATED)
-	#if defined(__GNUC__) || defined(__clang__)
+	#if defined(RTM_COMPILER_GCC) || defined(RTM_COMPILER_CLANG)
 		#define RTM_DEPRECATED(msg) __attribute__((deprecated))
-	#elif defined(_MSC_VER)
+	#elif defined(RTM_COMPILER_MSVC)
 		#define RTM_DEPRECATED(msg) __declspec(deprecated)
 	#else
 		#define RTM_DEPRECATED(msg)
