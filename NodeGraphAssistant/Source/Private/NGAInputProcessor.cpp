@@ -1879,17 +1879,9 @@ FNGAEventReply NGAInputProcessor::TryProcessAsAutoConnectMouseUpEvent(FSlateAppl
 				{
 					TSharedRef<SGraphPin> startPin = MyPinFactory->PayLoadData->AutoConnectStartPins[i].Pin().ToSharedRef();
 					TSharedRef<SGraphPin> endPin = MyPinFactory->PayLoadData->AutoConnectEndPins[i].Pin().ToSharedRef();
-
+					NodeList.Add(startPin->GetPinObj()->GetOwningNodeUnchecked());
+					NodeList.Add(endPin->GetPinObj()->GetOwningNodeUnchecked());
 					Ctx.GraphPanel->GetGraphObj()->GetSchema()->TryCreateConnection(startPin->GetPinObj(), endPin->GetPinObj());
-					if (startPin->GetPinObj()->GetOwningNodeUnchecked())
-					{
-						NodeList.Add(startPin->GetPinObj()->GetOwningNodeUnchecked());
-						
-					}
-					if (endPin->GetPinObj()->GetOwningNodeUnchecked())
-					{
-						NodeList.Add(endPin->GetPinObj()->GetOwningNodeUnchecked());
-					}
 				}
 			}
 			for (auto It = NodeList.CreateConstIterator(); It; ++It)
