@@ -28,7 +28,6 @@ public:
 		BulkDataMediumSize = acl::align_to(BulkDataMediumSize, acl::k_database_bulk_data_alignment);
 
 		const uint32 BulkDataLowSize = CompressedDatabase.get_bulk_data_size(acl::quality_tier::lowest_importance);
-		//StreamableBulkData_.GetBulkDataSize();
 
 		BulkDataSize[0] = BulkDataMediumSize;
 		BulkDataSize[1] = BulkDataLowSize;
@@ -107,9 +106,13 @@ public:
 		}
 
 		// Fire off our async streaming request
-		const uint32 BulkDataOffset = Tier == acl::quality_tier::medium_importance ? 0 : BulkDataSize[0];
-		uint8* BulkDataPtr = BulkData[TierIndex];
-		PendingIORequest = StreamableBulkData.CreateStreamingRequest(BulkDataOffset + Offset, Size, AIOP_Low, &AsyncFileCallBack, BulkDataPtr);
+		const uint32 BulkDataTierStartOffset = Tier == acl::quality_tier::medium_importance ? 0 : BulkDataSize[0];
+		const uint64 BulkDataReadOffset = BulkDataTierStartOffset + Offset;
+
+		uint8* StreamedBulkDataPtr = BulkData[TierIndex];
+		uint8* DestBulkDataPtr = StreamedBulkDataPtr + Offset;
+
+		PendingIORequest = StreamableBulkData.CreateStreamingRequest(BulkDataReadOffset, Size, AIOP_Low, &AsyncFileCallBack, DestBulkDataPtr);
 		if (PendingIORequest == nullptr)
 		{
 			UE_LOG(LogAnimationCompression, Warning, TEXT("ACL failed to initiate database stream in request!"));
