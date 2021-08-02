@@ -8,6 +8,11 @@ public class ConsoleEnhanced : ModuleRules
     {
         MinFilesUsingPrecompiledHeaderOverride = 1;
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+		
+		if (Target.Type == TargetType.Editor)
+        {
+            PrivateDependencyModuleNames.Add("UnrealEd");
+        }
 
         PrivateDependencyModuleNames.AddRange(
             new string[] {
@@ -15,7 +20,6 @@ public class ConsoleEnhanced : ModuleRules
                 "CoreUObject",
                 "Engine",
                 "InputCore",
-                "UnrealEd",
                 "Slate",
                 "SlateCore",
                 "EditorStyle",
