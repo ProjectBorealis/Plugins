@@ -242,8 +242,6 @@ void FACLPlugin::ListCodecs(const TArray<FString>& Args)
 		UE_LOG(LogAnimationCompression, Log, TEXT("    sequences use %.2f MB"), BytesToMB(SequencesSize));
 		UE_LOG(LogAnimationCompression, Log, TEXT("    database uses %.2f MB (%.2f MB streamable)"), BytesToMB(DatabaseTotalSize), BytesToMB(DatabaseBulkDataSize));
 	}
-
-	LogAnimationCompression.SetVerbosity(OldVerbosity);
 }
 
 void FACLPlugin::ListAnimSequences(const TArray<FString>& Args)
@@ -295,10 +293,6 @@ void FACLPlugin::ListAnimSequences(const TArray<FString>& Args)
 
 void FACLPlugin::SetDatabaseVisualFidelity(const TArray<FString>& Args)
 {
-	// Make sure to log everything
-	const ELogVerbosity::Type OldVerbosity = LogAnimationCompression.GetVerbosity();
-	LogAnimationCompression.SetVerbosity(ELogVerbosity::All);
-
 	ACLVisualFidelity Fidelity = ACLVisualFidelity::Highest;
 	if (Args.Contains(TEXT("Highest")))
 	{
@@ -322,8 +316,6 @@ void FACLPlugin::SetDatabaseVisualFidelity(const TArray<FString>& Args)
 	{
 		DatabaseAsset->SetVisualFidelity(Fidelity);
 	}
-
-	LogAnimationCompression.SetVerbosity(OldVerbosity);
 }
 #endif
 
