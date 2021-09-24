@@ -52,7 +52,7 @@ void FHoudiniNiagaraEditorModule::StartupModule()
 		const FVector2D Icon64x64(64.0f, 64.0f);
 		const FVector2D Icon128x128(128.0f, 128.0f);
 		
-		static FString IconsDir = IPluginManager::Get().FindPlugin("HoudiniNiagara")->GetBaseDir() / TEXT("Resources");
+		static FString IconsDir = IPluginManager::Get().FindPlugin("HoudiniNiagara")->GetBaseDir() / TEXT("Resources/");
 
 		// Register the Asset icon
 		StyleSet->Set(
