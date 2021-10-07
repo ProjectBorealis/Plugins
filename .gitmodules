@@ -18,10 +18,6 @@
 	path = LoadingScreen
 	url = https://github.com/ProjectBorealis/LoadingScreen.git
 	branch = master
-[submodule "modio"]
-	path = modio
-	url = https://github.com/ProjectBorealis/modio.git
-	branch = master
 [submodule "FactionsExtension"]
 	path = FactionsExtension
 	url = https://github.com/ProjectBorealis/FactionsExtension.git
@@ -41,4 +37,12 @@
 [submodule "DiscordGameSDK"]
 	path = DiscordGameSDK
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
+	branch = master
+[submodule "OrientedCapsuleComponent"]
+	path = OrientedCapsuleComponent
+	url = https://github.com/ProjectBorealis/UE4-OrientedCapsuleComponentPlugin.git
+	branch = master
+[submodule "CustomViewportUtilityWidget"]
+	path = CustomViewportUtilityWidget
+	url = https://github.com/ProjectBorealis/UE4-CustomViewportUtilityWidget.git
 	branch = master
