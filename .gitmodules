@@ -30,9 +30,9 @@
 	path = GameViewportSync
 	url = https://github.com/ProjectBorealis/GameViewportSync.git
 	branch = master
-[submodule "ALSV4_CPP"]
-	path = ALSV4_CPP
-	url = https://github.com/ProjectBorealis/ALSV4_CPP.git
+[submodule "ALSCommunity"]
+	path = ALSCommunity
+	url = https://github.com/ProjectBorealis/ALS-Community.git
 	branch = main
 [submodule "DiscordGameSDK"]
 	path = DiscordGameSDK
@@ -46,3 +46,9 @@
 	path = CustomViewportUtilityWidget
 	url = https://github.com/ProjectBorealis/UE4-CustomViewportUtilityWidget.git
 	branch = master
+[submodule "SplineSnappingTool"]
+	path = SplineSnappingTool
+	url = https://github.com/ProjectBorealis/UE4-SplineSnappingToolPlugin.git
+[submodule "EditorScriptingTools"]
+	path = EditorScriptingTools
+	url = https://github.com/ProjectBorealis/UE4-EditorScriptingToolsPlugin.git
