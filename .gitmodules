@@ -45,9 +45,12 @@
 [submodule "SplineSnappingTool"]
 	path = SplineSnappingTool
 	url = https://github.com/ProjectBorealis/UE4-SplineSnappingToolPlugin.git
+	branch = master
 [submodule "OrientedCapsuleComponent"]
 	path = OrientedCapsuleComponent
 	url = https://github.com/ProjectBorealis/UE4-OrientedCapsuleComponentPlugin.git
+	branch = master
 [submodule "EditorScriptingTools"]
 	path = EditorScriptingTools
 	url = https://github.com/ProjectBorealis/UE4-EditorScriptingToolsPlugin.git
+	branch = master
