@@ -38,10 +38,6 @@
 	path = DiscordGameSDK
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
 	branch = master
-[submodule "OrientedCapsuleComponent"]
-	path = OrientedCapsuleComponent
-	url = https://github.com/ProjectBorealis/UE4-OrientedCapsuleComponentPlugin.git
-	branch = master
 [submodule "CustomViewportUtilityWidget"]
 	path = CustomViewportUtilityWidget
 	url = https://github.com/ProjectBorealis/UE4-CustomViewportUtilityWidget.git
@@ -52,3 +48,6 @@
 [submodule "EditorScriptingTools"]
 	path = EditorScriptingTools
 	url = https://github.com/ProjectBorealis/UE4-EditorScriptingToolsPlugin.git
+[submodule "OrientedCapsuleComponent"]
+	path = OrientedCapsuleComponent
+	url = https://github.com/ProjectBorealis/UE4-OrientedCapsuleComponentPlugin.git
