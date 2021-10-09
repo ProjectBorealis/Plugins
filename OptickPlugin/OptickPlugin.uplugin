@@ -11,19 +11,13 @@
 	"MarketplaceURL": "",
 	"SupportURL": "https://github.com/bombomby/optick/issues",
 	"CanContainContent": false,
+	"IsBetaVersion": false,
 	"Modules": [
 		{
 			"Name": "OptickPlugin",
 			"Type": "DeveloperTool",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [
-				"Win64",
-				"Mac",
-				"Linux",
-				"PS4",
-				"XboxOne",
-				"Android"
-			]
+			"WhitelistPlatforms": [ "Win64", "Mac", "Linux", "PS4", "XboxOne", "Android" ]
 		}
 	]
 }
