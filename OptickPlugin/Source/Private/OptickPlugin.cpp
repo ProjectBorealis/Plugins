@@ -4,7 +4,7 @@
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
 #include "GenericPlatform/GenericPlatformFile.h"
-#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFileManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/EngineVersion.h"
 #include "Modules/ModuleManager.h"
@@ -110,7 +110,7 @@ class FOptickPlugin : public IOptickPlugin
 
 	uint64 Convert32bitCPUTimestamp(int64 timestamp) const;
 
-#if OPTICK_UE4_GPU
+#ifdef OPTICK_UE4_GPU
 	void OnEndFrameRT();
 	uint64 ConvertGPUTimestamp(uint64 timestamp);
 
@@ -260,7 +260,7 @@ void FOptickPlugin::StartupModule()
 	ExtensionManager->AddExtender(ToolbarExtender);
 #endif
 
-#if OPTICK_UE4_GPU
+#ifdef OPTICK_UE4_GPU
 	EndFrameRTDelegateHandle = FCoreDelegates::OnEndFrameRT.AddRaw(this, &FOptickPlugin::OnEndFrameRT);
 #endif
 }
@@ -292,7 +292,7 @@ void FOptickPlugin::StartCapture()
 
 	if (!IsCapturing)
 	{
-#if OPTICK_UE4_GPU
+#ifdef OPTICK_UE4_GPU
 		CalibrationTimestamp = FGPUTiming::GetCalibrationTimestamp();
 
 		GPUThreadStorage.Reset();
@@ -391,7 +391,7 @@ uint64 FOptickPlugin::Convert32bitCPUTimestamp(int64 timestamp) const
 	return result;
 }
 
-#if OPTICK_UE4_GPU
+#ifdef OPTICK_UE4_GPU
 #if UE_4_24_OR_LATER
 void FOptickPlugin::OnEndFrameRT()
 {

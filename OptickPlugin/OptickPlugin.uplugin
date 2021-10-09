@@ -10,22 +10,15 @@
 	"DocsURL": "https://github.com/bombomby/optick/wiki/UE4-Optick-Plugin",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/95c078f6fa924b2b82fd8f281e04850f",
 	"SupportURL": "https://github.com/bombomby/optick/issues",
-	"EngineVersion": "4.24.0",
 	"CanContainContent": false,
+	"IsBetaVersion": false,
 	"Installed": true,
 	"Modules": [
 		{
 			"Name": "OptickPlugin",
 			"Type": "DeveloperTool",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [
-				"Win64",
-				"Mac",
-				"Linux",
-				"PS4",
-				"XboxOne",
-				"Android"
-			]
+			"WhitelistPlatforms": [ "Win64", "Mac", "Linux", "PS4", "XboxOne", "Android" ]
 		}
 	]
 }

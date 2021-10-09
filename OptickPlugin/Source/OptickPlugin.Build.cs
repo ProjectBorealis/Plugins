@@ -68,13 +68,6 @@ namespace UnrealBuildTool.Rules
 #endif
 */
 
-			PublicDefinitions.AddRange(
-				new string[]
-				{
-					"OPTICK_UE4_GPU=0",
-				}
-				);
-
 			if (Target.bBuildEditor == true)
 			{
 				PublicDependencyModuleNames.AddRange(
