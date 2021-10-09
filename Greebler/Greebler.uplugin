@@ -4,7 +4,7 @@
 	"VersionName": "1.0",
 	"FriendlyName": "Greebler",
 	"Description": "Automatically add detail in the nooks and crannies of your scene.",
-	"Category": "Other",
+	"Category": "Editor",
 	"CreatedBy": "Alexis Morin",
 	"CreatedByURL": "https://github.com/alexismorin/Greebler",
 	"DocsURL": "",
