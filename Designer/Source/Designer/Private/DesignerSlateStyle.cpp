@@ -54,19 +54,9 @@ void FDesignerSlateStyle::Initialize()
 
 	StyleSet = MakeShareable(new FSlateStyleSet("DesignerSlateStyle"));
 
-	FString ProjectResourceDir = FPaths::ProjectPluginsDir() / TEXT("Designer/Resources");
-	FString EngineResourceDir = FPaths::EnginePluginsDir() / TEXT("Designer/Resources");
-
-	if (IFileManager::Get().DirectoryExists(*ProjectResourceDir)) //Is the plugin in the project? In that case, use those resources
-	{
-		StyleSet->SetContentRoot(ProjectResourceDir);
-		StyleSet->SetCoreContentRoot(ProjectResourceDir);
-	}
-	else //Otherwise, use the global ones
-	{
-		StyleSet->SetContentRoot(EngineResourceDir);
-		StyleSet->SetCoreContentRoot(EngineResourceDir);
-	}
+	FString EngineResourceDir = FPaths::EnginePluginsDir() / TEXT("ProjectBorealis/Designer/Resources");
+	StyleSet->SetContentRoot(EngineResourceDir);
+	StyleSet->SetCoreContentRoot(EngineResourceDir);
 
 	{
 		StyleSet->Set("Designer.Icon", new FSlateImageBrush(FDesignerSlateStyle::InContent("Icon40", ".png"), IconSize40));
