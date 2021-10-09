@@ -15,7 +15,7 @@
 	"Modules": [
 		{
 			"Name": "OptickPlugin",
-			"Type": "DeveloperTool",
+			"Type": "Editor",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [ "Win64", "Mac", "Linux", "PS4", "XboxOne", "Android" ]
 		}

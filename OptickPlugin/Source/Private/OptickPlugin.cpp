@@ -241,7 +241,7 @@ void FOptickPlugin::StartupModule()
 	// Register Optick callback
 	Optick::SetStateChangedCallback(OnOptickStateChanged);
 
-#if WITH_EDITOR
+#if WITH_METADATA
 	FOptickStyle::Initialize();
 	FOptickStyle::ReloadTextures();
 	FOptickCommands::Register();
@@ -275,7 +275,7 @@ void FOptickPlugin::ShutdownModule()
 	// Stop capture if needed
 	StopCapture();
 
-#if WITH_EDITOR
+#if WITH_METADATA
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	// we call this function before unloading the module.
 	FOptickStyle::Shutdown();
