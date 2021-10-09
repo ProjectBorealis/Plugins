@@ -9,7 +9,7 @@ public class ConsoleEnhanced : ModuleRules
         MinFilesUsingPrecompiledHeaderOverride = 1;
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		
-		if (Target.Type == TargetType.Editor)
+        if (Target.Type == TargetType.Editor)
         {
             PrivateDependencyModuleNames.Add("UnrealEd");
         }
