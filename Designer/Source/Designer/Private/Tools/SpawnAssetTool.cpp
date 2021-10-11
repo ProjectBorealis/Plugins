@@ -522,7 +522,9 @@ AActor* FSpawnAssetTool::SpawnPreviewActorFromFactory(UActorFactory* Factory, co
 				//const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "CreateActor", "Create Actor"));
 
 				// Create the actor.
-				Actor = Factory->CreateActor(Asset, DesiredLevel, ActorTransform, InObjectFlags);
+				FActorSpawnParameters Params;
+				Params.ObjectFlags = InObjectFlags;
+				Actor = Factory->CreateActor(Asset, DesiredLevel, ActorTransform, Params);
 				if (Actor != NULL)
 				{
 					//SelectNone(false, true);
