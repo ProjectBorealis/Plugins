@@ -21,7 +21,7 @@
 [submodule "FactionsExtension"]
 	path = FactionsExtension
 	url = https://github.com/ProjectBorealis/FactionsExtension.git
-	branch = master
+	branch = main
 [submodule "ObjectBrowser"]
 	path = ObjectBrowser
 	url = https://github.com/ProjectBorealis/ObjectBrowser.git
