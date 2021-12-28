@@ -8,7 +8,7 @@
 
 void FOptickCommands::RegisterCommands()
 {
-	UI_COMMAND(PluginAction, "Optick", "Open Optick Profiler", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(PluginAction, "Optick", "Open Optick Profiler", EUserInterfaceActionType::Button, FInputChord());
 }
 
 #undef LOCTEXT_NAMESPACE
