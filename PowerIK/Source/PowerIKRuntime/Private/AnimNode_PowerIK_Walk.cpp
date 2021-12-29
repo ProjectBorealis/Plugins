@@ -60,6 +60,11 @@ void FAnimNode_PowerIK_Walk::CacheBones_AnyThread(const FAnimationCacheBonesCont
 	ComponentPose.CacheBones(Context);
 }
 
+FAnimNode_PowerIK_Walk::~FAnimNode_PowerIK_Walk()
+{
+	FootEffectors.Empty();
+}
+
 bool FAnimNode_PowerIK_Walk::IsValidToEvaluate(
 	const USkeleton* Skeleton,
 	const FBoneContainer& RequiredBones)

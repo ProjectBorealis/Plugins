@@ -22,6 +22,10 @@ struct POWERIKRUNTIME_API FAnimNode_PowerIK : public FAnimNode_SkeletalControlBa
 {
 	GENERATED_USTRUCT_BODY()
 
+	FAnimNode_PowerIK();
+
+	~FAnimNode_PowerIK();
+
 	/** Name of joint that acts as the root of the solve. All effectors must be on children of this bone. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Rig, meta = (PinShownByDefault))
 	FName CharacterRoot = "pelvis";

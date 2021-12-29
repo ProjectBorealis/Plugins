@@ -19,6 +19,18 @@ Unauthorized copying, selling or distribution of this software is strictly prohi
 using PowerIK::Vec3;
 using PowerIK::Quat;
 
+FAnimNode_PowerIK_Ground::FAnimNode_PowerIK_Ground()
+{
+	// The linker wants this
+}
+
+FAnimNode_PowerIK_Ground::~FAnimNode_PowerIK_Ground()
+{
+	// The linker wants this
+	FootEffectors.Empty();
+	GroundFeet.clear();
+}
+
 
 void FAnimNode_PowerIK_Ground::Initialize_AnyThread(const FAnimationInitializeContext& Context)
 {

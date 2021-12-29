@@ -203,6 +203,8 @@ struct POWERIKRUNTIME_API FAnimNode_PowerIK_Walk : public FAnimNode_SkeletalCont
 	UWorld* World;
 
 	FAnimNode_PowerIK_Walk();
+
+	~FAnimNode_PowerIK_Walk();
 	
 	// FAnimNode_Base interface
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;

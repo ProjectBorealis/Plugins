@@ -19,6 +19,16 @@ using PowerIK::Vec3;
 using PowerIK::Quat;
 
 
+FAnimNode_PowerIK::FAnimNode_PowerIK()
+{
+	// The linker wants this
+}
+
+FAnimNode_PowerIK::~FAnimNode_PowerIK()
+{
+	// The linker wants this
+}
+
 void FAnimNode_PowerIK::Initialize_AnyThread(const FAnimationInitializeContext& Context)
 {
 	FAnimNode_SkeletalControlBase::Initialize_AnyThread(Context);

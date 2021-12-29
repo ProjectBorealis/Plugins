@@ -14,7 +14,7 @@ Unauthorized copying, selling or distribution of this software is strictly prohi
 namespace PowerIK
 {
 
-struct Vec3
+struct POWERIKRUNTIME_API Vec3
 {
 	float X;
 	float Y;
@@ -90,7 +90,7 @@ struct Vec3
 Vec3 operator*(const float Scalar, const Vec3& A);
 
 
-struct Quat
+struct POWERIKRUNTIME_API Quat
 {
 	float X;
 	float Y;
