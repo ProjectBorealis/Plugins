@@ -54,3 +54,6 @@
 	path = EditorScriptingTools
 	url = https://github.com/ProjectBorealis/UE4-EditorScriptingToolsPlugin.git
 	branch = master
+[submodule "SplashSettings"]
+	path = SplashSettings
+	url = https://github.com/ProjectBorealis/SplashSettings.git
