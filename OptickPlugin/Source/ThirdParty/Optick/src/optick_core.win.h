@@ -134,9 +134,9 @@ DEFINE_GUID( /* 0811c1af-7a07-4a06-82ed-869455cdf713 */
 
 
 ///////////////////////////////////////////////////////////////////////////////
-#define PROCESS_TRACE_MODE_REAL_TIME 0x00000100
-#define PROCESS_TRACE_MODE_RAW_TIMESTAMP 0x00001000
-#define PROCESS_TRACE_MODE_EVENT_RECORD 0x10000000
+#define PROCESS_TRACE_MODE_REAL_TIME                0x00000100
+#define PROCESS_TRACE_MODE_RAW_TIMESTAMP            0x00001000
+#define PROCESS_TRACE_MODE_EVENT_RECORD             0x10000000
 ///////////////////////////////////////////////////////////////////////////////
 #define EVENT_HEADER_FLAG_EXTENDED_INFO                         0x0001
 #define EVENT_HEADER_FLAG_PRIVATE_SESSION                       0x0002
@@ -150,70 +150,69 @@ DEFINE_GUID( /* 0811c1af-7a07-4a06-82ed-869455cdf713 */
 ///////////////////////////////////////////////////////////////////////////////
 #define KERNEL_LOGGER_NAMEW                                                     L"NT Kernel Logger"
 ///////////////////////////////////////////////////////////////////////////////
-#define EVENT_TRACE_REAL_TIME_MODE 0x00000100 // Real time mode on
+#define EVENT_TRACE_REAL_TIME_MODE          0x00000100  // Real time mode on
 ///////////////////////////////////////////////////////////////////////////////
-#define EVENT_TRACE_CONTROL_STOP 1
+#define EVENT_TRACE_CONTROL_STOP            1
 ///////////////////////////////////////////////////////////////////////////////
 
 //
 // Enable flags for Kernel Events
 //
-#define EVENT_TRACE_FLAG_PROCESS 0x00000001	   // process start & end
-#define EVENT_TRACE_FLAG_THREAD 0x00000002	   // thread start & end
-#define EVENT_TRACE_FLAG_IMAGE_LOAD 0x00000004 // image load
+#define EVENT_TRACE_FLAG_PROCESS            0x00000001  // process start & end
+#define EVENT_TRACE_FLAG_THREAD             0x00000002  // thread start & end
+#define EVENT_TRACE_FLAG_IMAGE_LOAD         0x00000004  // image load
 
-#define EVENT_TRACE_FLAG_DISK_IO 0x00000100		 // physical disk IO
-#define EVENT_TRACE_FLAG_DISK_FILE_IO 0x00000200 // requires disk IO
+#define EVENT_TRACE_FLAG_DISK_IO            0x00000100  // physical disk IO
+#define EVENT_TRACE_FLAG_DISK_FILE_IO       0x00000200  // requires disk IO
 
-#define EVENT_TRACE_FLAG_MEMORY_PAGE_FAULTS 0x00001000 // all page faults
-#define EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS 0x00002000 // hard faults only
+#define EVENT_TRACE_FLAG_MEMORY_PAGE_FAULTS 0x00001000  // all page faults
+#define EVENT_TRACE_FLAG_MEMORY_HARD_FAULTS 0x00002000  // hard faults only
 
-#define EVENT_TRACE_FLAG_NETWORK_TCPIP 0x00010000 // tcpip send & receive
+#define EVENT_TRACE_FLAG_NETWORK_TCPIP      0x00010000  // tcpip send & receive
 
-#define EVENT_TRACE_FLAG_REGISTRY 0x00020000 // registry calls
-#define EVENT_TRACE_FLAG_DBGPRINT 0x00040000 // DbgPrint(ex) Calls
+#define EVENT_TRACE_FLAG_REGISTRY           0x00020000  // registry calls
+#define EVENT_TRACE_FLAG_DBGPRINT           0x00040000  // DbgPrint(ex) Calls
 
 //
 // Enable flags for Kernel Events on Vista and above
 //
-#define EVENT_TRACE_FLAG_PROCESS_COUNTERS 0x00000008 // process perf counters
-#define EVENT_TRACE_FLAG_CSWITCH 0x00000010			 // context switches
-#define EVENT_TRACE_FLAG_DPC 0x00000020				 // deffered procedure calls
-#define EVENT_TRACE_FLAG_INTERRUPT 0x00000040		 // interrupts
-#define EVENT_TRACE_FLAG_SYSTEMCALL 0x00000080		 // system calls
+#define EVENT_TRACE_FLAG_PROCESS_COUNTERS   0x00000008  // process perf counters
+#define EVENT_TRACE_FLAG_CSWITCH            0x00000010  // context switches
+#define EVENT_TRACE_FLAG_DPC                0x00000020  // deffered procedure calls
+#define EVENT_TRACE_FLAG_INTERRUPT          0x00000040  // interrupts
+#define EVENT_TRACE_FLAG_SYSTEMCALL         0x00000080  // system calls
 
-#define EVENT_TRACE_FLAG_DISK_IO_INIT 0x00000400 // physical disk IO initiation
-#define EVENT_TRACE_FLAG_ALPC 0x00100000		 // ALPC traces
-#define EVENT_TRACE_FLAG_SPLIT_IO 0x00200000	 // split io traces (VolumeManager)
+#define EVENT_TRACE_FLAG_DISK_IO_INIT       0x00000400  // physical disk IO initiation
+#define EVENT_TRACE_FLAG_ALPC               0x00100000  // ALPC traces
+#define EVENT_TRACE_FLAG_SPLIT_IO           0x00200000  // split io traces (VolumeManager)
 
-#define EVENT_TRACE_FLAG_DRIVER 0x00800000		 // driver delays
-#define EVENT_TRACE_FLAG_PROFILE 0x01000000		 // sample based profiling
-#define EVENT_TRACE_FLAG_FILE_IO 0x02000000		 // file IO
-#define EVENT_TRACE_FLAG_FILE_IO_INIT 0x04000000 // file IO initiation
+#define EVENT_TRACE_FLAG_DRIVER             0x00800000  // driver delays
+#define EVENT_TRACE_FLAG_PROFILE            0x01000000  // sample based profiling
+#define EVENT_TRACE_FLAG_FILE_IO            0x02000000  // file IO
+#define EVENT_TRACE_FLAG_FILE_IO_INIT       0x04000000  // file IO initiation
 
 #define EVENT_TRACE_FLAG_PMC_PROFILE            0x80000000      // sample based profiling (PMC) - NOT CONFIRMED!
 
 //
 // Enable flags for Kernel Events on Win7 and above
 //
-#define EVENT_TRACE_FLAG_DISPATCHER 0x00000800	  // scheduler (ReadyThread)
-#define EVENT_TRACE_FLAG_VIRTUAL_ALLOC 0x00004000 // VM operations
+#define EVENT_TRACE_FLAG_DISPATCHER         0x00000800  // scheduler (ReadyThread)
+#define EVENT_TRACE_FLAG_VIRTUAL_ALLOC      0x00004000  // VM operations
 
 //
 // Enable flags for Kernel Events on Win8 and above
 //
-#define EVENT_TRACE_FLAG_VAMAP 0x00008000		 // map/unmap (excluding images)
-#define EVENT_TRACE_FLAG_NO_SYSCONFIG 0x10000000 // Do not do sys config rundown
+#define EVENT_TRACE_FLAG_VAMAP              0x00008000  // map/unmap (excluding images)
+#define EVENT_TRACE_FLAG_NO_SYSCONFIG       0x10000000  // Do not do sys config rundown
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #pragma warning(push)
-#pragma warning(disable : 4201)
+#pragma warning (disable:4201) 
 
 #ifndef EVENT_DESCRIPTOR_DEF
 #define EVENT_DESCRIPTOR_DEF
-typedef struct _EVENT_DESCRIPTOR
-{
+typedef struct _EVENT_DESCRIPTOR {
 
         USHORT      Id;
         UCHAR       Version;
@@ -229,8 +228,7 @@ typedef const EVENT_DESCRIPTOR *PCEVENT_DESCRIPTOR;
 ///////////////////////////////////////////////////////////////////////////////
 #ifndef EVENT_HEADER_DEF
 #define EVENT_HEADER_DEF
-typedef struct _EVENT_HEADER
-{
+typedef struct _EVENT_HEADER {
 
         USHORT              Size;
         USHORT              HeaderType;
@@ -256,8 +254,7 @@ typedef struct _EVENT_HEADER
 ///////////////////////////////////////////////////////////////////////////////
 #ifndef EVENT_HEADER_EXTENDED_DATA_ITEM_DEF
 #define EVENT_HEADER_EXTENDED_DATA_ITEM_DEF
-typedef struct _EVENT_HEADER_EXTENDED_DATA_ITEM
-{
+typedef struct _EVENT_HEADER_EXTENDED_DATA_ITEM {
 
         USHORT      Reserved1;                      // Reserved for internal use
         USHORT      ExtType;                        // Extended info type 
@@ -447,18 +444,17 @@ typedef struct _TRACE_PROFILE_INTERVAL {
 } TRACE_PROFILE_INTERVAL, *PTRACE_PROFILE_INTERVAL;
 
 typedef struct _EVENT_TRACE_LOGFILEW
-	EVENT_TRACE_LOGFILEW,
-	*PEVENT_TRACE_LOGFILEW;
+EVENT_TRACE_LOGFILEW, *PEVENT_TRACE_LOGFILEW;
 
-typedef ULONG(WINAPI *PEVENT_TRACE_BUFFER_CALLBACKW)(PEVENT_TRACE_LOGFILEW Logfile);
+typedef ULONG(WINAPI * PEVENT_TRACE_BUFFER_CALLBACKW)
+(PEVENT_TRACE_LOGFILEW Logfile);
 
 typedef VOID(WINAPI *PEVENT_CALLBACK)(PEVENT_TRACE pEvent);
 
 typedef struct _EVENT_RECORD
-	EVENT_RECORD,
-	*PEVENT_RECORD;
+EVENT_RECORD, *PEVENT_RECORD;
 
-typedef VOID(WINAPI *PEVENT_RECORD_CALLBACK)(PEVENT_RECORD EventRecord);
+typedef VOID(WINAPI *PEVENT_RECORD_CALLBACK) (PEVENT_RECORD EventRecord);
 
 struct _EVENT_TRACE_LOGFILEW {
         LPWSTR                  LogFileName;      // Logfile Name
@@ -498,12 +494,12 @@ struct _EVENT_TRACE_LOGFILEW {
 
 #pragma warning(pop)
 
-#define PEVENT_TRACE_BUFFER_CALLBACK PEVENT_TRACE_BUFFER_CALLBACKW
-#define EVENT_TRACE_LOGFILE EVENT_TRACE_LOGFILEW
-#define PEVENT_TRACE_LOGFILE PEVENT_TRACE_LOGFILEW
-#define KERNEL_LOGGER_NAME KERNEL_LOGGER_NAMEW
-#define GLOBAL_LOGGER_NAME GLOBAL_LOGGER_NAMEW
-#define EVENT_LOGGER_NAME EVENT_LOGGER_NAMEW
+#define PEVENT_TRACE_BUFFER_CALLBACK    PEVENT_TRACE_BUFFER_CALLBACKW
+#define EVENT_TRACE_LOGFILE             EVENT_TRACE_LOGFILEW
+#define PEVENT_TRACE_LOGFILE            PEVENT_TRACE_LOGFILEW
+#define KERNEL_LOGGER_NAME              KERNEL_LOGGER_NAMEW
+#define GLOBAL_LOGGER_NAME              GLOBAL_LOGGER_NAMEW
+#define EVENT_LOGGER_NAME               EVENT_LOGGER_NAMEW
 
 EXTERN_C
 ULONG
@@ -570,18 +566,18 @@ TraceQueryInformation(
 );
 
 //////////////////////////////////////////////////////////////////////////
-#define RegisterTraceGuids RegisterTraceGuidsW
-#define StartTrace StartTraceW
-#define ControlTrace ControlTraceW
-#define StopTrace StopTraceW
-#define QueryTrace QueryTraceW
-#define UpdateTrace UpdateTraceW
-#define FlushTrace FlushTraceW
-#define QueryAllTraces QueryAllTracesW
-#define OpenTrace OpenTraceW
+#define RegisterTraceGuids      RegisterTraceGuidsW
+#define StartTrace              StartTraceW
+#define ControlTrace            ControlTraceW
+#define StopTrace               StopTraceW
+#define QueryTrace              QueryTraceW
+#define UpdateTrace             UpdateTraceW
+#define FlushTrace              FlushTraceW
+#define QueryAllTraces          QueryAllTracesW
+#define OpenTrace               OpenTraceW
 //////////////////////////////////////////////////////////////////////////
 #else
-#define INITGUID // Causes definition of SystemTraceControlGuid in evntrace.h.
+#define INITGUID  // Causes definition of SystemTraceControlGuid in evntrace.h.
 #include <wmistr.h>
 #include <evntrace.h>
 #include <strsafe.h>
@@ -952,7 +948,6 @@ void OnThreadEvent(PEVENT_RECORD eventRecord)
                         desc.timestamp = eventRecord->EventHeader.TimeStamp.QuadPart;
                         Core::Get().ReportSwitchContext(desc);
 
-		int sid = *((int *)ptr);
 
                         // Assign ThreadID to the cores
                         if (runtime.activeThreadsIDs.find(desc.newThreadId) != runtime.activeThreadsIDs.end())
@@ -1388,7 +1383,7 @@ Trace* Platform::CreateTrace()
 
 #if USE_DBG_HELP
 #include <DbgHelp.h>
-#pragma comment(lib, "DbgHelp.Lib")
+#pragma comment( lib, "DbgHelp.Lib" )
 #endif
 
 #include "optick_serialization.h"
@@ -1405,16 +1400,16 @@ typedef struct _MODULEINFO {
 } MODULEINFO, *LPMODULEINFO;
 #pragma pack(pop)
 #ifndef EnumProcessModulesEx
-#define EnumProcessModulesEx K32EnumProcessModulesEx
+#define EnumProcessModulesEx        K32EnumProcessModulesEx
 EXTERN_C DWORD WINAPI K32EnumProcessModulesEx(HANDLE hProcess, HMODULE *lphModule, DWORD cb, LPDWORD lpcbNeeded, DWORD dwFilterFlag);
 #endif
 #ifndef GetModuleInformation
-#define GetModuleInformation K32GetModuleInformation
+#define GetModuleInformation        K32GetModuleInformation
 EXTERN_C DWORD WINAPI K32GetModuleInformation(HANDLE hProcess, HMODULE hModule, LPMODULEINFO lpmodinfo, DWORD cb);
 #endif
 
 #ifndef GetModuleFileNameExA
-#define GetModuleFileNameExA K32GetModuleFileNameExA
+#define GetModuleFileNameExA        K32GetModuleFileNameExA
 EXTERN_C DWORD WINAPI K32GetModuleFileNameExA(HANDLE hProcess, HMODULE hModule, LPSTR lpFilename, DWORD nSize);
 #endif
 #endif

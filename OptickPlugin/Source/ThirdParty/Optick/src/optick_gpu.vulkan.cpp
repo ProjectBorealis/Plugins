@@ -4,7 +4,7 @@
 
 #if USE_OPTICK
 #if OPTICK_ENABLE_GPU_VULKAN
-#include "Vulkan/Include/vulkan/vulkan.h"
+#include <vulkan/vulkan.h>
 
 #include "optick_core.h"
 #include "optick_gpu.h"
