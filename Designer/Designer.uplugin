@@ -10,9 +10,10 @@
 	"DocsURL": "www.unrealengineer.com/designer-manual",
 	"MarketplaceURL": "",
 	"SupportURL": "www.unrealengineer.com/designer",
-	"EngineVersion": "4.26.0",
 	"CanContainContent": true,
-	"Installed": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
 	"Modules": [
 		{
 			"Name": "Designer",

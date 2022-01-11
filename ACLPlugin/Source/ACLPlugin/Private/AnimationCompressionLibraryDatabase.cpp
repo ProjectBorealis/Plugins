@@ -166,7 +166,7 @@ void UAnimationCompressionLibraryDatabase::BuildDatabase(TArray<uint8>& OutCompr
 		UAnimBoneCompressionCodec_ACLDatabase* DatabaseCodec = Cast<UAnimBoneCompressionCodec_ACLDatabase>(AnimSeq->CompressedData.BoneCompressionCodec);
 		if (DatabaseCodec == nullptr || DatabaseCodec->DatabaseAsset != this)
 		{
-			UE_LOG(LogAnimationCompression, Warning, TEXT("ACL Database mapping is stale. [%s] no longer references it."), *AnimSeq->GetPathName());
+			UE_LOG(LogAnimationCompression, Warning, TEXT("ACL Database mapping is stale. '%s' no longer references it. [%s]"), *AnimSeq->GetPathName(), *GetPathName());
 			continue;
 		}
 
@@ -186,7 +186,7 @@ void UAnimationCompressionLibraryDatabase::BuildDatabase(TArray<uint8>& OutCompr
 		const FACLDatabaseCompressedAnimData& AnimData = static_cast<const FACLDatabaseCompressedAnimData&>(*AnimSeq->CompressedData.CompressedDataStructure);
 		if (!AnimData.IsValid())
 		{
-			UE_LOG(LogAnimationCompression, Warning, TEXT("Cannot include an invalid sequence in the ACL database: [%s]"), *AnimSeq->GetPathName());
+			UE_LOG(LogAnimationCompression, Warning, TEXT("Cannot include a invalid sequence '%s' in the ACL database. [%s]"), *AnimSeq->GetPathName(), *GetPathName());
 			continue;
 		}
 
@@ -230,7 +230,7 @@ void UAnimationCompressionLibraryDatabase::BuildDatabase(TArray<uint8>& OutCompr
 	if (MergeResult.any())
 	{
 		// Free our duplicate compressed clips
-		UE_LOG(LogAnimationCompression, Error, TEXT("ACL failed to merge databases: %s"), ANSI_TO_TCHAR(MergeResult.c_str()));
+		UE_LOG(LogAnimationCompression, Error, TEXT("ACL failed to merge databases: %s [%s]"), ANSI_TO_TCHAR(MergeResult.c_str()), *GetPathName());
 		return;
 	}
 
@@ -270,7 +270,7 @@ void UAnimationCompressionLibraryDatabase::BuildDatabase(TArray<uint8>& OutCompr
 			ACLAllocatorImpl.deallocate(CompressedTracks, CompressedTracks->get_size());
 		}
 
-		UE_LOG(LogAnimationCompression, Error, TEXT("ACL failed to split database: %s"), ANSI_TO_TCHAR(SplitResult.c_str()));
+		UE_LOG(LogAnimationCompression, Error, TEXT("ACL failed to split database: %s [%s]"), ANSI_TO_TCHAR(SplitResult.c_str()), *GetPathName());
 		return;
 	}
 
@@ -289,7 +289,7 @@ void UAnimationCompressionLibraryDatabase::BuildDatabase(TArray<uint8>& OutCompr
 		if (StripResult.any())
 		{
 			// We failed to strip our tier but the split database is still usable, don't fail anything
-			UE_LOG(LogAnimationCompression, Warning, TEXT("ACL failed to strip lowest database tier: %s"), ANSI_TO_TCHAR(StripResult.c_str()));
+			UE_LOG(LogAnimationCompression, Warning, TEXT("ACL failed to strip lowest database tier: %s [%s]"), ANSI_TO_TCHAR(StripResult.c_str()), *GetPathName());
 		}
 		else
 		{
@@ -513,9 +513,31 @@ bool UAnimationCompressionLibraryDatabase::UpdateReferencingAnimSequenceList()
 }
 #endif
 
+static void FailAllRequests(const TArray<FFidelityChangeRequest>& Requests)
+{
+	for (const FFidelityChangeRequest& Request : Requests)
+	{
+		if (Request.Result != nullptr)
+		{
+			*Request.Result = ACLVisualFidelityChangeResult::Failed;
+		}
+	}
+}
+
 void UAnimationCompressionLibraryDatabase::BeginDestroy()
 {
 	Super::BeginDestroy();
+
+	// Remove our ticker if we have one
+	if (FidelityUpdateTickerHandle.IsValid())
+	{
+		FTicker::GetCoreTicker().RemoveTicker(FidelityUpdateTickerHandle);
+		FidelityUpdateTickerHandle.Reset();
+	}
+
+	// If we have visual fidelity changes in progress, cancel them
+	FailAllRequests(FidelityChangeRequests);
+	FidelityChangeRequests.Empty();
 
 	acl::database_context<UE4DefaultDatabaseSettings>& DatabaseContext = GetDatabaseContext();
 
@@ -617,7 +639,7 @@ void UAnimationCompressionLibraryDatabase::SetVisualFidelity(ACLVisualFidelity V
 	SetVisualFidelityImpl(VisualFidelity, nullptr);
 }
 
-void UAnimationCompressionLibraryDatabase::SetVisualFidelityImpl(ACLVisualFidelity VisualFidelity, ACLVisualFidelityChangeResult* OutResult)
+uint32 UAnimationCompressionLibraryDatabase::SetVisualFidelityImpl(ACLVisualFidelity VisualFidelity, ACLVisualFidelityChangeResult* OutResult)
 {
 	// Must execute on the main thread but must do so while animations aren't updating
 	check(IsInGameThread());
@@ -646,10 +668,12 @@ void UAnimationCompressionLibraryDatabase::SetVisualFidelityImpl(ACLVisualFideli
 			*OutResult = ACLVisualFidelityChangeResult::Completed;
 		}
 
-		return;
+		return ~0U;
 	}
 
 	UE_LOG(LogAnimationCompression, Log, TEXT("ACL database is requesting visual fidelity %s [%s]"), VisualFidelityToString(VisualFidelity), *GetPathName());
+
+	const uint32 RequestID = NextFidelityChangeRequestID++;
 
 	// Add our change requests
 	// To simplify handling, change requests only transition from one fidelity level to the next closest
@@ -661,12 +685,12 @@ void UAnimationCompressionLibraryDatabase::SetVisualFidelityImpl(ACLVisualFideli
 		{
 		case ACLVisualFidelity::Medium:
 			// From highest to medium we need a single change
-			FidelityChangeRequests.Add({ OutResult, NextFidelityChangeRequestID++, ACLVisualFidelity::Medium, false });
+			FidelityChangeRequests.Add({ OutResult, RequestID, ACLVisualFidelity::Medium, false });
 			break;
 		case ACLVisualFidelity::Lowest:
 			// From highest to lowest we need two changes
-			FidelityChangeRequests.Add({ nullptr, NextFidelityChangeRequestID++, ACLVisualFidelity::Medium, false });
-			FidelityChangeRequests.Add({ OutResult, NextFidelityChangeRequestID++, ACLVisualFidelity::Lowest, false });
+			FidelityChangeRequests.Add({ nullptr, RequestID, ACLVisualFidelity::Medium, false });
+			FidelityChangeRequests.Add({ OutResult, RequestID, ACLVisualFidelity::Lowest, false });
 			break;
 		default:
 			checkf(false, TEXT("Unexpected visual fidelity value"));
@@ -678,11 +702,11 @@ void UAnimationCompressionLibraryDatabase::SetVisualFidelityImpl(ACLVisualFideli
 		{
 		case ACLVisualFidelity::Highest:
 			// From medium to highest we need a single change
-			FidelityChangeRequests.Add({ OutResult, NextFidelityChangeRequestID++, ACLVisualFidelity::Highest, false });
+			FidelityChangeRequests.Add({ OutResult, RequestID, ACLVisualFidelity::Highest, false });
 			break;
 		case ACLVisualFidelity::Lowest:
 			// From medium to lowest we need a single change
-			FidelityChangeRequests.Add({ OutResult, NextFidelityChangeRequestID++, ACLVisualFidelity::Lowest, false });
+			FidelityChangeRequests.Add({ OutResult, RequestID, ACLVisualFidelity::Lowest, false });
 			break;
 		default:
 			checkf(false, TEXT("Unexpected visual fidelity value"));
@@ -694,12 +718,12 @@ void UAnimationCompressionLibraryDatabase::SetVisualFidelityImpl(ACLVisualFideli
 		{
 		case ACLVisualFidelity::Highest:
 			// From lowest to highest we need two changes
-			FidelityChangeRequests.Add({ nullptr, NextFidelityChangeRequestID++, ACLVisualFidelity::Medium, false });
-			FidelityChangeRequests.Add({ OutResult, NextFidelityChangeRequestID++, ACLVisualFidelity::Highest, false });
+			FidelityChangeRequests.Add({ nullptr, RequestID, ACLVisualFidelity::Medium, false });
+			FidelityChangeRequests.Add({ OutResult, RequestID, ACLVisualFidelity::Highest, false });
 			break;
 		case ACLVisualFidelity::Medium:
 			// From lowest to medium we need a single change
-			FidelityChangeRequests.Add({ OutResult, NextFidelityChangeRequestID++, ACLVisualFidelity::Medium, false });
+			FidelityChangeRequests.Add({ OutResult, RequestID, ACLVisualFidelity::Medium, false });
 			break;
 		default:
 			checkf(false, TEXT("Unexpected visual fidelity value"));
@@ -711,8 +735,48 @@ void UAnimationCompressionLibraryDatabase::SetVisualFidelityImpl(ACLVisualFideli
 	// If this is the first request, queue our ticker so we can start tracking our changes
 	if (bIsFirstRequest)
 	{
+		check(!FidelityUpdateTickerHandle.IsValid());
 		auto UpdateVisualFidelity = [this](float DeltaTime) { return UpdateVisualFidelityTicker(DeltaTime); };
-		FTicker::GetCoreTicker().AddTicker(TEXT("ACLDBStreamOut"), 0.0F, UpdateVisualFidelity);
+		FidelityUpdateTickerHandle = FTicker::GetCoreTicker().AddTicker(TEXT("ACLDBStreamOut"), 0.0F, UpdateVisualFidelity);
+	}
+
+	return RequestID;
+}
+
+void UAnimationCompressionLibraryDatabase::CancelVisualFidelityRequestImpl(uint32 RequestID)
+{
+	// Must execute on the main thread
+	check(IsInGameThread());
+
+	// Nothing to do if the request ID isn't valid
+	if (RequestID == ~0U)
+	{
+		return;
+	}
+
+	// Look for our request ID and cancel what we can
+	// Iterate in reverse order so we can remove elements as we go
+	for (int32 RequestIndex = FidelityChangeRequests.Num() - 1; RequestIndex >= 0; --RequestIndex)
+	{
+		FFidelityChangeRequest& Request = FidelityChangeRequests[RequestIndex];
+		if (Request.RequestID != RequestID)
+		{
+			// Not our request, skip it
+			continue;
+		}
+
+		// Found our request
+		if (Request.bIsInProgress)
+		{
+			// Our request is in progress but we can't cancel it
+			// The request will attempt to complete but the result pointer might no longer be valid then, clear it
+			Request.Result = nullptr;
+		}
+		else
+		{
+			// Our request hasn't started yet, remove it
+			FidelityChangeRequests.RemoveAt(RequestIndex);
+		}
 	}
 }
 
@@ -740,17 +804,6 @@ static void LogRequestResult(const UAnimationCompressionLibraryDatabase& Databas
 	case acl::database_stream_request_result::no_free_streaming_requests:
 		UE_LOG(LogAnimationCompression, Log, TEXT("Failed to find a free ACL database streaming request [%s]"), *Database.GetPathName());
 		break;
-	}
-}
-
-static void FailAllRequests(TArray<FFidelityChangeRequest>& Requests)
-{
-	for (FFidelityChangeRequest& Request : Requests)
-	{
-		if (Request.Result != nullptr)
-		{
-			*Request.Result = ACLVisualFidelityChangeResult::Failed;
-		}
 	}
 }
 
@@ -954,7 +1007,14 @@ bool UAnimationCompressionLibraryDatabase::UpdateVisualFidelityTicker(float Delt
 		}
 	}
 
-	return FidelityChangeRequests.Num() != 0;	// We need to fire again if we have more pending requests
+	const bool bHasMoreRequests = FidelityChangeRequests.Num() != 0;
+	if (!bHasMoreRequests)
+	{
+		// Clear our ticker handle, no longer needed
+		FidelityUpdateTickerHandle.Reset();
+	}
+
+	return bHasMoreRequests;	// We need to fire again if we have more pending requests
 }
 
 class FSetDatabaseVisualFidelityAction final : public FPendingLatentAction
@@ -966,6 +1026,7 @@ public:
 		, OutResult(OutResult_)
 		, LatentInfo(LatentInfo_)
 		, bIsDispatched(false)
+		, RequestID(~0U)
 	{
 	}
 
@@ -982,17 +1043,41 @@ public:
 			return;
 		}
 
+		bool bDispatchedNow = false;
 		if (!bIsDispatched)
 		{
 			// Fire off our change request, will complete right away if no change is requested, otherwise we just dispatch
 			bIsDispatched = true;
+			bDispatchedNow = true;
 			OutResult = ACLVisualFidelityChangeResult::Dispatched;
-			DatabaseAsset->SetVisualFidelityImpl(VisualFidelity, &OutResult);
+			RequestID = DatabaseAsset->SetVisualFidelityImpl(VisualFidelity, &OutResult);
 		}
 
 		// We are done once our result is set
 		const bool bIsDone = OutResult != ACLVisualFidelityChangeResult::Dispatched;
-		Response.FinishAndTriggerIf(bIsDone, LatentInfo.ExecutionFunction, LatentInfo.Linkage, LatentInfo.CallbackTarget);
+		if (bIsDone)
+		{
+			Response.FinishAndTriggerIf(bIsDone, LatentInfo.ExecutionFunction, LatentInfo.Linkage, LatentInfo.CallbackTarget);
+		}
+		else if (bDispatchedNow)
+		{
+			Response.TriggerLink(LatentInfo.ExecutionFunction, LatentInfo.Linkage, LatentInfo.CallbackTarget);
+		}
+	}
+
+	virtual void NotifyObjectDestroyed() override
+	{
+		// Nothing we can do
+	}
+
+	virtual void NotifyActionAborted() override
+	{
+		// Our request is being aborted, cancel what we can
+		if (bIsDispatched && RequestID != ~0U)
+		{
+			OutResult = ACLVisualFidelityChangeResult::Failed;
+			DatabaseAsset->CancelVisualFidelityRequestImpl(RequestID);
+		}
 	}
 
 #if WITH_EDITOR
@@ -1010,6 +1095,7 @@ private:
 
 	FLatentActionInfo LatentInfo;
 	bool bIsDispatched;
+	uint32 RequestID;
 };
 
 void UAnimationCompressionLibraryDatabase::SetVisualFidelity(UObject* WorldContextObject, FLatentActionInfo LatentInfo, UAnimationCompressionLibraryDatabase* DatabaseAsset, ACLVisualFidelityChangeResult& Result, ACLVisualFidelity VisualFidelity)

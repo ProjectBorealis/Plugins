@@ -87,6 +87,9 @@ private:
 	/** A queue of visual fidelity change requests. */
 	TArray<FFidelityChangeRequest> FidelityChangeRequests;
 
+	/** The handle to the fidelity update ticket. */
+	FDelegateHandle FidelityUpdateTickerHandle;
+
 #if WITH_EDITORONLY_DATA
 	/** What percentage of the key frames should remain in the anim sequences. */
 	UPROPERTY(VisibleAnywhere, Category = "Database")
@@ -168,8 +171,11 @@ private:
 	void UpdatePreviewState(bool bBuildDatabase);
 #endif
 
-	/** Shared implementation between C++ and blueprint interfaces. */
-	void SetVisualFidelityImpl(ACLVisualFidelity VisualFidelity, ACLVisualFidelityChangeResult* OutResult);
+	/** Shared implementation between C++ and blueprint interfaces. Returns the request ID necessary to abort or ~0 if no change is required. */
+	uint32 SetVisualFidelityImpl(ACLVisualFidelity VisualFidelity, ACLVisualFidelityChangeResult* OutResult);
+
+	/** Cancels an ongoing visual fidelity request. Only supported if the request hasn't completed. Will not update the ACLVisualFidelityChangeResult of the request. */
+	void CancelVisualFidelityRequestImpl(uint32 RequestID);
 
 	/** Core ticker update function to update our visual fidelity state. */
 	bool UpdateVisualFidelityTicker(float DeltaTime);

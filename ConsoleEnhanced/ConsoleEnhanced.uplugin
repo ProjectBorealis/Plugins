@@ -10,16 +10,19 @@
 	"DocsURL": "",
 	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/86123c85a4474d609c5cef8a7fc5786b",
 	"SupportURL": "mailto:cultrarius@posteo.de",
+	"EngineVersion": "4.27.0",
 	"CanContainContent": false,
 	"Installed": true,
 	"Modules": [
 		{
 			"Name": "ConsoleEnhanced",
-			"Type": "DeveloperTool",
+			"Type": "Editor",
 			"LoadingPhase": "Default",
 			"WhitelistPlatforms": [
+				"Linux",
 				"Win64",
-				"Win32"
+				"Win32",
+				"Mac"
 			]
 		}
 	]
