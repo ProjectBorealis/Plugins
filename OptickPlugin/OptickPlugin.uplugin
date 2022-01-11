@@ -10,7 +10,6 @@
 	"DocsURL": "https://github.com/bombomby/optick/wiki/UE4-Optick-Plugin",
 	"MarketplaceURL": "",
 	"SupportURL": "https://github.com/bombomby/optick/issues",
-	"EngineVersion": "4.27.0",
 	"CanContainContent": false,
 	"Modules": [
 		{
