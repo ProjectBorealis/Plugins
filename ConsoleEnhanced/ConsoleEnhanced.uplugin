@@ -10,13 +10,19 @@
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "mailto:cultrarius@posteo.de",
+	"EngineVersion": "4.27.0",
 	"CanContainContent": false,
 	"Modules": [
 		{
 			"Name": "ConsoleEnhanced",
 			"Type": "Editor",
-			"WhitelistPlatforms": [ "Linux", "Win64", "Win32", "Mac" ],
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [
+				"Linux",
+				"Win64",
+				"Win32",
+				"Mac"
+			]
 		}
 	]
 }

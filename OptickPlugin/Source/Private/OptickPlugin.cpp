@@ -7,6 +7,7 @@
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/EngineVersion.h"
+#include "Misc/CoreDelegates.h"
 #include "Modules/ModuleManager.h"
 #include "Stats/Stats2.h"
 #include "Stats/StatsData.h"

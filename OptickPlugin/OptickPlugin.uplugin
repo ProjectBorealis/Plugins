@@ -10,14 +10,21 @@
 	"DocsURL": "https://github.com/bombomby/optick/wiki/UE4-Optick-Plugin",
 	"MarketplaceURL": "",
 	"SupportURL": "https://github.com/bombomby/optick/issues",
+	"EngineVersion": "4.27.0",
 	"CanContainContent": false,
-	"IsBetaVersion": false,
 	"Modules": [
 		{
 			"Name": "OptickPlugin",
 			"Type": "Editor",
 			"LoadingPhase": "Default",
-			"WhitelistPlatforms": [ "Win64", "Mac", "Linux", "PS4", "XboxOne", "Android" ]
+			"WhitelistPlatforms": [
+				"Win64",
+				"Mac",
+				"Linux",
+				"PS4",
+				"XboxOne",
+				"Android"
+			]
 		}
 	]
 }

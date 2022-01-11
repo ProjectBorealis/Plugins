@@ -11,6 +11,9 @@
 	"MarketplaceURL": "",
 	"SupportURL": "www.unrealengineer.com/designer",
 	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
 	"Modules": [
 		{
 			"Name": "Designer",
