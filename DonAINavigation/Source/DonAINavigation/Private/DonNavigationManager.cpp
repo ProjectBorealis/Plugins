@@ -185,9 +185,12 @@ void ADonNavigationManager::ReceiveAsyncDynamicCollisionUpdates()
 {
 	while (!DynamicCollisionBroadcastQueue.IsEmpty())
 	{
-		FDonNavigationVoxel* voxel;
+		FDonNavigationVoxel* voxel = nullptr;
 		DynamicCollisionBroadcastQueue.Dequeue(voxel);
-		voxel->BroadcastCollisionUpdates();
+		if (voxel)
+		{
+			voxel->BroadcastCollisionUpdates();
+		}
 	}
 }
 
