@@ -58,3 +58,6 @@
 	path = SplashSettings
 	url = https://github.com/ProjectBorealis/SplashSettings.git
 	branch = main
+[submodule "IAUS"]
+	path = IAUS
+	url = https://github.com/ProjectBorealis/IAUS
