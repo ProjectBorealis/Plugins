@@ -5,7 +5,7 @@
 [submodule "UE4GitPlugin"]
 	path = UE4GitPlugin
 	url = https://github.com/ProjectBorealis/UE4GitPlugin.git
-	branch = pb-changes
+	branch = release
 [submodule "ArcticAnalytics"]
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
