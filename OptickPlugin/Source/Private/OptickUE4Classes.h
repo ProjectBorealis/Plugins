@@ -137,9 +137,6 @@ class FRealtimeGPUProfilerFrameImpl
 {
 public:
 
-	uint64 CPUFrameStartTimestamp;
-	FTimestampCalibrationQueryRHIRef TimestampCalibrationQuery;
-
 	struct FGPUEventTimeAggregate
 	{
 		uint32 ExclusiveTimeUs;
