@@ -57,12 +57,16 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
+/*
+#if UE_4_24_OR_LATER
 			PublicDefinitions.AddRange(
 				new string[]
 				{
 					"OPTICK_UE4_GPU=1",
 				}
 				);
+#endif
+*/
 
 			if (Target.bBuildEditor == true)
 			{

@@ -112,12 +112,10 @@ class FOptickPlugin : public IOptickPlugin
 	uint64 Convert32bitCPUTimestamp(int64 timestamp) const;
 
 #ifdef OPTICK_UE4_GPU
-
 	void OnEndFrameRT();
-	uint64 ConvertGPUTimestamp(uint64 timestamp, int GPUIndex);
+	uint64 ConvertGPUTimestamp(uint64 timestamp);
 
-	bool UpdateCalibrationTimestamp(FRealtimeGPUProfilerFrameImpl* Frame, int GPUIndex);
-	FGPUTimingCalibrationTimestamp CalibrationTimestamps[MAX_NUM_GPUS];
+	FGPUTimingCalibrationTimestamp CalibrationTimestamp;
 #endif
 
 public:
@@ -296,6 +294,8 @@ void FOptickPlugin::StartCapture()
 	if (!IsCapturing)
 	{
 #ifdef OPTICK_UE4_GPU
+		CalibrationTimestamp = FGPUTiming::GetCalibrationTimestamp();
+
 		GPUThreadStorage.Reset();
 		for (auto& pair : StorageMap)
 			pair.Value->Reset();
@@ -393,57 +393,7 @@ uint64 FOptickPlugin::Convert32bitCPUTimestamp(int64 timestamp) const
 }
 
 #ifdef OPTICK_UE4_GPU
-
-bool FOptickPlugin::UpdateCalibrationTimestamp(FRealtimeGPUProfilerFrameImpl* Frame, int GPUIndex)
-{
-	FGPUTimingCalibrationTimestamp& CalibrationTimestamp = CalibrationTimestamps[GPUIndex];
-	CalibrationTimestamp = FGPUTimingCalibrationTimestamp{ 0, 0 };
-
-	if (Frame->TimestampCalibrationQuery.IsValid())
-	{
-#if UE_4_27_OR_LATER
-		CalibrationTimestamp.GPUMicroseconds = Frame->TimestampCalibrationQuery->GPUMicroseconds[GPUIndex];
-		CalibrationTimestamp.CPUMicroseconds = Frame->TimestampCalibrationQuery->CPUMicroseconds[GPUIndex];
-#else
-		CalibrationTimestamp.GPUMicroseconds = Frame->TimestampCalibrationQuery->GPUMicroseconds;
-		CalibrationTimestamp.CPUMicroseconds = Frame->TimestampCalibrationQuery->CPUMicroseconds;
-#endif
-	}
-
-	if (CalibrationTimestamp.GPUMicroseconds == 0 || CalibrationTimestamp.CPUMicroseconds == 0) // Unimplemented platforms, or invalid on the first frame
-	{
-		if (Frame->GpuProfilerEvents.Num() > 1)
-		{
-			// Align CPU and GPU frames
-			CalibrationTimestamp.GPUMicroseconds = Frame->GpuProfilerEvents[1].GetStartResultMicroseconds(0);
-			CalibrationTimestamp.CPUMicroseconds = FPlatformTime::ToSeconds64(Frame->CPUFrameStartTimestamp) * 1000 * 1000;
-		}
-		else
-		{
-			// Fallback to legacy
-			CalibrationTimestamp = FGPUTiming::GetCalibrationTimestamp();
-		}
-	}
-
-	return CalibrationTimestamp.GPUMicroseconds != 0 && CalibrationTimestamp.CPUMicroseconds != 0;
-}
-
-struct TimeRange
-{
-	uint64 Start;
-	uint64 Finish;
-	bool IsOverlap(TimeRange other) const
-	{
-		return !((Finish < other.Start) || (other.Finish < Start));
-	}
-	bool IsValid() const
-	{
-		return Start != 0 && Finish != 0 && Finish > Start;
-	}
-	TimeRange() : Start(0), Finish(0) {}
-	TimeRange(uint64 start, uint64 finish) : Start(start), Finish(finish) {}
-};
-
+#if UE_4_24_OR_LATER
 void FOptickPlugin::OnEndFrameRT()
 {
 	FScopeLock ScopeLock(&UpdateCriticalSection);
@@ -468,7 +418,6 @@ void FOptickPlugin::OnEndFrameRT()
 
 				if (!Event.GatherQueryResults(RHICmdList))
 				{
-
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 					UE_LOG(OptickLog, Warning, TEXT("Query is not ready."));
 #endif
@@ -477,106 +426,162 @@ void FOptickPlugin::OnEndFrameRT()
 				}
 			}
 
-			TArray<TimeRange> EventStack;
-
-			if (NumEventsThisFramePlusOne <= 1)
-				return;
-
-			// VS TODO: Add MGPU support
-			uint32 GPUIndex = 0;
-
-			// Can't collect GPU data without valid calibration between CPU and GPU timestamps
-			if (!UpdateCalibrationTimestamp(Frame, GPUIndex))
-				return;
-
-			uint64 lastTimeStamp = FMath::Max(CalibrationTimestamps[GPUIndex].CPUMicroseconds, GPUThreadStorage.LastTimestamp);
-
-			const FRealtimeGPUProfilerEventImpl& FirstEvent = Frame->GpuProfilerEvents[1];
-			uint64 frameStartTimestamp = FMath::Max(ConvertGPUTimestamp(FirstEvent.GetStartResultMicroseconds(GPUIndex), GPUIndex), lastTimeStamp);
-
-			OPTICK_FRAME_FLIP(Optick::FrameType::GPU, frameStartTimestamp);
-			OPTICK_STORAGE_PUSH(GPUThreadStorage.EventStorage, Optick::GetFrameDescription(Optick::FrameType::GPU), frameStartTimestamp)
-
-			for (int32 Idx = 1; Idx < NumEventsThisFramePlusOne; ++Idx)
+			for (int32 i = 1; i < NumEventsThisFramePlusOne; ++i)
 			{
-				const FRealtimeGPUProfilerEventImpl& Event = Frame->GpuProfilerEvents[Idx];
+				FRealtimeGPUProfilerEventImpl& Event = Frame->GpuProfilerEvents[i];
 
-				if (Event.GetGPUMask().Contains(GPUIndex))
+				const FName Name = Event.Name;
+
+				Optick::EventDescription* Description = nullptr;
+
+				if (Optick::EventDescription** ppDescription = GPUDescriptionMap.Find(Name))
 				{
-					const FName Name = Event.Name;
-
-					if (Name == NAME_GPU_Unaccounted)
-						continue;
-
-					Optick::EventDescription* Description = nullptr;
-
-					if (Optick::EventDescription** ppDescription = GPUDescriptionMap.Find(Name))
-					{
-						Description = *ppDescription;
-					}
-					else
-					{
-						Description = Optick::EventDescription::CreateShared(TCHAR_TO_ANSI(*Name.ToString()));
-						GPUDescriptionMap.Add(Name, Description);
-					}
-
-					uint64 startTimestamp = ConvertGPUTimestamp(Event.GetStartResultMicroseconds(GPUIndex), GPUIndex);
-					uint64 endTimestamp = ConvertGPUTimestamp(Event.GetEndResultMicroseconds(GPUIndex), GPUIndex);
-
-					// Fixing potential errors
-					startTimestamp = FMath::Max(startTimestamp, lastTimeStamp);
-					endTimestamp = FMath::Max(endTimestamp, startTimestamp);
-
-					// Ensuring correct hierarchy
-					while (EventStack.Num() && (EventStack.Last().Finish <= startTimestamp))
-						EventStack.Pop();
-
-					// Discovered broken hierarchy, skipping event
-					if (EventStack.Num() && (endTimestamp < EventStack.Last().Start))
-						continue;
-
-					// Clamp range against the parent counter
-					if (EventStack.Num())
-					{
-						TimeRange parent = EventStack.Last();
-						startTimestamp = FMath::Clamp(startTimestamp, parent.Start, parent.Finish);
-						endTimestamp = FMath::Clamp(endTimestamp, parent.Start, parent.Finish);
-					}
-
-					// Ignore invalid events
-					if (startTimestamp == endTimestamp)
-						continue;
-
-					//if (Name == NAME_GPU_Unaccounted)
-					//{
-					//	OPTICK_FRAME_FLIP(Optick::FrameType::GPU, startTimestamp);
-
-
-					//	OPTICK_STORAGE_PUSH(GPUThreadStorage.EventStorage, Optick::GetFrameDescription(Optick::FrameType::GPU), startTimestamp)
-					//}
-					//else
-					{
-						EventStack.Add(TimeRange(startTimestamp, endTimestamp));
-						OPTICK_STORAGE_EVENT(GPUThreadStorage.EventStorage, Description, startTimestamp, endTimestamp);
-					}
-					lastTimeStamp = FMath::Max<uint64>(lastTimeStamp, endTimestamp);
+					Description = *ppDescription;
 				}
-			}
+				else
+				{
+					Description = Optick::EventDescription::CreateShared(TCHAR_TO_ANSI(*Name.ToString()));
+					GPUDescriptionMap.Add(Name, Description);
+				}
 
-			OPTICK_STORAGE_POP(GPUThreadStorage.EventStorage, lastTimeStamp);
-			GPUThreadStorage.LastTimestamp = lastTimeStamp;
+				uint64 startTimestamp = ConvertGPUTimestamp(Event.StartResultMicroseconds);
+				uint64 endTimestamp = ConvertGPUTimestamp(Event.EndResultMicroseconds);
+
+				if (Name == NAME_GPU_Unaccounted)
+				{
+					OPTICK_FRAME_FLIP(Optick::FrameType::GPU, startTimestamp);
+
+					if (GPUThreadStorage.LastTimestamp != 0)
+					{
+						OPTICK_STORAGE_POP(GPUThreadStorage.EventStorage, GPUThreadStorage.LastTimestamp);
+					}
+						
+					OPTICK_STORAGE_PUSH(GPUThreadStorage.EventStorage, Optick::GetFrameDescription(Optick::FrameType::GPU), startTimestamp)
+				}
+				else
+				{
+					OPTICK_STORAGE_EVENT(GPUThreadStorage.EventStorage, Description, startTimestamp, endTimestamp);
+				}
+				GPUThreadStorage.LastTimestamp = FMath::Max<uint64>(GPUThreadStorage.LastTimestamp, endTimestamp);
+			}
 		}
 	}
 }
-
-uint64 FOptickPlugin::ConvertGPUTimestamp(uint64 timestamp, int GPUIndex)
+#else
+void FOptickPlugin::OnEndFrameRT()
 {
-	if (CalibrationTimestamps[GPUIndex].CPUMicroseconds == 0 || CalibrationTimestamps[GPUIndex].GPUMicroseconds == 0)
+	FScopeLock ScopeLock(&UpdateCriticalSection);
+
+	if (!IsCapturing || !Optick::IsActive(Optick::Mode::GPU))
+		return;
+
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FOptickPlugin_UpdRT);
+
+	if (FRealtimeGPUProfilerImpl* gpuProfiler = reinterpret_cast<FRealtimeGPUProfilerImpl*>(FRealtimeGPUProfiler::Get()))
 	{
-		return (uint64)-1;
+		if (FRealtimeGPUProfilerFrameImpl* Frame = gpuProfiler->Frames[gpuProfiler->ReadBufferIndex])
+		{
+			FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+			bool bAnyEventFailed = false;
+			bool bAllQueriesAllocated = true;
+
+			for (int i = 0; i < Frame->GpuProfilerEvents.Num(); ++i)
+			{
+				FRealtimeGPUProfilerEventImpl* Event = Frame->GpuProfilerEvents[i];
+				check(Event != nullptr);
+
+				if (!Event->HasValidResult())
+				{
+					Event->GatherQueryResults(RHICmdList);
+				}
+
+				if (!Event->HasValidResult())
+				{
+#if UE_BUILD_DEBUG
+					UE_LOG(OptickLog, Warning, TEXT("Query '%s' not ready."), *Event->GetName().ToString());
+#endif
+					// The frame isn't ready yet. Don't update stats - we'll try again next frame. 
+					bAnyEventFailed = true;
+					continue;
+				}
+
+				if (!Event->HasQueriesAllocated())
+				{
+					bAllQueriesAllocated = false;
+				}
+			}
+
+			if (bAnyEventFailed)
+			{
+				return;
+			}
+
+			if (!bAllQueriesAllocated)
+			{
+				static bool bWarned = false;
+
+				if (!bWarned)
+				{
+					bWarned = true;
+					UE_LOG(OptickLog, Warning, TEXT("Ran out of GPU queries! Results for this frame will be incomplete"));
+				}
+			}
+
+
+			for (int i = 0; i < Frame->GpuProfilerEvents.Num(); ++i)
+			{
+				FRealtimeGPUProfilerEventImpl* Event = Frame->GpuProfilerEvents[i];
+				check(Event != nullptr);
+
+				const FName Name = Event->Name;
+
+				Optick::EventDescription* Description = nullptr;
+
+				if (Optick::EventDescription** ppDescription = GPUDescriptionMap.Find(Name))
+				{
+					Description = *ppDescription;
+				}
+				else
+				{
+					Description = Optick::EventDescription::CreateShared(TCHAR_TO_ANSI(*Name.ToString()));
+					GPUDescriptionMap.Add(Name, Description);
+				}
+
+				uint64 startTimestamp = ConvertGPUTimestamp(Event->StartResultMicroseconds);
+				uint64 endTimestamp = ConvertGPUTimestamp(Event->EndResultMicroseconds);
+
+				if (Name == NAME_GPU_Unaccounted)
+				{
+					OPTICK_FRAME_FLIP(Optick::FrameType::GPU, startTimestamp);
+
+					if (GPUThreadStorage.LastTimestamp != 0)
+					{
+						OPTICK_STORAGE_POP(GPUThreadStorage.EventStorage, GPUThreadStorage.LastTimestamp);
+					}
+
+					OPTICK_STORAGE_PUSH(GPUThreadStorage.EventStorage, Optick::GetFrameDescription(Optick::FrameType::GPU), startTimestamp)
+				}
+				else
+				{
+					OPTICK_STORAGE_EVENT(GPUThreadStorage.EventStorage, Description, startTimestamp, endTimestamp);
+				}
+				GPUThreadStorage.LastTimestamp = FMath::Max<uint64>(GPUThreadStorage.LastTimestamp, endTimestamp);
+			}
+		}
+	}
+}
+#endif
+
+uint64 FOptickPlugin::ConvertGPUTimestamp(uint64 timestamp)
+{
+	if (CalibrationTimestamp.CPUMicroseconds == 0 || CalibrationTimestamp.GPUMicroseconds == 0)
+	{
+		CalibrationTimestamp.CPUMicroseconds = uint64(FPlatformTime::ToSeconds64(FPlatformTime::Cycles64()) * 1e6);
+		CalibrationTimestamp.GPUMicroseconds = timestamp;
 	}
 
-	const uint64 cpuTimestampUs = timestamp - CalibrationTimestamps[GPUIndex].GPUMicroseconds + CalibrationTimestamps[GPUIndex].CPUMicroseconds;
+	const uint64 cpuTimestampUs = timestamp - CalibrationTimestamp.GPUMicroseconds + CalibrationTimestamp.CPUMicroseconds;
 	const uint64 cpuTimestamp = cpuTimestampUs * 1e-6 / FPlatformTime::GetSecondsPerCycle64();
 	return cpuTimestamp;
 }
@@ -634,22 +639,13 @@ void FOptickPlugin::GetDataFromStatsThread(int64 CurrentFrame)
 						const FName groupName = Item.NameAndInfo.GetGroupName();
 
 						uint32 color = 0;
-						uint32 filter = 0;
 
 						if (NAME_STATGROUP_CPUStalls == groupName)
-						{
-							color = Optick::Color::Tomato;
-							filter = Optick::Filter::Wait;
-						}
+							color = Optick::Color::White;
 
 						for (int i = 0; i < sizeof(NAME_Wait) / sizeof(NAME_Wait[0]); ++i)
-						{
 							if (NAME_Wait[i] == shortName)
-							{
 								color = Optick::Color::White;
-								filter = Optick::Filter::Wait;
-							}
-						}
 
 						Description = Optick::EventDescription::CreateShared(TCHAR_TO_ANSI(*shortName.ToString()), nullptr, 0, color);
 
