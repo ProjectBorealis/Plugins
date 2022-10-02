@@ -144,7 +144,7 @@ static void ConvertClip(const acl::track_array_qvvf& Tracks, UAnimSequence* UE4C
 {
 	const uint32 NumSamples = Tracks.get_num_samples_per_track();
 
-	UE4Clip->SequenceLength = FGenericPlatformMath::Max<float>(Tracks.get_duration(), MINIMUM_ANIMATION_LENGTH);
+	UE4Clip->SequenceLength = FPlatformMath::Max<float>(Tracks.get_duration(), MINIMUM_ANIMATION_LENGTH);
 	UE4Clip->SetRawNumberOfFrame(NumSamples);
 	UE4Clip->SetSkeleton(UE4Skeleton);
 
