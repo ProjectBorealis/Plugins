@@ -9,7 +9,6 @@ namespace UnrealBuildTool.Rules
 		public ACLPluginEditor(ReadOnlyTargetRules Target) : base(Target)
 		{
 			PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-			//OptimizeCode = CodeOptimization.Never;
 
 			PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 
