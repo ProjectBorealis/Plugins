@@ -24,33 +24,40 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
-#if !defined(__GNUG__) || defined(_LIBCPP_VERSION) || defined(_GLIBCXX_USE_CXX11_ABI)
-	#include <cstdlib>
-#else
+#include "sjson/version.h"
+
+//////////////////////////////////////////////////////////////////////////
+// The Android NDK r10 and possibly earlier used a STD lib that poorly supported C++11.
+// As such, it is necessary to polyfill a few missing things.
+//////////////////////////////////////////////////////////////////////////
+#if defined(__GNUG__) && defined(__ANDROID__) && __GNUC__ < 5
+	#define SJSON_CPP_IMPL_POLYFILL_STD
+#endif
+
+#if defined(SJSON_CPP_IMPL_POLYFILL_STD)
 	#include <stdlib.h>
+#else
+	#include <cstdlib>
 #endif
 
 namespace sjson
 {
-	//////////////////////////////////////////////////////////////////////////
-	// The version of the STL shipped with versions of GCC older than 5.1 are missing a number of type traits and functions,
-	// such as std::is_trivially_default_constructible.
-	// In this case, we polyfill the proper standard names using the deprecated std::has_trivial_default_constructor.
-	// This must also be done when the compiler is clang when it makes use of the GCC implementation of the STL,
-	// which is the default behavior on linux. Properly detecting the version of the GCC STL used by clang cannot
-	// be done with the __GNUC__  macro, which are overridden by clang. Instead, we check for the definition
-	// of the macro ``_GLIBCXX_USE_CXX11_ABI`` which is only defined with GCC versions greater than 5.
-	//////////////////////////////////////////////////////////////////////////
+	SJSON_CPP_IMPL_VERSION_NAMESPACE_BEGIN
+
 	namespace sjson_impl
 	{
-#if !defined(__GNUG__) || defined(_LIBCPP_VERSION) || defined(_GLIBCXX_USE_CXX11_ABI)
-		using std::strtoull;
-		using std::strtoll;
-		using std::strtof;
-#else
+#if defined(SJSON_CPP_IMPL_POLYFILL_STD)
+		// We need to polyfill these, bring the C version into our namespace
 		using ::strtoull;
 		using ::strtoll;
 		using ::strtof;
+#else
+		// These properly exist in the C++ version, use them
+		using std::strtoull;
+		using std::strtoll;
+		using std::strtof;
 #endif
 	}
+
+	SJSON_CPP_IMPL_VERSION_NAMESPACE_END
 }

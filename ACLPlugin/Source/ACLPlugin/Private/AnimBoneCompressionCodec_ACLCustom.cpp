@@ -27,8 +27,6 @@ UAnimBoneCompressionCodec_ACLCustom::UAnimBoneCompressionCodec_ACLCustom(const F
 #if WITH_EDITORONLY_DATA
 void UAnimBoneCompressionCodec_ACLCustom::GetCompressionSettings(acl::compression_settings& OutSettings) const
 {
-	using namespace acl;
-
 	OutSettings = acl::compression_settings();
 	OutSettings.rotation_format = GetRotationFormat(RotationFormat);
 	OutSettings.translation_format = GetVectorFormat(TranslationFormat);
@@ -36,9 +34,17 @@ void UAnimBoneCompressionCodec_ACLCustom::GetCompressionSettings(acl::compressio
 	OutSettings.level = GetCompressionLevel(CompressionLevel);
 }
 
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+void UAnimBoneCompressionCodec_ACLCustom::PopulateDDCKey(const UE::Anim::Compression::FAnimDDCKeyArgs& KeyArgs, FArchive& Ar)
+#else
 void UAnimBoneCompressionCodec_ACLCustom::PopulateDDCKey(FArchive& Ar)
+#endif
 {
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	Super::PopulateDDCKey(KeyArgs, Ar);
+#else
 	Super::PopulateDDCKey(Ar);
+#endif
 
 	acl::compression_settings Settings;
 	GetCompressionSettings(Settings);

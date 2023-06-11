@@ -22,9 +22,17 @@ void UAnimBoneCompressionCodec_ACLSafe::GetCompressionSettings(acl::compression_
 	OutSettings.rotation_format = acl::rotation_format8::quatf_full;
 }
 
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+void UAnimBoneCompressionCodec_ACLSafe::PopulateDDCKey(const UE::Anim::Compression::FAnimDDCKeyArgs& KeyArgs, FArchive& Ar)
+#else
 void UAnimBoneCompressionCodec_ACLSafe::PopulateDDCKey(FArchive& Ar)
+#endif
 {
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	Super::PopulateDDCKey(KeyArgs, Ar);
+#else
 	Super::PopulateDDCKey(Ar);
+#endif
 
 	acl::compression_settings Settings;
 	GetCompressionSettings(Settings);

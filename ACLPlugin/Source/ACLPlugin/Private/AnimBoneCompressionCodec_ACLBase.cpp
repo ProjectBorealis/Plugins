@@ -49,7 +49,7 @@ UAnimBoneCompressionCodec_ACLBase::UAnimBoneCompressionCodec_ACLBase(const FObje
 #if WITH_EDITORONLY_DATA
 static void AppendMaxVertexDistances(USkeletalMesh* OptimizationTarget, TMap<FName, float>& BoneMaxVertexDistanceMap)
 {
-#if ENGINE_MINOR_VERSION >= 27
+#if (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 27) || ENGINE_MAJOR_VERSION >= 5
 	USkeleton* Skeleton = OptimizationTarget != nullptr ? OptimizationTarget->GetSkeleton() : nullptr;
 #else
 	USkeleton* Skeleton = OptimizationTarget != nullptr ? OptimizationTarget->Skeleton : nullptr;
@@ -94,9 +94,12 @@ static void AppendMaxVertexDistances(USkeletalMesh* OptimizationTarget, TMap<FNa
 	{
 		const FSkelMeshSection& Section = MeshModel->LODModels[0].Sections[SectionIndex];
 		const uint32 NumVertices = Section.SoftVertices.Num();
+
 		for (uint32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
 		{
 			const FSoftSkinVertex& VertexInfo = Section.SoftVertices[VertexIndex];
+			const FVector& VertexPosition = UEVector3Cast(VertexInfo.Position);
+
 			for (uint32 InfluenceIndex = 0; InfluenceIndex < MAX_TOTAL_INFLUENCES; ++InfluenceIndex)
 			{
 				if (VertexInfo.InfluenceWeights[InfluenceIndex] != 0)
@@ -105,8 +108,9 @@ static void AppendMaxVertexDistances(USkeletalMesh* OptimizationTarget, TMap<FNa
 					const uint32 BoneIndex = Section.BoneMap[SectionBoneIndex];
 
 					const FTransform& BoneTransform = RefSkeletonObjectSpacePose[BoneIndex];
+					const FVector BoneTranslation = UEVector3Cast(BoneTransform.GetTranslation());
 
-					const float VertexDistanceToBone = FVector::Distance(VertexInfo.Position, BoneTransform.GetTranslation());
+					const float VertexDistanceToBone = FVector::Distance(VertexPosition, BoneTranslation);
 
 					float& MostDistantVertexDistance = MostDistantVertexDistancePerBone[BoneIndex];
 					MostDistantVertexDistance = FMath::Max(MostDistantVertexDistance, VertexDistanceToBone);
@@ -192,21 +196,27 @@ bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& Co
 
 	// Set our error threshold
 	for (acl::track_qvvf& Track : ACLTracks)
+	{
 		Track.get_description().precision = ErrorThreshold;
+	}
 
 	// Override track settings if we need to
 	if (IsA<UAnimBoneCompressionCodec_ACLSafe>())
 	{
 		// Disable constant rotation track detection
 		for (acl::track_qvvf& Track : ACLTracks)
+		{
 			Track.get_description().constant_rotation_threshold_angle = 0.0f;
+		}
 	}
 
 	acl::compression_settings Settings;
 	GetCompressionSettings(Settings);
 
+	constexpr acl::additive_clip_format8 AdditiveFormat = acl::additive_clip_format8::additive1;
+
 	acl::qvvf_transform_error_metric DefaultErrorMetric;
-	acl::additive_qvvf_transform_error_metric<acl::additive_clip_format8::additive1> AdditiveErrorMetric;
+	acl::additive_qvvf_transform_error_metric<AdditiveFormat> AdditiveErrorMetric;
 	if (!ACLBaseTracks.is_empty())
 	{
 		Settings.error_metric = &AdditiveErrorMetric;
@@ -216,7 +226,6 @@ bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& Co
 		Settings.error_metric = &DefaultErrorMetric;
 	}
 
-	const acl::additive_clip_format8 AdditiveFormat = acl::additive_clip_format8::additive0;
 	const bool bUseStreamingDatabase = UseDatabase();
 
 	if (bUseStreamingDatabase)
@@ -259,11 +268,17 @@ bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& Co
 	OutResult.Codec = this;
 
 	OutResult.AnimData = AllocateAnimData();
-	OutResult.AnimData->CompressedNumberOfFrames = CompressibleAnimData.NumFrames;
+
+#if ENGINE_MAJOR_VERSION >= 5
+	OutResult.AnimData->CompressedNumberOfKeys = GetNumSamples(CompressibleAnimData);
+#else
+	OutResult.AnimData->CompressedNumberOfFrames = GetNumSamples(CompressibleAnimData);
+#endif
 
 #if !NO_LOGGING
 	{
-		acl::decompression_context<UE4DebugDBDecompressionSettings> Context;
+		// Use debug settings in case codec picked is the fallback
+		acl::decompression_context<UE4DebugDecompressionSettings> Context;
 		Context.initialize(*CompressedTracks);
 
 		const acl::track_error TrackError = acl::calculate_compression_error(ACLAllocatorImpl, ACLTracks, Context, *Settings.error_metric, ACLBaseTracks);
@@ -286,11 +301,19 @@ bool UAnimBoneCompressionCodec_ACLBase::Compress(const FCompressibleAnimData& Co
 	return true;
 }
 
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+void UAnimBoneCompressionCodec_ACLBase::PopulateDDCKey(const UE::Anim::Compression::FAnimDDCKeyArgs& KeyArgs, FArchive& Ar)
+#else
 void UAnimBoneCompressionCodec_ACLBase::PopulateDDCKey(FArchive& Ar)
+#endif
 {
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	Super::PopulateDDCKey(KeyArgs, Ar);
+#else
 	Super::PopulateDDCKey(Ar);
+#endif
 
-	uint32 ForceRebuildVersion = 2;
+	uint32 ForceRebuildVersion = 4;
 
 	Ar << ForceRebuildVersion << DefaultVirtualVertexDistance << SafeVirtualVertexDistance << ErrorThreshold;
 	Ar << CompressionLevel;

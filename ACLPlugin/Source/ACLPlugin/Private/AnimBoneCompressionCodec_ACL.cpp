@@ -16,10 +16,10 @@
 
 UAnimBoneCompressionCodec_ACL::UAnimBoneCompressionCodec_ACL(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{
 #if WITH_EDITORONLY_DATA
-	SafetyFallbackThreshold = 1.0f;			// 1cm, should be very rarely exceeded
-#endif	// WITH_EDITORONLY_DATA
+	, SafetyFallbackThreshold(1.0f)			// 1cm, should be very rarely exceeded
+#endif
+{
 }
 
 #if WITH_EDITORONLY_DATA
@@ -67,7 +67,7 @@ ACLSafetyFallbackResult UAnimBoneCompressionCodec_ACL::ExecuteSafetyFallback(acl
 	{
 		checkSlow(CompressedClipData.is_valid(true).empty());
 
-		acl::decompression_context<UE4DefaultDBDecompressionSettings> Context;
+		acl::decompression_context<UE4DefaultDecompressionSettings> Context;
 		Context.initialize(CompressedClipData);
 
 		const acl::track_error TrackError = acl::calculate_compression_error(Allocator, RawClip, Context, *Settings.error_metric, BaseClip);
@@ -84,9 +84,17 @@ ACLSafetyFallbackResult UAnimBoneCompressionCodec_ACL::ExecuteSafetyFallback(acl
 	return ACLSafetyFallbackResult::Ignored;
 }
 
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+void UAnimBoneCompressionCodec_ACL::PopulateDDCKey(const UE::Anim::Compression::FAnimDDCKeyArgs& KeyArgs, FArchive& Ar)
+#else
 void UAnimBoneCompressionCodec_ACL::PopulateDDCKey(FArchive& Ar)
+#endif
 {
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	Super::PopulateDDCKey(KeyArgs, Ar);
+#else
 	Super::PopulateDDCKey(Ar);
+#endif
 
 	acl::compression_settings Settings;
 	GetCompressionSettings(Settings);
@@ -107,7 +115,11 @@ void UAnimBoneCompressionCodec_ACL::PopulateDDCKey(FArchive& Ar)
 
 	if (SafetyFallbackCodec != nullptr)
 	{
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+		SafetyFallbackCodec->PopulateDDCKey(KeyArgs, Ar);
+#else
 		SafetyFallbackCodec->PopulateDDCKey(Ar);
+#endif
 	}
 }
 #endif // WITH_EDITORONLY_DATA

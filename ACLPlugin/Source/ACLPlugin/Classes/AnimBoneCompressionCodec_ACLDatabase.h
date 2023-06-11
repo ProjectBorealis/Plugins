@@ -66,10 +66,19 @@ class UAnimBoneCompressionCodec_ACLDatabase : public UAnimBoneCompressionCodec_A
 	//////////////////////////////////////////////////////////////////////////
 	// UObject
 	virtual void GetPreloadDependencies(TArray<UObject*>& OutDeps) override;
+
+#if ENGINE_MAJOR_VERSION >= 5
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
+#else
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
+#endif
 
 	// UAnimBoneCompressionCodec implementation
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	virtual void PopulateDDCKey(const UE::Anim::Compression::FAnimDDCKeyArgs& KeyArgs, FArchive& Ar) override;
+#else
 	virtual void PopulateDDCKey(FArchive& Ar) override;
+#endif
 
 	// UAnimBoneCompressionCodec_ACLBase implementation
 	virtual bool UseDatabase() const override { return true; }

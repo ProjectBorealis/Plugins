@@ -10,6 +10,7 @@ namespace UnrealBuildTool.Rules
 		{
 			PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 			//OptimizeCode = CodeOptimization.Never;
+			//bUseUnity = false;
 
 			PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 
@@ -19,6 +20,11 @@ namespace UnrealBuildTool.Rules
 			PublicDependencyModuleNames.Add("Core");
 			PublicDependencyModuleNames.Add("CoreUObject");
 			PublicDependencyModuleNames.Add("Engine");
+
+			if (Target.Version.MajorVersion >= 5)
+			{
+				PublicDependencyModuleNames.Add("AnimationDataController");
+			}
 
 			PrivateDependencyModuleNames.Add("EditorStyle");
 			PrivateDependencyModuleNames.Add("Slate");
