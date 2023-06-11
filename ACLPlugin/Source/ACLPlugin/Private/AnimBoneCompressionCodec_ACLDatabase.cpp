@@ -8,6 +8,10 @@
 #include "Animation/AnimBoneCompressionSettings.h"
 #include "Rendering/SkeletalMeshModel.h"
 
+#if ENGINE_MAJOR_VERSION >= 5
+#include "UObject/ObjectSaveContext.h"
+#endif
+
 #include "ACLImpl.h"
 #include "EditorDatabaseMonitor.h"
 
@@ -123,9 +127,17 @@ void UAnimBoneCompressionCodec_ACLDatabase::GetPreloadDependencies(TArray<UObjec
 	}
 }
 
+#if ENGINE_MAJOR_VERSION >= 5
+void UAnimBoneCompressionCodec_ACLDatabase::PreSave(FObjectPreSaveContext SaveContext)
+#else
 void UAnimBoneCompressionCodec_ACLDatabase::PreSave(const class ITargetPlatform* TargetPlatform)
+#endif
 {
+#if ENGINE_MAJOR_VERSION >= 5
+	Super::PreSave(SaveContext);
+#else
 	Super::PreSave(TargetPlatform);
+#endif
 
 	UAnimBoneCompressionSettings* Settings = Cast<UAnimBoneCompressionSettings>(GetOuter());
 	if (Settings != nullptr && Settings->Codecs.Num() != 1)
@@ -141,7 +153,7 @@ void UAnimBoneCompressionCodec_ACLDatabase::RegisterWithDatabase(const FCompress
 	// show the highest quality by default.
 	//
 	// However, the anim sequence data that we just compressed will not be used in a cooked build. When we build our
-	// database, the sequence data will be modifier since we'll remove key frames from it. Its hash will change.
+	// database, the sequence data will be modified since we'll remove key frames from it. Its hash will change.
 	// The new compressed data will live in the database asset next to the compressed database data. This has the benefit
 	// that every compressed clip and the database now live in the same region of virtual memory, reducing the TLB miss
 	// rate (when large pages are used on console and mobile since multiple clips fit within a page) and when we do miss
@@ -170,9 +182,17 @@ void UAnimBoneCompressionCodec_ACLDatabase::GetCompressionSettings(acl::compress
 	OutSettings.level = GetCompressionLevel(CompressionLevel);
 }
 
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+void UAnimBoneCompressionCodec_ACLDatabase::PopulateDDCKey(const UE::Anim::Compression::FAnimDDCKeyArgs& KeyArgs, FArchive& Ar)
+#else
 void UAnimBoneCompressionCodec_ACLDatabase::PopulateDDCKey(FArchive& Ar)
+#endif
 {
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	Super::PopulateDDCKey(KeyArgs, Ar);
+#else
 	Super::PopulateDDCKey(Ar);
+#endif
 
 	acl::compression_settings Settings;
 	GetCompressionSettings(Settings);

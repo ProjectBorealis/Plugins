@@ -24,15 +24,20 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "acl/version.h"
 #include "acl/core/impl/compiler_utils.h"
 #include "acl/core/enum_utils.h"
 
+#if !defined(SJSON_CPP_WRITER)
 namespace sjson { class ObjectWriter; }
+#endif
 
 ACL_IMPL_FILE_PRAGMA_PUSH
 
 namespace acl
 {
+	ACL_IMPL_VERSION_NAMESPACE_BEGIN
+
 	enum class stat_logging
 	{
 		none						= 0x0000,
@@ -48,6 +53,8 @@ namespace acl
 		stat_logging			logging = stat_logging::none;
 		sjson::ObjectWriter*	writer = nullptr;
 	};
+
+	ACL_IMPL_VERSION_NAMESPACE_END
 }
 
 ACL_IMPL_FILE_PRAGMA_POP

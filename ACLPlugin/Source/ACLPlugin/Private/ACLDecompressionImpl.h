@@ -109,39 +109,45 @@ struct FUE4OutputWriter final : public acl::track_writer
 */
 struct UE4OutputTrackWriter final : public acl::track_writer
 {
-	// Raw pointer for performance reasons, caller is responsible for ensuring data is valid
-	FACLTransform* Atom;
+	// Raw reference for performance reasons, caller is responsible for ensuring data is valid
+	FACLTransform& Atom;
 
-	UE4OutputTrackWriter(FTransform& Atom_)
-		: Atom(static_cast<FACLTransform*>(&Atom_))
+	explicit UE4OutputTrackWriter(FTransform& Atom_)
+		: Atom(static_cast<FACLTransform&>(Atom_))
 	{}
 
 	//////////////////////////////////////////////////////////////////////////
 	// Called by the decoder to write out a quaternion rotation value for a specified bone index
-	void RTM_SIMD_CALL write_rotation(uint32_t BoneIndex, rtm::quatf_arg0 Rotation)
+	FORCEINLINE_DEBUGGABLE void RTM_SIMD_CALL write_rotation(uint32_t BoneIndex, rtm::quatf_arg0 Rotation)
 	{
-		Atom->SetRotationRaw(Rotation);
+		Atom.SetRotationRaw(Rotation);
 	}
 
 	//////////////////////////////////////////////////////////////////////////
 	// Called by the decoder to write out a translation value for a specified bone index
-	void RTM_SIMD_CALL write_translation(uint32_t BoneIndex, rtm::vector4f_arg0 Translation)
+	FORCEINLINE_DEBUGGABLE void RTM_SIMD_CALL write_translation(uint32_t BoneIndex, rtm::vector4f_arg0 Translation)
 	{
-		Atom->SetTranslationRaw(Translation);
+		Atom.SetTranslationRaw(Translation);
 	}
 
 	//////////////////////////////////////////////////////////////////////////
 	// Called by the decoder to write out a scale value for a specified bone index
-	void RTM_SIMD_CALL write_scale(uint32_t BoneIndex, rtm::vector4f_arg0 Scale)
+	FORCEINLINE_DEBUGGABLE void RTM_SIMD_CALL write_scale(uint32_t BoneIndex, rtm::vector4f_arg0 Scale)
 	{
-		Atom->SetScale3DRaw(Scale);
+		Atom.SetScale3DRaw(Scale);
 	}
 };
 
 template<class ACLContextType>
 FORCEINLINE_DEBUGGABLE void DecompressBone(FAnimSequenceDecompressionContext& DecompContext, ACLContextType& ACLContext, int32 TrackIndex, FTransform& OutAtom)
 {
-	ACLContext.seek(DecompContext.Time, get_rounding_policy(DecompContext.Interpolation));
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	const float Time = DecompContext.GetEvaluationTime();
+#else
+	const float Time = DecompContext.Time;
+#endif
+
+	ACLContext.seek(Time, get_rounding_policy(DecompContext.Interpolation));
 
 	UE4OutputTrackWriter Writer(OutAtom);
 	ACLContext.decompress_track(TrackIndex, Writer);
@@ -150,15 +156,21 @@ FORCEINLINE_DEBUGGABLE void DecompressBone(FAnimSequenceDecompressionContext& De
 template<class ACLContextType>
 FORCEINLINE_DEBUGGABLE void DecompressPose(FAnimSequenceDecompressionContext& DecompContext, ACLContextType& ACLContext, const BoneTrackArray& RotationPairs, const BoneTrackArray& TranslationPairs, const BoneTrackArray& ScalePairs, TArrayView<FTransform>& OutAtoms)
 {
+#if (ENGINE_MAJOR_VERSION >= 5 && ENGINE_MINOR_VERSION >= 1)
+	const float Time = DecompContext.GetEvaluationTime();
+#else
+	const float Time = DecompContext.Time;
+#endif
+
 	// Seek first, we'll start prefetching ahead right away
-	ACLContext.seek(DecompContext.Time, get_rounding_policy(DecompContext.Interpolation));
+	ACLContext.seek(Time, get_rounding_policy(DecompContext.Interpolation));
 
 	const acl::compressed_tracks* CompressedClipData = ACLContext.get_compressed_tracks();
-	const int32 ACLBoneCount = CompressedClipData->get_num_tracks();
+	const int32 TrackCount = CompressedClipData->get_num_tracks();
 
 	// TODO: Allocate this with padding and use SIMD to set everything to 0xFF
-	FAtomIndices* TrackToAtomsMap = new(FMemStack::Get()) FAtomIndices[ACLBoneCount];
-	FMemory::Memset(TrackToAtomsMap, 0xFF, sizeof(FAtomIndices) * ACLBoneCount);
+	FAtomIndices* TrackToAtomsMap = new(FMemStack::Get()) FAtomIndices[TrackCount];
+	FMemory::Memset(TrackToAtomsMap, 0xFF, sizeof(FAtomIndices) * TrackCount);
 
 	// TODO: We should only need 1x uint16 atom index for each track/bone index
 	// and we need 3 bits to tell whether we care about the rot/trans/scale
@@ -222,7 +234,7 @@ FORCEINLINE_DEBUGGABLE void DecompressPose(FAnimSequenceDecompressionContext& De
 	checkf(OutAtoms.IsValidIndex(MinAtomIndex), TEXT("Invalid atom index: %d"), MinAtomIndex);
 	checkf(OutAtoms.IsValidIndex(MaxAtomIndex), TEXT("Invalid atom index: %d"), MaxAtomIndex);
 	checkf(MinTrackIndex >= 0, TEXT("Invalid track index: %d"), MinTrackIndex);
-	checkf(MaxTrackIndex < ACLBoneCount, TEXT("Invalid track index: %d"), MaxTrackIndex);
+	checkf(MaxTrackIndex < TrackCount, TEXT("Invalid track index: %d"), MaxTrackIndex);
 #endif
 
 	// We will decompress the whole pose even if we only care about a smaller subset of bone tracks.

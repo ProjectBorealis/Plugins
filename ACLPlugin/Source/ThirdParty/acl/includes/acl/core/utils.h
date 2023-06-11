@@ -24,6 +24,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
+#include "acl/version.h"
 #include "acl/core/impl/compiler_utils.h"
 #include "acl/core/error.h"
 #include "acl/core/memory_utils.h"
@@ -37,6 +38,8 @@ ACL_IMPL_FILE_PRAGMA_PUSH
 
 namespace acl
 {
+	ACL_IMPL_VERSION_NAMESPACE_BEGIN
+
 	//////////////////////////////////////////////////////////////////////////
 	// Calculate the number of samples present from a duration and sample rate.
 	// Conceptually, a clip with 1 sample at any sample rate has a single static
@@ -48,7 +51,6 @@ namespace acl
 	inline uint32_t calculate_num_samples(float duration, float sample_rate)
 	{
 		ACL_ASSERT(duration >= 0.0F, "Invalid duration: %f", duration);
-		ACL_ASSERT(sample_rate > 0.0F, "Invalid sample rate: %f", sample_rate);
 		if (duration == 0.0F)
 			return 0;	// No duration whatsoever, we have no samples
 
@@ -56,6 +58,8 @@ namespace acl
 			return 1;	// An infinite duration, we have a single sample (static pose)
 
 		// Otherwise we have at least 1 sample
+		ACL_ASSERT(sample_rate > 0.0F, "Invalid sample rate: %f", sample_rate);
+
 		return safe_static_cast<uint32_t>(rtm::scalar_floor((duration * sample_rate) + 0.5F)) + 1;
 	}
 
@@ -95,6 +99,8 @@ namespace acl
 		ACL_ASSERT(sample_rate > 0.0F, "Invalid sample rate: %f", sample_rate);
 		return float(num_samples - 1) / sample_rate;
 	}
+
+	ACL_IMPL_VERSION_NAMESPACE_END
 }
 
 ACL_IMPL_FILE_PRAGMA_POP
