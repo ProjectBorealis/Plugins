@@ -14,6 +14,7 @@
 #include "CommonMovieSceneTools.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Channels/MovieSceneChannelEditorData.h"
+#include "AnimatedRange.h"
 
 #define LOCTEXT_NAMESPACE "FFMODEventControlTrackEditor"
 
@@ -103,13 +104,13 @@ int32 FFMODEventControlSection::OnPaintSection(FSequencerSectionPainter &InPaint
         float XSize = TimeToPixelConverter.SecondsToPixel(DrawRange.GetUpperBoundValue()) - XOffset;
         FSlateDrawElement::MakeBox(InPainter.DrawElements, InPainter.LayerId,
             InPainter.SectionGeometry.ToPaintGeometry(
-                FVector2D(XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2),
-                FVector2D(XSize, SequencerSectionConstants::KeySize.Y)),
+                FVector2f(XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2),
+				FVector2f(XSize, SequencerSectionConstants::KeySize.Y)),
             FAppStyle::GetBrush("Sequencer.Section.Background"), DrawEffects);
         FSlateDrawElement::MakeBox(InPainter.DrawElements, InPainter.LayerId,
             InPainter.SectionGeometry.ToPaintGeometry(
-                FVector2D(XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2),
-                FVector2D(XSize, SequencerSectionConstants::KeySize.Y)),
+				FVector2f(XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2),
+				FVector2f(XSize, SequencerSectionConstants::KeySize.Y)),
             FAppStyle::GetBrush("Sequencer.Section.BackgroundTint"), DrawEffects, TrackColor);
     }
 

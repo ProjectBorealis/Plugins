@@ -2,7 +2,7 @@
 
 #include "FMODStudioStyle.h"
 #include "Styling/SlateStyleRegistry.h"
-#include "EditorStyle/Public/Interfaces/IEditorStyleModule.h"
+#include "Interfaces/IEditorStyleModule.h"
 #include "Modules/ModuleManager.h"
 
 
