@@ -105,12 +105,12 @@ int32 FFMODEventControlSection::OnPaintSection(FSequencerSectionPainter &InPaint
         FSlateDrawElement::MakeBox(InPainter.DrawElements, InPainter.LayerId,
             InPainter.SectionGeometry.ToPaintGeometry(
                 FVector2f(XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2),
-				FVector2f(XSize, SequencerSectionConstants::KeySize.Y)),
+				FSlateLayoutTransform(FVector2f(XSize, SequencerSectionConstants::KeySize.Y))),
             FAppStyle::GetBrush("Sequencer.Section.Background"), DrawEffects);
         FSlateDrawElement::MakeBox(InPainter.DrawElements, InPainter.LayerId,
             InPainter.SectionGeometry.ToPaintGeometry(
 				FVector2f(XOffset, (InPainter.SectionGeometry.GetLocalSize().Y - SequencerSectionConstants::KeySize.Y) / 2),
-				FVector2f(XSize, SequencerSectionConstants::KeySize.Y)),
+				FSlateLayoutTransform(FVector2f(XSize, SequencerSectionConstants::KeySize.Y))),
             FAppStyle::GetBrush("Sequencer.Section.BackgroundTint"), DrawEffects, TrackColor);
     }
 
