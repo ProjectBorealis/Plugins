@@ -4,7 +4,7 @@
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
 #include "GenericPlatform/GenericPlatformFile.h"
-#include "HAL/PlatformFilemanager.h"
+#include "HAL/PlatformFileManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/EngineVersion.h"
 #include "Misc/CoreDelegates.h"
@@ -19,16 +19,16 @@
 // Optick
 #include "OptickUE4Classes.h"
 
-#define LOCTEXT_NAMESPACE "FOptickModule"
-
 #if WITH_EDITOR
 #include "DesktopPlatformModule.h"
 #include "EditorStyleSet.h"
 #include "Framework/Commands/Commands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Editor/EditorPerformanceSettings.h"
 #include "Editor/LevelEditor/Public/LevelEditor.h"
 #include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
 #include "Projects/Public/Interfaces/IPluginManager.h"
+#include "ToolMenus.h"
 //#include "Windows/WindowsPlatformProcess.h"
 
 #include "OptickStyle.h"
@@ -36,6 +36,8 @@
 #endif
 
 #include <optick.h>
+
+#define LOCTEXT_NAMESPACE "FOptickModule"
 
 DEFINE_LOG_CATEGORY(OptickLog);
 
@@ -73,7 +75,7 @@ class FOptickPlugin : public IOptickPlugin
 
 	uint64 OriginTimestamp;
 
-	FDelegateHandle TickDelegateHandle;
+	FTSTicker::FDelegateHandle TickDelegateHandle;
 	FDelegateHandle StatFrameDelegateHandle;
 	FDelegateHandle EndFrameRTDelegateHandle;
 
@@ -105,6 +107,7 @@ class FOptickPlugin : public IOptickPlugin
 	TSharedPtr<class FUICommandList> PluginCommands;
 
 	void AddToolbarExtension(FToolBarBuilder& ToolbarBuilder);
+	void RegisterMenus();
 #endif
 
 	void OnScreenshotProcessed();
@@ -174,6 +177,26 @@ void FOptickPlugin::AddToolbarExtension(FToolBarBuilder& ToolbarBuilder)
 	ToolbarBuilder.EndSection();
 }
 
+void FOptickPlugin::RegisterMenus()
+{
+	FToolMenuOwnerScoped OwnerScoped(this);
+
+	if (UToolMenu* ProfileMenu = UToolMenus::Get()->ExtendMenu("MainFrame.MainMenu.Tools"))
+	{
+		FToolMenuSection& Section = ProfileMenu->AddSection("Optick Profiler", FText::FromString(TEXT("Optick Profiler")));
+		Section.AddMenuEntry("OpenOptickProfiler",
+			LOCTEXT("OpenOptickProfiler_Label", "Open Optick Profiler"),
+			LOCTEXT("OpenOptickProfiler_Desc", "Open Optick Profiler"),
+			FSlateIcon(FOptickStyle::GetStyleSetName(), "Optick.PluginAction"),
+			FUIAction(FExecuteAction::CreateRaw(this, &FOptickPlugin::OnOpenGUI), FCanExecuteAction())
+		);
+	}
+	else
+	{
+		UE_LOG(OptickLog, Error, TEXT("Can't find 'MainFrame.MainMenu.Tools' menu section"))
+	}
+}
+
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -239,28 +262,44 @@ void FOptickPlugin::StartupModule()
 	GPUThreadStorage.EventStorage = Optick::RegisterStorage(TCHAR_TO_ANSI(*FPlatformMisc::GetPrimaryGPUBrand()), (uint64_t)-1, Optick::ThreadMask::GPU);
 
 	// Subscribing for Ticker
-	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FOptickPlugin::Tick));
+	TickDelegateHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FOptickPlugin::Tick));
 
 	// Register Optick callback
 	Optick::SetStateChangedCallback(OnOptickStateChanged);
 
 #if WITH_EDITOR
-	FOptickStyle::Initialize();
-	FOptickStyle::ReloadTextures();
-	FOptickCommands::Register();
+	if (GIsEditor)
+	{
+		FOptickStyle::Initialize();
+		FOptickStyle::ReloadTextures();
+		FOptickCommands::Register();
 
-	PluginCommands = MakeShareable(new FUICommandList);
+		RegisterMenus();
 
-	PluginCommands->MapAction(
-		FOptickCommands::Get().PluginAction,
-		FExecuteAction::CreateRaw(this, &FOptickPlugin::OnOpenGUI),
-		FCanExecuteAction());
+		PluginCommands = MakeShareable(new FUICommandList);
 
-	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	ExtensionManager = LevelEditorModule.GetToolBarExtensibilityManager();
-	ToolbarExtender = MakeShareable(new FExtender);
-	ToolbarExtension = ToolbarExtender->AddToolBarExtension("Game", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateLambda([this](FToolBarBuilder& ToolbarBuilder) { AddToolbarExtension(ToolbarBuilder); })	);
-	ExtensionManager->AddExtender(ToolbarExtender);
+		PluginCommands->MapAction(
+			FOptickCommands::Get().PluginAction,
+			FExecuteAction::CreateRaw(this, &FOptickPlugin::OnOpenGUI),
+			FCanExecuteAction());
+
+		//FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		//ExtensionManager = LevelEditorModule.GetToolBarExtensibilityManager();
+		//ToolbarExtender = MakeShareable(new FExtender);
+		//ToolbarExtension = ToolbarExtender->AddToolBarExtension("Game", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateLambda([this](FToolBarBuilder& ToolbarBuilder) { AddToolbarExtension(ToolbarBuilder); })	);
+		//ExtensionManager->AddExtender(ToolbarExtender);
+
+		//if (UToolMenu* ToolbarMenu = UToolMenus::Get()->ExtendMenu("LevelEditor.LevelEditorToolBar"))
+		//{
+		//	FToolMenuSection& Section = ToolbarMenu->AddSection("Optick Profiler", FText::FromString(TEXT("Optick Profiler")));
+		//	FToolMenuEntry& Entry = Section.AddEntry(FToolMenuEntry::InitToolBarButton(FOptickCommands::Get().PluginAction));
+		//	Entry.SetCommandList(PluginCommands);
+		//}
+		//else
+		//{
+		//	UE_LOG(OptickLog, Error, TEXT("Can't find 'LevelEditor.LevelEditorToolBar' menu section"))
+		//}
+	}
 #endif
 
 #ifdef OPTICK_UE4_GPU
@@ -272,18 +311,21 @@ void FOptickPlugin::StartupModule()
 void FOptickPlugin::ShutdownModule()
 {
 	// Remove delegate
-	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
- 	FCoreDelegates::OnEndFrameRT.Remove(EndFrameRTDelegateHandle);
+	FTSTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+	FCoreDelegates::OnEndFrameRT.Remove(EndFrameRTDelegateHandle);
 
 	// Stop capture if needed
 	StopCapture();
 
 #if WITH_EDITOR
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
-	FOptickStyle::Shutdown();
+	if (GIsEditor)
+	{
+		// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
+		// we call this function before unloading the module.
+		FOptickStyle::Shutdown();
 
-	FOptickCommands::Unregister();
+		FOptickCommands::Unregister();
+	}
 #endif
 
 	UE_LOG(OptickLog, Display, TEXT("OptickPlugin UnLoaded!"));
@@ -401,13 +443,8 @@ bool FOptickPlugin::UpdateCalibrationTimestamp(FRealtimeGPUProfilerFrameImpl* Fr
 
 	if (Frame->TimestampCalibrationQuery.IsValid())
 	{
-#if UE_4_27_OR_LATER
 		CalibrationTimestamp.GPUMicroseconds = Frame->TimestampCalibrationQuery->GPUMicroseconds[GPUIndex];
 		CalibrationTimestamp.CPUMicroseconds = Frame->TimestampCalibrationQuery->CPUMicroseconds[GPUIndex];
-#else
-		CalibrationTimestamp.GPUMicroseconds = Frame->TimestampCalibrationQuery->GPUMicroseconds;
-		CalibrationTimestamp.CPUMicroseconds = Frame->TimestampCalibrationQuery->CPUMicroseconds;
-#endif
 	}
 
 	if (CalibrationTimestamp.GPUMicroseconds == 0 || CalibrationTimestamp.CPUMicroseconds == 0) // Unimplemented platforms, or invalid on the first frame

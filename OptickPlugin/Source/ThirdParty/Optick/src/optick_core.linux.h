@@ -240,7 +240,7 @@ bool FTrace::Stop()
                 size_t len = 0;
                 while ((getline(&line, &len, pipe)) != -1)
                         Parse(line);
-                fclose(pipe);
+                pclose(pipe);
         }
 
         // Cleanup data
