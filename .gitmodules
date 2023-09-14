@@ -29,3 +29,6 @@
 [submodule "IAUS"]
 	path = IAUS
 	url = https://github.com/ProjectBorealis/IAUS
+[submodule "EditorScriptingTools"]
+	path = EditorScriptingTools
+	url = https://github.com/HoussineMehnik/UE4-EditorScriptingToolsPlugin.git
