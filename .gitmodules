@@ -32,3 +32,6 @@
 [submodule "EditorScriptingTools"]
 	path = EditorScriptingTools
 	url = https://github.com/ProjectBorealis/UE4-EditorScriptingToolsPlugin.git
+[submodule "FillDDCForPIE"]
+	path = FillDDCForPIE
+	url = https://github.com/ProjectBorealis/FillDDCForPIE.git
