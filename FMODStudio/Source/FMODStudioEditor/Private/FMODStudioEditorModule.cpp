@@ -1122,13 +1122,13 @@ void FFMODStudioEditorModule::EndPIE(bool simulating)
 
 void FFMODStudioEditorModule::PausePIE(bool simulating)
 {
-    UE_LOG(LogFMOD, Verbose, TEXT("FFMODStudioEditorModule PausePIE%d"));
+    UE_LOG(LogFMOD, Verbose, TEXT("FFMODStudioEditorModule PausePIE: %d"), simulating);
     IFMODStudioModule::Get().SetSystemPaused(true);
 }
 
 void FFMODStudioEditorModule::ResumePIE(bool simulating)
 {
-    UE_LOG(LogFMOD, Verbose, TEXT("FFMODStudioEditorModule ResumePIE"));
+    UE_LOG(LogFMOD, Verbose, TEXT("FFMODStudioEditorModule ResumePIE: %d"), simulating);
     IFMODStudioModule::Get().SetSystemPaused(false);
 }
 

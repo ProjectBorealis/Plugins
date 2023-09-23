@@ -482,7 +482,7 @@ void UFMODBlueprintStatics::EventInstanceSetProperty(FFMODEventInstance EventIns
 
         if (Result != FMOD_OK)
         {
-            UE_LOG(LogFMOD, Warning, TEXT("Failed to set event instance property type %d to value %f (%s)"), (int)Property, Value,
+            UE_LOG(LogFMOD, Warning, TEXT("Failed to set event instance property type %d to value %f (%hs)"), (int)Property, Value,
                 FMOD_ErrorString(Result));
         }
     }
