@@ -42,6 +42,6 @@ private:
     FString GetLocalizedBankPath(const UDataTable* BankTable) const;
 
     FString ActiveLocale;
-    UFMODBankLookup *BankLookup;
-    UDataTable *AssetLookup;
+    TObjectPtr<UFMODBankLookup> BankLookup;
+    TObjectPtr<UDataTable> AssetLookup;
 };

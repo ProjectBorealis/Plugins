@@ -20,9 +20,7 @@
 #include "UObject/Package.h"
 
 FFMODAssetTable::FFMODAssetTable()
-    : ActiveLocale(FString()),
-      BankLookup(nullptr),
-      AssetLookup(nullptr)
+    : ActiveLocale(FString())
 {
 }
 
