@@ -7,7 +7,7 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "EditorStyleSet.h"
 #include "Engine/StaticMesh.h"
-#include "AssetData.h"
+#include "AssetRegistry/AssetData.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
 #include "IAssetTools.h"
@@ -105,7 +105,7 @@ namespace
 				FExecuteAction::CreateStatic(&FBlastContentBrowserExtensions_Impl::ExecuteSelectedContentFunctor, StaticCastSharedPtr<FContentBrowserSelectedAssetExtensionBase>(MeshCreatorFunctor)));
 
 			//TODO add Blast styleset
-			const FName StyleSetName = FEditorStyle::GetStyleSetName();
+			const FName StyleSetName = FAppStyle::GetAppStyleSetName();
 
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("CB_Extension_StaticMesh_CreateBlastMesh", "Create Blast Mesh"),
@@ -125,7 +125,7 @@ namespace
 			bool bAnyStaticMeshes = false;
 			for (const FAssetData& Asset : SelectedAssets)
 			{
-				bAnyStaticMeshes = bAnyStaticMeshes || (Asset.AssetClass == UStaticMesh::StaticClass()->GetFName());
+				bAnyStaticMeshes = bAnyStaticMeshes || (Asset.AssetClassPath == UStaticMesh::StaticClass()->GetClassPathName());
 			}
 
 			if (bAnyStaticMeshes)

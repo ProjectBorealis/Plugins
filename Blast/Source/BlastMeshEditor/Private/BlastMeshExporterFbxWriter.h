@@ -1,33 +1,7 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
 // Copyright (c) 2017 NVIDIA Corporation. All rights reserved.
 
 
-#ifndef NVBLASTEXTEXPORTERFBXWRITER_H
-#define NVBLASTEXTEXPORTERFBXWRITER_H
+#pragma once
 
 #include "BlastMeshExporter.h"
 #include <memory>
@@ -105,8 +79,8 @@ private:
 
 	//TODO we should track for every memory allocation and deallocate it not only for sdkManager
 	std::shared_ptr<fbxsdk::FbxManager> sdkManager;
-	std::map<uint32_t, fbxsdk::FbxNode*> chunkNodes;
-	std::map<uint32_t, physx::PxVec3> worldChunkPivots;
+	std::map<uint32, fbxsdk::FbxNode*> chunkNodes;
+	std::map<uint32, NvcVec3> worldChunkPivots;
 
 	bool appendNonSkinnedMesh(const AuthoringResult& aResult, const char* assetName);
 	bool appendNonSkinnedMesh(const ExporterMeshData& meshData, const char* assetName);
@@ -117,16 +91,16 @@ private:
 	Append collision geometry to scene. Each node with collision geometry has "ParentalChunkIndex" property, which contain index of chunk
 	which this collision geometry belongs to.
 	*/
-	bool appendCollisionMesh(uint32_t meshCount, uint32_t* offsets, CollisionHull** hulls, const char* assetName);
+	bool appendCollisionMesh(uint32 meshCount, uint32* offsets, CollisionHull** hulls, const char* assetName);
 
-	uint32_t addCollisionHulls(uint32_t chunkIndex, fbxsdk::FbxDisplayLayer* displayLayer, fbxsdk::FbxNode* parentNode, uint32_t hullsCount, CollisionHull** hulls);
-	uint32_t createChunkRecursive(uint32_t currentCpIdx, uint32_t chunkIndex, fbxsdk::FbxNode *meshNode, fbxsdk::FbxNode* parentNode, fbxsdk::FbxSkin* skin, const AuthoringResult& aResult);
-	uint32_t createChunkRecursive(uint32_t currentCpIdx, uint32_t chunkIndex, fbxsdk::FbxNode *meshNode, fbxsdk::FbxNode* parentNode, fbxsdk::FbxSkin* skin, const ExporterMeshData& meshData);
+	uint32 addCollisionHulls(uint32 chunkIndex, fbxsdk::FbxDisplayLayer* displayLayer, fbxsdk::FbxNode* parentNode, uint32 hullsCount, CollisionHull** hulls);
+	uint32 createChunkRecursive(uint32 currentCpIdx, uint32 chunkIndex, fbxsdk::FbxNode *meshNode, fbxsdk::FbxNode* parentNode, fbxsdk::FbxSkin* skin, const AuthoringResult& aResult);
+	uint32 createChunkRecursive(uint32 currentCpIdx, uint32 chunkIndex, fbxsdk::FbxNode *meshNode, fbxsdk::FbxNode* parentNode, fbxsdk::FbxSkin* skin, const ExporterMeshData& meshData);
 
-	void createChunkRecursiveNonSkinned(const std::string& meshName, uint32_t chunkIndex, fbxsdk::FbxNode* parentNode,
+	void createChunkRecursiveNonSkinned(const std::string& meshName, uint32 chunkIndex, fbxsdk::FbxNode* parentNode,
 		const std::vector<fbxsdk::FbxSurfaceMaterial*>& materials, const AuthoringResult& aResult);
 
-	void createChunkRecursiveNonSkinned(const std::string& meshName, uint32_t chunkIndex, fbxsdk::FbxNode* parentNode,
+	void createChunkRecursiveNonSkinned(const std::string& meshName, uint32 chunkIndex, fbxsdk::FbxNode* parentNode,
 		const std::vector<fbxsdk::FbxSurfaceMaterial*>& materials, const ExporterMeshData& meshData);
 
 	void addControlPoints(fbxsdk::FbxMesh* mesh, const ExporterMeshData& meshData);
@@ -140,5 +114,3 @@ private:
 
 }
 }
-
-#endif // NVBLASTEXTEXPORTERFBXWRITER_H

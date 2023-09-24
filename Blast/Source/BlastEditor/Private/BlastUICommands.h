@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "EditorStyleSet.h"
 #include "Framework/Commands/Commands.h"
 
@@ -10,7 +10,7 @@ public:
 		"BlastUICommands",
 		NSLOCTEXT("Blast", "BlastUICommands", "BlastUICommands"),
 		NAME_None,
-		FEditorStyle::GetStyleSetName())
+		FAppStyle::GetAppStyleSetName())
 	{
 	}
 

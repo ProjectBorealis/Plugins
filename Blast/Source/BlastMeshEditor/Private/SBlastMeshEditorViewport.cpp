@@ -16,7 +16,6 @@
 #include "UObject/Package.h"
 #include "Slate/SceneViewport.h"
 #include "UObject/UObjectHash.h"
-#include "Widgets/Docking/SDockableTab.h"
 #include "EditorViewportCommands.h"
 #include "CanvasTypes.h"
 #include "PhysicsEngine/PhysicsAsset.h"
@@ -26,6 +25,7 @@
 #include "Widgets/Input/SSpinBox.h"
 #include "EditorStyleSet.h"
 #include "SceneView.h"
+#include "PreviewScene.h"
 #include "Materials/Material.h"
 
 /////////////////////////////////////////////////////////////////////////
@@ -45,8 +45,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void Draw(const FSceneView* View,FPrimitiveDrawInterface* PDI) override;
 	FLinearColor GetBackgroundColor() const override { return FLinearColor::Black; }
-	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false) override;
-	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override;
+	virtual bool InputKey(const FInputKeyEventArgs& EventArgs) override;
+	virtual bool InputAxis(FViewport* Viewport, FInputDeviceId DeviceID, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override;
 	virtual void ProcessClick(class FSceneView& View, class HHitProxy* HitProxy, FKey Key, EInputEvent Event, uint32 HitX, uint32 HitY) override;
 	virtual void MouseMove(FViewport* Viewport, int32 x, int32 y) override;
 
@@ -529,17 +529,17 @@ void FBlastMeshEditorViewportClient::RenderCollisionMesh(FPrimitiveDrawInterface
 	}
 }
 
-bool FBlastMeshEditorViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed /*= 1.f*/, bool bGamepad /*= false*/)
+bool FBlastMeshEditorViewportClient::InputKey(const FInputKeyEventArgs& EventArgs)
 {
 	bool bHandled = false;
 	if (!bHandled)
 	{
-		bHandled |= FEditorViewportClient::InputKey(InViewport, ControllerId, Key, Event, AmountDepressed, false);
+		bHandled |= FEditorViewportClient::InputKey(EventArgs);
 	}
 
 	if (!bHandled)
 	{
-		bHandled |= static_cast<FAdvancedPreviewScene*>(PreviewScene)->HandleInputKey(InViewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+		bHandled |= static_cast<FAdvancedPreviewScene*>(PreviewScene)->HandleInputKey(EventArgs);
 		if (bHandled)
 			Invalidate();
 	}
@@ -548,13 +548,13 @@ bool FBlastMeshEditorViewportClient::InputKey(FViewport* InViewport, int32 Contr
 }
 
 
-bool FBlastMeshEditorViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples /*= 1*/, bool bGamepad /*= false*/)
+bool FBlastMeshEditorViewportClient::InputAxis(FViewport* InViewport, FInputDeviceId DeviceID, FKey Key, float Delta, float DeltaTime, int32 NumSamples /*= 1*/, bool bGamepad /*= false*/)
 {
-	bool bHandled = FEditorViewportClient::InputAxis(InViewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+	bool bHandled = FEditorViewportClient::InputAxis(InViewport, DeviceID, Key, Delta, DeltaTime, NumSamples, bGamepad);
 
 	if (!bHandled)
 	{
-		bHandled |= static_cast<FAdvancedPreviewScene*>(PreviewScene)->HandleViewportInput(InViewport, ControllerId, Key, Delta, DeltaTime, NumSamples, bGamepad);
+		bHandled |= static_cast<FAdvancedPreviewScene*>(PreviewScene)->HandleViewportInput(InViewport, DeviceID, Key, Delta, DeltaTime, NumSamples, bGamepad);
 		if (bHandled)
 			Invalidate();
 	}
@@ -613,6 +613,11 @@ void SBlastMeshEditorViewport::AddReferencedObjects( FReferenceCollector& Collec
 {
 	Collector.AddReferencedObject(PreviewComponent);
 	Collector.AddReferencedObject(BlastMesh);
+}
+
+FString SBlastMeshEditorViewport::GetReferencerName() const
+{
+	return TEXT("SBlastMeshEditorViewport");
 }
 
 void SBlastMeshEditorViewport::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, class FEditPropertyChain* PropertyThatChanged)

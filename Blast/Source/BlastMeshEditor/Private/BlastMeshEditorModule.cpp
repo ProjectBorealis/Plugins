@@ -68,7 +68,7 @@ void FBlastMeshEditorModule::ShutdownModule()
 
 TSharedRef<IBlastMeshEditor> FBlastMeshEditorModule::CreateBlastMeshEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UBlastMesh* Table )
 {
-	TSharedRef< FBlastMeshEditor > NewBlastMeshEditor( new FBlastMeshEditor() );
+	TSharedRef< FBlastMeshEditor > NewBlastMeshEditor = MakeShared<FBlastMeshEditor>();
 	NewBlastMeshEditor->InitBlastMeshEditor( Mode, InitToolkitHost, Table );
 	return NewBlastMeshEditor;
 }

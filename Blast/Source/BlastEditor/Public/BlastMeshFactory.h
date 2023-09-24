@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "CoreMinimal.h"
 #include "Factories/Factory.h"
@@ -14,16 +14,16 @@ struct FBlastCollisionHull
 		// Polygon base plane
 		float		Plane[4];
 		// Number vertices in polygon
-		uint16_t	NbVerts;
+		uint16		NbVerts;
 		// First index in CollisionHull.indices array for this polygon
-		uint16_t	IndexBase;
+		uint16		IndexBase;
 	};
 	///**
 
 	FBlastCollisionHull() {};
 
 	TArray<FVector>		Points;
-	TArray<uint32_t>	Indices;
+	TArray<uint32>		Indices;
 	TArray<HullPolygon>	PolygonData;
 };
 

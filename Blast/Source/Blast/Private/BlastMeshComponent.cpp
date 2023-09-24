@@ -26,13 +26,20 @@
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshModel.h"
 
+#if BLAST_USE_PHYSX
+#else
+#include "Chaos/ChaosScene.h"
+#include "Physics/Experimental/PhysScene_Chaos.h"
+#include "PBDRigidsSolver.h"
+#endif
+
 #define LOCTEXT_NAMESPACE "Blast"
 
 DECLARE_CYCLE_STAT(TEXT("Calc BlastMeshComponent Bounds"), STAT_BlastMeshComponent_CalcBounds, STATGROUP_Blast);
 DECLARE_CYCLE_STAT(TEXT("Sync Chunks and Bodies"), STAT_BlastMeshComponent_SyncChunksAndBodies, STATGROUP_Blast);
 DECLARE_CYCLE_STAT(TEXT("Sync Chunks and Bodies (Non-rendering children update)"), STAT_BlastMeshComponent_SyncChunksAndBodiesChildren, STATGROUP_Blast);
 
-UBlastMeshComponent::UBlastMeshComponent(const FObjectInitializer& ObjectInitializer):
+UBlastMeshComponent::UBlastMeshComponent(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
 	BlastMesh(nullptr),
 	ModifiedAssetOwned(nullptr),
@@ -49,9 +56,6 @@ UBlastMeshComponent::UBlastMeshComponent(const FObjectInitializer& ObjectInitial
 	bOverride_BlastMaterial(false),
 	bOverride_StressProperties(false),
 	bOverride_DebrisProperties(false),
-#if WITH_EDITORONLY_DATA
-	BlastDebugRenderMode(EBlastDebugRenderMode::None),
-#endif
 	BlastActorsBeginLive(0),
 	BlastActorsEndLive(0),
 	StressSolver(nullptr),
@@ -89,7 +93,6 @@ UBlastMeshComponent::UBlastMeshComponent(const FObjectInitializer& ObjectInitial
 
 	SetActive(true);
 	bMultiBodyOverlap = true;
-	bShouldCreateADefaultPhysicsState = false;
 
 	// Make sure the PrimitiveComponent BodyInstance shows as simulating physics
 	BodyInstance.bSimulatePhysics = true;
@@ -137,7 +140,10 @@ void UBlastMeshComponent::SetModifiedAsset(UBlastAsset* newModifiedAsset)
 
 void UBlastMeshComponent::PreEditChange(FProperty* PropertyThatWillChange)
 {
-	if (PropertyThatWillChange && PropertyThatWillChange->GetFName() == GET_MEMBER_NAME_CHECKED(UBlastMeshComponent, BlastDebugRenderMode))
+	if (PropertyThatWillChange &&
+		(PropertyThatWillChange->GetFName() == GET_MEMBER_NAME_CHECKED(UBlastMeshComponent, StressDebugMode)
+			|| PropertyThatWillChange->GetFName() == GET_MEMBER_NAME_CHECKED(UBlastMeshComponent, bDrawSupportGraph)
+			|| PropertyThatWillChange->GetFName() == GET_MEMBER_NAME_CHECKED(UBlastMeshComponent, bDrawChunkCentroids)))
 	{
 		//Don't pass this on, otherwise the component gets re-registered which resets the destruction state	
 	}
@@ -274,7 +280,7 @@ void UBlastMeshComponent::InitBlastFamily()
 	void* FamilyMem = NVBLAST_ALLOC(NvBlastAssetGetFamilyMemorySize(LLBlastAsset, Nv::Blast::logLL));
 	// Create a NvBlastFamily and wrap it in a shared ptr with a custom deleter so it gets released when we're done with it.
 	BlastFamily = TSharedPtr<NvBlastFamily>(NvBlastAssetCreateFamily(FamilyMem, LLBlastAsset, Nv::Blast::logLL),
-		[FamilyMem] (NvBlastFamily* family)
+		[FamilyMem](NvBlastFamily* family)
 		{
 			NVBLAST_FREE((void*)FamilyMem);
 		}
@@ -289,8 +295,8 @@ void UBlastMeshComponent::InitBlastFamily()
 
 	TArray<uint8> Scratch;
 	Scratch.SetNumUninitialized(NvBlastFamilyGetRequiredScratchForCreateFirstActor(BlastFamily.Get(), Nv::Blast::logLL));
-	
-	NvBlastActorDesc ActorDesc; 
+
+	NvBlastActorDesc ActorDesc;
 	ActorDesc.uniformInitialBondHealth = 1.0f;
 	ActorDesc.uniformInitialLowerSupportChunkHealth = 1.0f;
 	ActorDesc.initialBondHealths = nullptr;
@@ -358,7 +364,7 @@ void UBlastMeshComponent::UninitBlastFamily()
 		DamageAccelerator->release();
 		DamageAccelerator = nullptr;
 	}
-	
+
 	BlastActors.Reset();
 	ActorBodySetups.Reset();
 	BlastFamily.Reset();
@@ -438,17 +444,17 @@ bool UBlastMeshComponent::IsChunkVisible(int32 ChunkIndex) const
 bool UBlastMeshComponent::MoveComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep,
 	FHitResult* Hit, EMoveComponentFlags MoveFlags, ETeleportType Teleport)
 {
-	if(bHasBeenFractured)
+	if (bHasBeenFractured)
 	{
 		return false;
 	}
 	return Super::MoveComponentImpl(Delta, NewRotation, bSweep, Hit, MoveFlags, Teleport);
 }
 
-void UBlastMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+void UBlastMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	
+
 #if WITH_EDITOR
 	if (IsWorldSupportDirty())
 	{
@@ -480,24 +486,23 @@ void UBlastMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 		bool bHadDebugLinesBefore = PendingDebugLines.Num() > 0 || PendingDebugPoints.Num() > 0;
 		PendingDebugLines.Reset();
 		PendingDebugPoints.Reset();
-		
-		if (BlastDebugRenderMode != EBlastDebugRenderMode::None && World->GetNetMode() != NM_DedicatedServer)
+
+		if (World->GetNetMode() != NM_DedicatedServer)
 		{
-			if (BlastDebugRenderMode == EBlastDebugRenderMode::SupportGraph)
+			if (bDrawSupportGraph)
 			{
 				DrawDebugSupportGraph();
 			}
-			else if (BlastDebugRenderMode == EBlastDebugRenderMode::ChunkCentroids)
+
+			if (bDrawChunkCentroids)
 			{
 				DrawDebugChunkCentroids();
 			}
-			else if (BlastDebugRenderMode == EBlastDebugRenderMode::StressSolverBondImpulses || BlastDebugRenderMode == EBlastDebugRenderMode::StressSolverStress)
-			{
-				DrawDebugStressGraph();
-			}
+
+			DrawDebugStressGraph();
 		}
 
-		if (PendingDebugLines.Num() > 0 || PendingDebugPoints.Num() > 0 || bHadDebugLinesBefore)
+		if (!PendingDebugLines.IsEmpty() || !PendingDebugPoints.IsEmpty() || bHadDebugLinesBefore)
 		{
 			//If we have none, now but there were ones before we need to send one final update to turn them off
 			MarkRenderDynamicDataDirty();
@@ -522,9 +527,9 @@ UBodySetup* UBlastMeshComponent::GetBodySetup()
 	// PB - (Omar) Original Code had this comment below, it will return nullptr in the case of OnCreatePhysicsState
 	// but we need to return the body setup later for Recast's geometry export.
 	// (Original Comment): Returning null here prevents UPrimitiveComponent::OnCreatePhysicsState from creating a default state
-	if (SkeletalMesh)
+	if (GetSkinnedAsset())
 	{
-		if(BlastMesh && ActorBodySetups.Num())
+		if (BlastMesh && ActorBodySetups.Num())
 		{
 			return ActorBodySetups[0];
 		}
@@ -750,7 +755,7 @@ FVector UBlastMeshComponent::GetActorWorldVelocity(FName ActorName) const
 }
 
 
-FBodyInstance* UBlastMeshComponent::GetBodyInstance(FName BoneName /*= NAME_None*/, bool bGetWelded /*= true*/) const
+FBodyInstance* UBlastMeshComponent::GetBodyInstance(FName BoneName /*= NAME_None*/, bool bGetWelded /*= true*/, int32 Index /*= INDEX_NONE*/) const
 {
 	return GetActorBodyInstance(BoneName);
 }
@@ -762,9 +767,9 @@ FBoxSphereBounds UBlastMeshComponent::CalcBounds(const FTransform& LocalToWorld)
 	{
 		if (bCachedLocalBoundsUpToDate)
 		{
-			return CachedWorldSpaceBounds.TransformBy(CachedWorldToLocalTransform * LocalToWorld.ToMatrixWithScale());
+			return CachedWorldOrLocalSpaceBounds.TransformBy(CachedWorldToLocalTransform * LocalToWorld.ToMatrixWithScale());
 		}
-		
+
 		//Examine the existing bodies to see what we have
 		FBox NewBox(ForceInit);
 
@@ -775,7 +780,7 @@ FBoxSphereBounds UBlastMeshComponent::CalcBounds(const FTransform& LocalToWorld)
 		}
 		else
 		{
-			SCOPED_SCENE_READ_LOCK(GetPXScene());
+			// SCOPED_SCENE_READ_LOCK(GetPXScene());
 			for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 			{
 				UBodySetup* BodySetup = ActorBodySetups[ActorIndex];
@@ -789,10 +794,10 @@ FBoxSphereBounds UBlastMeshComponent::CalcBounds(const FTransform& LocalToWorld)
 				}
 			}
 		}
-		
+
 		FBoxSphereBounds NewBounds = NewBox;
 		bCachedLocalBoundsUpToDate = true;
-		CachedWorldSpaceBounds = NewBounds;
+		CachedWorldOrLocalSpaceBounds = NewBounds;
 		CachedWorldToLocalTransform = LocalToWorld.ToInverseMatrixWithScale();
 		return NewBounds;
 	}
@@ -882,14 +887,14 @@ void UBlastMeshComponent::OnCreatePhysicsState()
 	RefreshDynamicChunkBodyInstanceFromBodyInstance();
 
 	Super::OnCreatePhysicsState();
-	
+
 	if (BlastMesh == nullptr)
 	{
 		UE_LOG(LogBlast, Error, TEXT("Failed to initialize BlastMeshComponent - no asset."));
 		return;
 	}
 
-	SetSkeletalMesh(BlastMesh->Mesh);
+	SetSkinnedAsset(BlastMesh->Mesh);
 
 	InitBlastFamily();
 }
@@ -907,10 +912,9 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 
 	check(BlastMesh != nullptr);
 
-	auto PScene = GetPXScene();
-	if (!PScene)
+	if (!GetWorld()->GetPhysicsScene())
 	{
-		//During cooking there is no PhysX scene, so nothing to sync
+		//During cooking there is no physics scene, so nothing to sync
 		return false;
 	}
 	bool bAnyBodiesChanged = false;
@@ -924,7 +928,7 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 	}
 	else
 	{
-		SCENE_LOCK_READ(PScene);
+		// SCENE_LOCK_READ(PScene);
 		for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 		{
 			FActorData& ActorData = BlastActors[ActorIndex];
@@ -955,7 +959,7 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 				}
 			}
 		}
-		SCENE_UNLOCK_READ(PScene);
+		// SCENE_UNLOCK_READ(PScene);
 	}
 
 	//We need to move the bones under any of the body bones that moved, technically we don't need to update these until SetupNewBlastActor since they are invisible, but just for sanity I think we should
@@ -965,7 +969,7 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 		SCOPE_CYCLE_COUNTER(STAT_BlastMeshComponent_SyncChunksAndBodiesChildren);
 
 		//BoneSpaceTransforms are sorted so parents always go first
-		const auto& BoneSpaceTransforms = SkeletalMesh->GetRefSkeleton().GetRefBonePose();
+		const auto& BoneSpaceTransforms = GetSkinnedAsset()->GetRefSkeleton().GetRefBonePose();
 		const int32 NumBones = BoneSpaceTransforms.Num();
 
 		// Build in 3 passes.
@@ -979,8 +983,8 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 			if (!BonesTouched[BoneIndex])
 			{
 				// For all bones below the root, final component-space transform is relative transform * component-space transform of parent.
-				const int32 ParentIndex = SkeletalMesh->GetRefSkeleton().GetParentIndex(BoneIndex);
-				
+				const int32 ParentIndex = GetSkinnedAsset()->GetRefSkeleton().GetParentIndex(BoneIndex);
+
 				if (BonesTouched[ParentIndex])
 				{
 					FTransform::Multiply(SpaceBasesData + BoneIndex, LocalTransformsData + BoneIndex, SpaceBasesData + ParentIndex);
@@ -992,7 +996,7 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 			}
 		}
 	}
-	
+
 	bNeedToFlipSpaceBaseBuffers |= bAnyBodiesChanged;
 
 	return bAnyBodiesChanged;
@@ -1000,7 +1004,7 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 
 void UBlastMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* TickFunction)
 {
-	if (!SkeletalMesh || GetNumComponentSpaceTransforms() == 0)
+	if (!GetSkinnedAsset() || GetNumComponentSpaceTransforms() == 0)
 	{
 		return;
 	}
@@ -1048,7 +1052,7 @@ void UBlastMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* Tic
 class FBlastMeshComponentInstanceData : public FPrimitiveComponentInstanceData
 {
 public:
-	FBlastMeshComponentInstanceData(const UBlastMeshComponent* SourceComponent) : 
+	FBlastMeshComponentInstanceData(const UBlastMeshComponent* SourceComponent) :
 		FPrimitiveComponentInstanceData(SourceComponent),
 		ModifiedAsset(SourceComponent->ModifiedAsset),
 		ModifiedAssetOwned(SourceComponent->ModifiedAssetOwned),
@@ -1118,9 +1122,9 @@ public:
 	}
 
 private:
-	UBlastAsset* ModifiedAsset;
-	UBlastAsset* ModifiedAssetOwned;
-	ABlastExtendedSupportStructure* SupportStructure;
+	TObjectPtr<UBlastAsset> ModifiedAsset;
+	TObjectPtr<UBlastAsset> ModifiedAssetOwned;
+	TObjectPtr<ABlastExtendedSupportStructure> SupportStructure;
 	int32 SupportStructureIndex;
 	FTransform PrevWorldTransform;
 };
@@ -1152,12 +1156,12 @@ bool UBlastMeshComponent::ShouldRenderSelected() const
 //Copied from UPoseableMeshComponent::FillComponentSpaceTransforms, just does a simple update from BoneSpaceTransforms -> GetEditableComponentSpaceTransforms
 void UBlastMeshComponent::FillInitialComponentSpaceTransformsFromMesh()
 {
-	if (!SkeletalMesh)
+	if (!GetSkinnedAsset())
 	{
 		return;
 	}
 
-	const auto& BoneSpaceTransforms = SkeletalMesh->GetRefSkeleton().GetRefBonePose();
+	const auto& BoneSpaceTransforms = GetSkinnedAsset()->GetRefSkeleton().GetRefBonePose();
 
 #if DO_GUARD_SLOW
 	/** Keep track of which bones have been processed for fast look up */
@@ -1182,7 +1186,7 @@ void UBlastMeshComponent::FillInitialComponentSpaceTransformsFromMesh()
 		BoneProcessed[BoneIndex] = 1;
 #endif
 		// For all bones below the root, final component-space transform is relative transform * component-space transform of parent.
-		const int32 ParentIndex = SkeletalMesh->GetRefSkeleton().GetParentIndex(BoneIndex);
+		const int32 ParentIndex = GetSkinnedAsset()->GetRefSkeleton().GetParentIndex(BoneIndex);
 		FPlatformMisc::Prefetch(SpaceBasesData + ParentIndex);
 
 #if DO_GUARD_SLOW
@@ -1206,7 +1210,7 @@ void UBlastMeshComponent::RebuildChunkVisibility()
 	{
 		int32 BoneIndex = ChunkIndexToBoneIndex[It.GetIndex()];
 		if (EditableBoneVisibilityStates.IsValidIndex(BoneIndex))
-		{			
+		{
 			EditableBoneVisibilityStates[BoneIndex] = BVS_Visible;
 		}
 	}
@@ -1226,25 +1230,13 @@ void UBlastMeshComponent::RebuildChunkVisibility()
 		//Need to check SceneProxy since we don't know when to set BlastProxy to null
 		if (BlastProxy && SceneProxy)
 		{
-			ENQUEUE_RENDER_COMMAND(VisibleBonesForDebugDataCommand)([BlastProxy{ BlastProxy } , Chunks{ MoveTemp(VisibleChunks) }](FRHICommandList& RHICmdList) mutable
-			{
-				BlastProxy->UpdateVisibleChunks(MoveTemp(Chunks));
-			});
+			ENQUEUE_RENDER_COMMAND(VisibleBonesForDebugDataCommand)([BlastProxy{ BlastProxy }, Chunks{ MoveTemp(VisibleChunks) }](FRHICommandList& RHICmdList) mutable
+				{
+					BlastProxy->UpdateVisibleChunks(MoveTemp(Chunks));
+				});
 		}
 	}
 #endif
-}
-
-
-
-physx::PxScene* UBlastMeshComponent::GetPXScene() const
-{
-	if (BlastMesh == nullptr)
-	{
-		return nullptr;
-	}
-	auto PScene = GetWorld()->GetPhysicsScene();
-	return PScene ? PScene->GetPxScene() : nullptr;
 }
 
 bool UBlastMeshComponent::AllocateTransformData()
@@ -1291,21 +1283,21 @@ void UBlastMeshComponent::OnRegister()
 	}
 #endif
 
-	if (MasterPoseComponent.IsValid())
+	if (LeaderPoseComponent.IsValid())
 	{
-		UE_LOG(LogBlast, Warning, TEXT("MasterPoseComponent cannot be set on UBlastMeshComponent"));
-		MasterPoseComponent.Reset();
+		UE_LOG(LogBlast, Warning, TEXT("LeaderPoseComponent cannot be set on UBlastMeshComponent"));
+		LeaderPoseComponent.Reset();
 	}
 
 	ChunkVisibility.Reset();
 	ChunkToActorIndex.Reset();
 	if (BlastMesh == nullptr)
 	{
-		SetSkeletalMesh(nullptr);
+		SetSkinnedAsset(nullptr);
 	}
 	else
 	{
-		SetSkeletalMesh(BlastMesh->Mesh);
+		SetSkinnedAsset(BlastMesh->Mesh);
 
 		ChunkVisibility.Init(false, BlastMesh->GetChunkCount());
 		ChunkToActorIndex.SetNumUninitialized(BlastMesh->GetChunkCount());
@@ -1368,30 +1360,30 @@ void UBlastMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransfor
 		return;
 	}
 
-	auto PXScene = GetPXScene();
-	bool bLocked = false;
+	/*auto PXScene = GetPXScene();
+	bool bLocked = false;*/
 	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 	{
 		FActorData& Actor = BlastActors[ActorIndex];
 		if (Actor.BodyInstance && Actor.bIsAttachedToComponent)
 		{
-			if (!bLocked)
+			/*if (!bLocked)
 			{
 				//There might be none, so only lock if we need to
 				SCENE_LOCK_WRITE(PXScene);
 				bLocked = true;
-			}
+			}*/
 			//Actor transform pivots are all at component origin
 			Actor.BodyInstance->SetBodyTransform(GetComponentTransform(), Teleport);
 			Actor.BodyInstance->UpdateBodyScale(GetComponentTransform().GetScale3D());
 		}
 	}
 
-	if (bLocked)
+	/*if (bLocked)
 	{
 		SCENE_UNLOCK_WRITE(PXScene);
 		bLocked = false;
-	}
+	}*/
 }
 
 UBlastAsset* UBlastMeshComponent::GetBlastAsset(bool bAllowModifiedAsset) const
@@ -1422,7 +1414,7 @@ void UBlastMeshComponent::BeginPlay()
 void UBlastMeshComponent::CreateRenderState_Concurrent(FRegisterComponentContext* Context)
 {
 	Super::CreateRenderState_Concurrent(Context);
-	auto MeshResource = (ShouldRender() && SkeletalMesh) ? SkeletalMesh->GetResourceForRendering() : nullptr;
+	auto MeshResource = (ShouldRender() && GetSkinnedAsset()) ? GetSkinnedAsset()->GetResourceForRendering() : nullptr;
 	if (MeshResource)
 	{
 		//Need to update it next draw if only the renderstate is recreated, and we are not re-registered
@@ -1454,9 +1446,9 @@ void UBlastMeshComponent::SendRenderDynamicData_Concurrent()
 	if (BlastProxy && SceneProxy)
 	{
 		ENQUEUE_RENDER_COMMAND(DebugLinesCommand)([BlastProxy{ BlastProxy }, Lines{ MoveTemp(PendingDebugLines) }, Points{ MoveTemp(PendingDebugPoints) }](FRHICommandList& RHICmdList) mutable
-		{
-			BlastProxy->UpdateDebugDrawLines(MoveTemp(Lines), MoveTemp(Points));
-		});
+			{
+				BlastProxy->UpdateDebugDrawLines(MoveTemp(Lines), MoveTemp(Points));
+			});
 	}
 #endif
 
@@ -1476,7 +1468,7 @@ void UBlastMeshComponent::SetBlastMesh(UBlastMesh* NewBlastMesh)
 	{
 		FComponentReregisterContext ReregisterComponent(this);
 		BlastMesh = NewBlastMesh;
-		SetSkeletalMesh(BlastMesh ? BlastMesh->Mesh : nullptr);
+		SetSkinnedAsset(BlastMesh ? BlastMesh->Mesh : nullptr);
 		ModifiedAsset = nullptr;
 		ModifiedAssetOwned = nullptr;
 #if WITH_EDITOR
@@ -1674,7 +1666,7 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgram(const FBlastBaseDamag
 	if (BoneName.IsNone())
 	{
 		//Do the lock once
-		SCOPED_SCENE_READ_LOCK(GetPXScene());
+		// SCOPED_SCENE_READ_LOCK(GetPXScene());
 		for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 		{
 			EBlastDamageResult result = ApplyDamageOnActor(ActorIndex, DamageProgram, Origin, Rot, true);
@@ -1914,7 +1906,7 @@ void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFracture
 			for (uint32 i = 0; i < fractureBuffers.bondFractureCount; i++)
 			{
 				const NvBlastBondFractureData& FractureData = fractureBuffers.bondFractures[i];
-				for (uint32_t AdjacencyIndex = Graph.adjacencyPartition[FractureData.nodeIndex0]; AdjacencyIndex < Graph.adjacencyPartition[FractureData.nodeIndex0 + 1]; AdjacencyIndex++)
+				for (uint32 AdjacencyIndex = Graph.adjacencyPartition[FractureData.nodeIndex0]; AdjacencyIndex < Graph.adjacencyPartition[FractureData.nodeIndex0 + 1]; AdjacencyIndex++)
 				{
 					if (Graph.adjacentNodeIndices[AdjacencyIndex] == FractureData.nodeIndex1)
 					{
@@ -1922,8 +1914,8 @@ void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFracture
 						const NvBlastBond& SolverBond = Bonds[BondIndex];
 						const FVector& LocalCentroid = reinterpret_cast<const FVector&>(SolverBond.centroid);
 						const FVector& LocalNormal = reinterpret_cast<const FVector&>(SolverBond.normal);
-						const uint32_t chunk0 = Graph.chunkIndices[FractureData.nodeIndex0];
-						const uint32_t chunk1 = Graph.chunkIndices[FractureData.nodeIndex1];
+						const uint32 chunk0 = Graph.chunkIndices[FractureData.nodeIndex0];
+						const uint32 chunk1 = Graph.chunkIndices[FractureData.nodeIndex1];
 
 						FBondDamageEvent BondDmgEvent;
 						BondDmgEvent.ChunkIndex = chunk0 < chunk1 ? int32(chunk0) : int32(chunk1);
@@ -1998,7 +1990,7 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 	if (bIsSplit)
 	{
 		FBodyInstance* ParentBodyInstance = BlastActors[parentActorIndex].BodyInstance;
-		FTransform ParentWorldTransform = bAssumeReadLocked ? ParentBodyInstance->GetUnrealWorldTransform_AssumesLocked() :	ParentBodyInstance->GetUnrealWorldTransform();
+		FTransform ParentWorldTransform = bAssumeReadLocked ? ParentBodyInstance->GetUnrealWorldTransform_AssumesLocked() : ParentBodyInstance->GetUnrealWorldTransform();
 		ParentWorldTransform.SetScale3D(ParentBodyInstance->Scale3D);
 		FVector ParentLinVel = bAssumeReadLocked ? ParentBodyInstance->GetUnrealWorldVelocity_AssumesLocked() : ParentBodyInstance->GetUnrealWorldVelocity();
 		FVector ParentAngVel = bAssumeReadLocked ? ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians_AssumesLocked() : ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians();
@@ -2007,7 +1999,7 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 		//Cannot have the read lock when doing BreakDownBlastActor since it can't upgrade to a write lock
 		if (bAssumeReadLocked)
 		{
-			SCENE_UNLOCK_READ(GetPXScene());
+			//SCENE_UNLOCK_READ(GetPXScene());
 		}
 		BreakDownBlastActor(parentActorIndex);
 		for (uint32 actorIdx = 0; actorIdx < newActorsCount; actorIdx++)
@@ -2021,7 +2013,7 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 		}
 		if (bAssumeReadLocked)
 		{
-			SCENE_LOCK_READ(GetPXScene());
+			//SCENE_LOCK_READ(GetPXScene());
 		}
 
 		return true;
@@ -2075,7 +2067,7 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 		FBodyInstance* OtherBodyInst = OtherComp->GetBodyInstance(OtherBoneName);
 		if (BodyInst && OtherBodyInst && Actor && NvBlastActorCanFracture(Actor, Nv::Blast::logLL))
 		{
-			SCOPED_SCENE_READ_LOCK(GetPXScene());
+			// SCOPED_SCENE_READ_LOCK(GetPXScene());
 
 			// Reduced mass 
 			const float Mass0 = BodyInst->GetBodyMass();
@@ -2107,8 +2099,8 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 				const FTransform invWT = WT.Inverse();
 
 				const float ForceScale = 1.f / (BodyInst->Scale3D.X * BodyInst->Scale3D.X * BodyInst->Scale3D.X * BodyInst->Scale3D.X); // assuming uniform. (p = mv; X*X*X goes for the volume, and one more X for velocity)
-				PxVec3 LocalPosition = U2PVector(invWT.TransformPosition(Hit.ImpactPoint));
-				PxVec3 LocalForce = U2PVector((invWT.TransformVector(Hit.ImpactNormal)).GetSafeNormal() * ImpactImpulse * UsedStressProperties.ImpactImpulseToStressImpulseFactor * ForceScale);
+				NvcVec3 LocalPosition = ToNvVector(invWT.TransformPosition(Hit.ImpactPoint));
+				NvcVec3 LocalForce = ToNvVector((invWT.TransformVector(Hit.ImpactNormal)).GetSafeNormal() * ImpactImpulse * UsedStressProperties.ImpactImpulseToStressImpulseFactor * ForceScale);
 
 				StressSolver->addForce(*Actor, (NvcVec3&)LocalPosition, (NvcVec3&)LocalForce);
 			}
@@ -2117,7 +2109,7 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 			if (UsedImpactProperties.bEnabled)
 			{
 				const float DamageImpulse = ImpactVelocity * (UsedImpactProperties.AdvancedSettings.bVelocityBased ? 1.0f : ReducedMass);
-				const float Impulse01 = FMath::Clamp<float>(FMath::GetRangePct({ 0, UsedBlastMaterial.Health * UsedImpactProperties.Hardness }, DamageImpulse), 0.f, UsedImpactProperties.AdvancedSettings.MaxDamageThreshold);
+				const float Impulse01 = FMath::Clamp<float>(FMath::GetRangePct(0.f, UsedBlastMaterial.Health * UsedImpactProperties.Hardness, DamageImpulse), 0.f, UsedImpactProperties.AdvancedSettings.MaxDamageThreshold);
 				if (Impulse01 > UsedImpactProperties.AdvancedSettings.MinDamageThreshold)
 				{
 					const float Damage = UsedBlastMaterial.Health * Impulse01;
@@ -2201,14 +2193,14 @@ void UBlastMeshComponent::Serialize(FArchive& Ar)
 	SkeletalMesh = BlastMesh ? BlastMesh->Mesh : nullptr;
 }
 
-void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastActorCreateInfo& CreateInfo, const FBlastBaseDamageProgram* DamageProgram, const FBlastBaseDamageProgram::FInput* Input, FName DamageType,  bool bIsFirstActor)
+void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastActorCreateInfo& CreateInfo, const FBlastBaseDamageProgram* DamageProgram, const FBlastBaseDamageProgram::FInput* Input, FName DamageType, bool bIsFirstActor)
 {
 	uint32 actorIndex = NvBlastActorGetIndex(actor, Nv::Blast::logLL);
 
 	FActorData& ActorData = BlastActors[actorIndex];
 	check(ActorData.BlastActor == nullptr);
 	ActorData.BlastActor = actor;
-	
+
 	//Extend the live range
 	if (BlastActorsBeginLive == BlastActorsEndLive)
 	{
@@ -2228,7 +2220,7 @@ void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastAc
 			BlastActorsEndLive = actorIndex + 1;
 		}
 	}
-	
+
 
 	auto& VisibleChunks = ActorData.Chunks;
 
@@ -2247,10 +2239,10 @@ void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastAc
 		VisibleChunk.ChunkIndex = VisibleChunksTemp[vc];
 	}
 
-	
+
 	InitBodyForActor(ActorData, actorIndex, CreateInfo.Transform, GetWorld()->GetPhysicsScene(), bIsFirstActor);
 	ShowActorsVisibleChunks(actorIndex);
-	
+
 	FTransform BodyWorldTransform = ActorData.BodyInstance->GetUnrealWorldTransform();
 	BodyWorldTransform.SetScale3D(ActorData.BodyInstance->Scale3D);
 	FBox AABB = ActorBodySetups[actorIndex]->AggGeom.CalcAABB(BodyWorldTransform);
@@ -2356,7 +2348,7 @@ void UBlastMeshComponent::BreakDownBlastActor(uint32 actorIndex)
 			BlastActorsEndLive--;
 		}
 	}
-	
+
 	bAddedOrRemovedActorSinceLastRefresh = true;
 }
 
@@ -2368,7 +2360,7 @@ void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIn
 	UBodySetup* NewBodySetup = NewObject<UBodySetup>(this, NAME_None, RF_Transient);
 	check(ActorBodySetups[ActorIndex] == nullptr);
 	ActorBodySetups[ActorIndex] = NewBodySetup;
-	
+
 	//This is not a real bone since the body is at the component origin and made up
 	NewBodySetup->BoneName = ActorIndexToActorName(ActorIndex);
 
@@ -2412,11 +2404,11 @@ void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIn
 	}
 	else
 	{
-		if(bShouldAllChildrenChunksBeSmallChunks && bHasBeenFractured)
+		if (bShouldAllChildrenChunksBeSmallChunks && bHasBeenFractured)
 		{
 			ActorData.bIsSmallChunk = true;
 		}
-		else if(!bHasBeenFractured && ActorIndex == 0)
+		else if (!bHasBeenFractured && ActorIndex == 0)
 		{
 			ActorData.bIsSmallChunk = false;
 		}
@@ -2447,14 +2439,15 @@ void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIn
 
 	BodyInst->InitBody(NewBodySetup, ParentActorWorldTransform, this, PhysScene);
 
-	// set max contact impulse for impcat damage
+	// set max contact impulse for impact damage
 	const FBlastImpactDamageProperties& UsedImpactProperties = GetUsedImpactDamageProperties();
 	if (UsedImpactProperties.bEnabled && !BodyInst->bSimulatePhysics && UsedImpactProperties.AdvancedSettings.KinematicsMaxContactImpulse >= 0.f)
 	{
+#if BLAST_USE_PHYSX
 		if (BodyInst->ActorHandle.IsValid() && FPhysicsInterface::IsRigidBody(BodyInst->ActorHandle))
 		{
 			FPhysicsCommand::ExecuteWrite(BodyInst->ActorHandle, [&](const FPhysicsActorHandle& Actor)
-			{
+				{
 					if (PxRigidBody* PRigidBody = FPhysicsInterface::GetPxRigidBody_AssumesLocked(Actor))
 					{
 						PRigidBody->setMaxContactImpulse(UsedImpactProperties.AdvancedSettings.KinematicsMaxContactImpulse);
@@ -2462,8 +2455,9 @@ void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIn
 						PRigidBody->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_CCD_MAX_CONTACT_IMPULSE, true);
 #endif
 					}
-			});
+				});
 		}
+#endif
 	}
 
 	BodyInst->UpdateMassProperties();
@@ -2510,7 +2504,7 @@ bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolum
 		}
 
 		uint32 BoneIndex = BlastMesh->ChunkIndexToBoneIndex[ChunkIndex];
-		int32 BodySetupIndex = PhysicsAsset->FindBodyIndex(SkeletalMesh->GetRefSkeleton().GetBoneName(BoneIndex));
+		int32 BodySetupIndex = PhysicsAsset->FindBodyIndex(GetSkinnedAsset()->GetRefSkeleton().GetBoneName(BoneIndex));
 		if (BodySetupIndex != INDEX_NONE)
 		{
 			UBodySetup* PhysicsAssetBodySetup = PhysicsAsset->SkeletalBodySetups[BodySetupIndex];
@@ -2520,7 +2514,7 @@ bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolum
 				FTransform CombinedTransform = convex.GetTransform() * BodyXForm;
 				FBoxSphereBounds bounds = convex.ElemBox.TransformBy(CombinedTransform);
 
-				FColor debugDrawColor = FColor::White;
+				FLinearColor debugDrawColor = FLinearColor::White;
 
 				ABlastGlueVolume* MostOverlappingGlueVolume = nullptr;
 				float MostOverlappingDistanceToBox = 0;
@@ -2563,7 +2557,7 @@ bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolum
 							FVector worldVertex = CombinedTransform.TransformPosition(vertex);
 							if (MostOverlappingGlueVolume->EncompassesPoint(worldVertex))
 							{
-								debugDrawColor = FColor::Red;
+								debugDrawColor = FLinearColor::Red;
 								::DrawDebugPoint(GetWorld(), worldVertex, 5, FColor::Yellow, true, 10.0f, 5);
 							}
 							else
@@ -2576,7 +2570,7 @@ bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolum
 
 				if (bDrawDebug)
 				{
-					::DrawDebugBox(GetWorld(), bounds.Origin, bounds.BoxExtent, FQuat::Identity, debugDrawColor, true, 5.0f, 0, 2);
+					::DrawDebugBox(GetWorld(), bounds.Origin, bounds.BoxExtent, FQuat::Identity, debugDrawColor.QuantizeRound(), true, 5.0f, 0, 2);
 				}
 			}
 		}
@@ -2605,17 +2599,22 @@ void UBlastMeshComponent::RefreshDynamicChunkBodyInstanceFromBodyInstance()
 }
 
 
-
 void UBlastMeshComponent::TickStressSolver()
 {
-	auto PScene = GetPXScene();
+	/*auto PScene = GetPXScene();
 	if (!PScene)
 	{
 		return;
-	}
+	}*/
+	FVector Gravity;
+#if BLAST_USE_PHYSX
+	Gravity = GetPXScene()->getGravity();
+#else
+	Gravity = static_cast<Chaos::FPBDRigidsSolver*>(GetWorld()->GetPhysicsScene()->GetSolver())->GetEvolution()->GetGravityForces().GetAcceleration(0);
+#endif
 
 	// Apply all relevant forces on actors in stress solver
-	SCENE_LOCK_READ(PScene);
+	// SCENE_LOCK_READ(PScene);
 	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 	{
 		FActorData& ActorData = BlastActors[ActorIndex];
@@ -2625,42 +2624,37 @@ void UBlastMeshComponent::TickStressSolver()
 			continue;
 		}
 
-		FBodyInstance* BodyInst = ActorData.BodyInstance;
-		FTransform BT = BodyInst->GetUnrealWorldTransform_AssumesLocked();
-		BT.SetScale3D(BodyInst->Scale3D);
-
-		PxRigidDynamic* rigidDynamic = FPhysicsInterface_PhysX::GetPxRigidDynamic_AssumesLocked(BodyInst->GetPhysicsActorHandle());
-
-		uint32_t nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
+		uint32 nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
 		if (nodeCount <= 1) // subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
 			continue;
 
-		const bool isStatic = !BodyInst->bSimulatePhysics;
-		if (isStatic)
+		FBodyInstance* BodyInst = ActorData.BodyInstance;
+		if (BodyInst->bSimulatePhysics)
 		{
-			PxVec3 gravity = rigidDynamic->getScene()->getGravity();
-			PxVec3 localGravity = rigidDynamic->getGlobalPose().rotateInv(gravity);
-			StressSolver->addGravityForce(*actor, (NvcVec3&)localGravity);
+			// should we apply centrifugal force? Add a toggle-parameter setting here?
+			const FVector LocalAngularVelocity = BodyInst->GetUnrealWorldTransform_AssumesLocked().InverseTransformVectorNoScale(BodyInst->GetUnrealWorldAngularVelocityInRadians_AssumesLocked());
+			StressSolver->addCentrifugalAcceleration(*actor, ToNvVector(BodyInst->GetMassSpaceLocal().GetLocation()), ToNvVector(LocalAngularVelocity));
 		}
-		else // should we apply centrifugal force? Add a toggle-parameter setting here?
+		else
 		{
-			PxVec3 localCenterMass = rigidDynamic->getCMassLocalPose().p;
-			PxVec3 localAngularVelocity = rigidDynamic->getGlobalPose().rotateInv(rigidDynamic->getAngularVelocity());
-			StressSolver->addAngularVelocity(*actor, (NvcVec3&)localCenterMass, (NvcVec3&)localAngularVelocity);
+			const FVector LocalGravity = BodyInst->GetUnrealWorldTransform_AssumesLocked().InverseTransformVectorNoScale(Gravity);
+			StressSolver->addGravity(*actor, ToNvVector(LocalGravity));
 		}
 	}
-	SCENE_UNLOCK_READ(PScene);
+	// SCENE_UNLOCK_READ(PScene);
 
 	// Stress Solver update
 	const auto& UsedStressProperties = GetUsedStressProperties();
 	{
-		const float Cm2M = 0.01f; // 'cm' to 'm'
 		Nv::Blast::ExtStressSolverSettings settings;
-		settings.hardness = UsedStressProperties.Hardness;
+		settings.compressionElasticLimit = UsedStressProperties.CompressionElasticLimit;
+		settings.compressionFatalLimit = UsedStressProperties.CompressionFatalLimit;
+		settings.tensionElasticLimit = UsedStressProperties.TensionElasticLimit;
+		settings.tensionFatalLimit = UsedStressProperties.TensionFatalLimit;
+		settings.shearElasticLimit = UsedStressProperties.ShearElasticLimit;
+		settings.shearFatalLimit = UsedStressProperties.ShearFatalLimit;
 		settings.graphReductionLevel = UsedStressProperties.GraphReductionLevel;
-		settings.stressLinearFactor = (1.f - UsedStressProperties.AngularVsLinearStressFraction) * Cm2M;
-		settings.stressAngularFactor = UsedStressProperties.AngularVsLinearStressFraction * Cm2M * Cm2M;
-		settings.bondIterationsPerFrame = UsedStressProperties.BondIterationsPerFrame;
+		settings.maxSolverIterationsPerFrame = UsedStressProperties.MaxSolverIterationsPerFrame;
 		StressSolver->setSettings(settings);
 
 		StressSolver->update();
@@ -2686,7 +2680,7 @@ void UBlastMeshComponent::TickStressSolver()
 				continue;
 			}
 
-			uint32_t nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
+			uint32 nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
 			if (nodeCount > 1)
 			{
 				NvBlastFractureBuffers commands;
@@ -2709,7 +2703,7 @@ void UBlastMeshComponent::TickStressSolver()
 								actorBody->AddRadialImpulseToBody(input.worldOrigin, Radius, ImpulseStrength, 0, true);
 							}
 						};
-						
+
 						if (StressProperties.SplitImpulseStrength > 0.f)
 						{
 							// Apply radial force to all new actors from the COM of parent actor
@@ -2724,7 +2718,7 @@ void UBlastMeshComponent::TickStressSolver()
 						{
 							HandlePostDamage(actor, StressDamageType);
 						}
-						
+
 					}
 				}
 			}
@@ -2803,9 +2797,9 @@ void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& Actor
 					{
 						//PB (Omar): Original implementation had no read unlock here which is wrong as BreakDownBlastActor has a TermBody call that
 						//does a SCOPED_SCENE_WRITE_LOCK and this sequence is not allowed. 
-						SCENE_UNLOCK_READ(GetPXScene());
+						// SCENE_UNLOCK_READ(GetPXScene());
 						BreakDownBlastActor(ActorIndex);
-						SCENE_LOCK_READ(GetPXScene());
+						// SCENE_LOCK_READ(GetPXScene());
 						break;
 					}
 				}
@@ -2822,13 +2816,12 @@ void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& Actor
 
 #if WITH_EDITOR
 
-inline FColor bondHealthColor(float healthFraction)
+inline FLinearColor bondHealthColor(float healthFraction)
 {
 	const FLinearColor BOND_HEALTHY_COLOR(0, 1.0f, 0, 1.0f);
 	const FLinearColor BOND_MID_COLOR(1.0f, 1.0f, 0, 1.0f);
 	const FLinearColor BOND_BROKEN_COLOR(1.0f, 0, 0, 1.0f);
-	FLinearColor res = healthFraction < 0.5 ? FMath::Lerp(BOND_BROKEN_COLOR, BOND_MID_COLOR, 2.0f * healthFraction) : FMath::Lerp(BOND_MID_COLOR, BOND_HEALTHY_COLOR, 2.0f * healthFraction - 1.0f);
-	return res.Quantize();
+	return healthFraction < 0.5 ? FMath::Lerp(BOND_BROKEN_COLOR, BOND_MID_COLOR, 2.0f * healthFraction) : FMath::Lerp(BOND_MID_COLOR, BOND_HEALTHY_COLOR, 2.0f * healthFraction - 1.0f);
 }
 
 void UBlastMeshComponent::DrawDebugChunkCentroids()
@@ -2866,9 +2859,9 @@ void UBlastMeshComponent::DrawDebugChunkCentroids()
 				NeedsToDraw[Parent] = false;
 				Parent = Chunks[Parent].parentChunkIndex;
 			}
-			
+
 			FVector worldCentroid = RestSpaceToWorldSpace.TransformPosition(*reinterpret_cast<const FVector*>(LLChunk.centroid));
-			DrawDebugBox(worldCentroid, FVector(10.0f), ActorData.bIsAttachedToComponent ? FColor::White : FColor::Green);
+			DrawDebugBox(worldCentroid, FVector(10.0f), ActorData.bIsAttachedToComponent ? FLinearColor::White : FLinearColor::Green);
 		}
 	}
 
@@ -2876,7 +2869,7 @@ void UBlastMeshComponent::DrawDebugChunkCentroids()
 	{
 		const NvBlastChunk& LLChunk = Chunks[It.GetIndex()];
 		FVector worldCentroid = GetComponentTransform().TransformPosition(*reinterpret_cast<const FVector*>(LLChunk.centroid));
-		DrawDebugBox(worldCentroid, FVector(10.0f), FColor::Blue);
+		DrawDebugBox(worldCentroid, FVector(10.0f), FLinearColor::Blue);
 	}
 
 }
@@ -2892,13 +2885,13 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 	const NvBlastAsset* LLBlastAsset = BlastAsset->GetLoadedAsset();
 	const NvBlastBond* bonds = NvBlastAssetGetBonds(LLBlastAsset, Nv::Blast::logLL);
 	const NvBlastSupportGraph graph = NvBlastAssetGetSupportGraph(LLBlastAsset, Nv::Blast::logLL);
-	const uint32_t chunkCount = BlastAsset->GetChunkCount();
+	const uint32 chunkCount = BlastAsset->GetChunkCount();
 
 	// TODO: better scan all bonds once somewhere
-	const float bondHealthMax = 1.0f; 
+	const float bondHealthMax = 1.0f;
 
-	const FColor BOND_NORMAL_COLOR(0, 204, 255, 255);
-	const FColor BOND_INVISIBLE_COLOR(166, 41, 41, 255);
+	const FLinearColor BOND_NORMAL_COLOR(0, 204, 255, 255);
+	const FLinearColor BOND_INVISIBLE_COLOR(166, 41, 41, 255);
 
 	//Bond centroids are always in mesh-relative worldspace, not bone space, but in the original position of the mesh
 	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
@@ -2909,39 +2902,39 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 		{
 			continue;
 		}
-	
-		uint32_t nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
+
+		uint32 nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
 		if (nodeCount <= 1) // subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
 			continue;
 
 		FTransform RestSpaceToWorldSpace = ActorData.BodyInstance->GetUnrealWorldTransform();
 		RestSpaceToWorldSpace.SetScale3D(ActorData.BodyInstance->Scale3D);
 
-		TArray<uint32_t> Nodes;
+		TArray<uint32> Nodes;
 		Nodes.Reserve(nodeCount);
-		nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), static_cast<uint32_t>(Nodes.Max()), actor, Nv::Blast::logLL);
+		nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), static_cast<uint32>(Nodes.Max()), actor, Nv::Blast::logLL);
 
 		const float* bondHealths = NvBlastActorGetBondHealths(actor, Nv::Blast::logLL);
 
-		for (uint32_t i = 0; i < nodeCount; i++)
+		for (uint32 i = 0; i < nodeCount; i++)
 		{
-			const uint32_t node0 = Nodes[i];
-			const uint32_t chunkIndex0 = graph.chunkIndices[node0];
+			const uint32 node0 = Nodes[i];
+			const uint32 chunkIndex0 = graph.chunkIndices[node0];
 
-			for (uint32_t adjacencyIndex = graph.adjacencyPartition[node0]; adjacencyIndex < graph.adjacencyPartition[node0 + 1]; adjacencyIndex++)
+			for (uint32 adjacencyIndex = graph.adjacencyPartition[node0]; adjacencyIndex < graph.adjacencyPartition[node0 + 1]; adjacencyIndex++)
 			{
-				const uint32_t node1 = graph.adjacentNodeIndices[adjacencyIndex];
-				const uint32_t chunkIndex1 = graph.chunkIndices[node1];
+				const uint32 node1 = graph.adjacentNodeIndices[adjacencyIndex];
+				const uint32 chunkIndex1 = graph.chunkIndices[node1];
 				if (node0 > node1)
 					continue;
 
 				bool invisibleBond = chunkIndex0 >= chunkCount || chunkIndex1 >= chunkCount;
 
 				// health
-				uint32_t bondIndex = graph.adjacentBondIndices[adjacencyIndex];
-				float healthVal = PxClamp(bondHealths[bondIndex] / bondHealthMax, 0.0f, 1.0f);
+				uint32 bondIndex = graph.adjacentBondIndices[adjacencyIndex];
+				float healthVal = FMath::Clamp(bondHealths[bondIndex] / bondHealthMax, 0.0f, 1.0f);
 
-				FColor color = bondHealthColor(healthVal);
+				const FLinearColor color = bondHealthColor(healthVal);
 
 				const NvBlastBond& solverBond = bonds[bondIndex];
 				const FVector& centroid = reinterpret_cast<const FVector&>(solverBond.centroid);
@@ -2949,7 +2942,7 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 				// centroid
 				if (true)
 				{
-					//const PxVec3& normal = reinterpret_cast<const PxVec3&>(solverBond.normal);
+					//const NvcVec3& normal = reinterpret_cast<const NvcVec3&>(solverBond.normal);
 					FVector worldCentroid = RestSpaceToWorldSpace.TransformPosition(centroid);
 					float extent = FMath::Sqrt(solverBond.area) * 0.5f; // approximation
 					extent /= 10.0f; // scale down for visual candy
@@ -2960,89 +2953,88 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 				if (!invisibleBond)
 				{
 					DrawDebugLine(RestSpaceToWorldSpace.TransformPosition(FVector(reinterpret_cast<const FVector&>(BlastAsset->GetChunkInfo(chunkIndex0).centroid))),
-								  RestSpaceToWorldSpace.TransformPosition(FVector(reinterpret_cast<const FVector&>(BlastAsset->GetChunkInfo(chunkIndex1).centroid))),
-								  color);
+						RestSpaceToWorldSpace.TransformPosition(FVector(reinterpret_cast<const FVector&>(BlastAsset->GetChunkInfo(chunkIndex1).centroid))),
+						color);
 				}
 			}
 		}
 	}
 }
 
+FLinearColor UnpackColor(uint32 color)
+{
+	const FLinearColor LinColor{ FColor(color) };
+	return FLinearColor(LinColor.B, LinColor.G, LinColor.R, LinColor.A);
+}
+
 void UBlastMeshComponent::DrawDebugStressGraph()
 {
-	if (StressSolver)
+	if (!StressSolver || StressDebugMode == EBlastStressDebugRenderMode::None)
 	{
-		auto unpackColor = [](uint32 color)
+		return;
+	}
+
+	TArray<uint32> Nodes;
+	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
+	{
+		FActorData& ActorData = BlastActors[ActorIndex];
+		NvBlastActor* actor = ActorData.BlastActor;
+		if (!actor)
 		{
-			FLinearColor c = FLinearColor(FColor(color));
-			return FLinearColor(c.B, c.G, c.R, c.A);
-		};
+			continue;
+		}
 
-		auto debugMode = BlastDebugRenderMode == EBlastDebugRenderMode::StressSolverStress ? Nv::Blast::ExtStressSolver::STRESS_GRAPH : Nv::Blast::ExtStressSolver::STRESS_GRAPH_BONDS_IMPULSES;
+		uint32 nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
+		if (nodeCount <= 1) // subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
+			continue;
 
-		TArray<uint32_t> Nodes;
+		Nodes.SetNum(nodeCount);
+		nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), static_cast<uint32>(Nodes.Max()), actor, Nv::Blast::logLL);
 
-		for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
+		FTransform RestSpaceToWorldSpace = ActorData.BodyInstance->GetUnrealWorldTransform();
+		RestSpaceToWorldSpace.SetScale3D(ActorData.BodyInstance->Scale3D);
+
+		const Nv::Blast::ExtStressSolver::DebugBuffer Buf = StressSolver->fillDebugRender(Nodes.GetData(), nodeCount, static_cast<Nv::Blast::ExtStressSolver::DebugRenderMode>(static_cast<int>(StressDebugMode) - 1), 0.01f);
+
+		for (uint32 Idx = 0; Idx < Buf.lineCount; Idx++)
 		{
-			FActorData& ActorData = BlastActors[ActorIndex];
-			NvBlastActor* actor = ActorData.BlastActor;
-			if (!actor)
-			{
-				continue;
-			}
-
-			uint32_t nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
-			if (nodeCount <= 1) // subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
-				continue;
-
-			Nodes.SetNum(nodeCount);
-			nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), static_cast<uint32_t>(Nodes.Max()), actor, Nv::Blast::logLL);
-
-			FTransform RestSpaceToWorldSpace = ActorData.BodyInstance->GetUnrealWorldTransform();
-			RestSpaceToWorldSpace.SetScale3D(ActorData.BodyInstance->Scale3D);
-
-			const auto debugBuffer = StressSolver->fillDebugRender(Nodes.GetData(), nodeCount, debugMode, 0.01f);
-
-			for (uint32 i = 0; i < debugBuffer.lineCount; i++)
-			{
-				const auto& line = debugBuffer.lines[i];
-				FLinearColor color = FMath::Lerp(unpackColor(line.color0), unpackColor(line.color1), 0.5f);
-				FVector p0 = RestSpaceToWorldSpace.TransformPosition(P2UVector((PxVec3&)line.pos0));
-				FVector p1 = RestSpaceToWorldSpace.TransformPosition(P2UVector((PxVec3&)line.pos1));
-				DrawDebugLine(p0, p1, color.Quantize());
-			}
+			const Nv::Blast::ExtStressSolver::DebugLine& line = Buf.lines[Idx];
+			const FLinearColor color = FMath::Lerp(UnpackColor(line.color0), UnpackColor(line.color1), 0.5f);
+			const FVector p0 = RestSpaceToWorldSpace.TransformPosition(FromNvVector(line.pos0));
+			const FVector p1 = RestSpaceToWorldSpace.TransformPosition(FromNvVector(line.pos1));
+			DrawDebugLine(p0, p1, color);
 		}
 	}
 }
 
-void UBlastMeshComponent::DrawDebugLine(FVector const& LineStart, FVector const& LineEnd, FColor const& Color, uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
+void UBlastMeshComponent::DrawDebugLine(FVector const& LineStart, FVector const& LineEnd, FLinearColor const& Color, uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
 {
 	//We don't use the lifetime member
-	PendingDebugLines.Emplace(LineStart, LineEnd, Color.ReinterpretAsLinear(), 0, Thickness, DepthPriority);
+	PendingDebugLines.Emplace(LineStart, LineEnd, Color, 0, Thickness, DepthPriority);
 }
 
-void UBlastMeshComponent::DrawDebugBox(FVector const& Center, FVector const& Extent, FColor const& Color, uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
+void UBlastMeshComponent::DrawDebugBox(FVector const& Center, FVector const& Extent, FLinearColor const& Color, uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
 {
 	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, -Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
-	
+
 	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, -Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, -Extent.Z), Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Center + FVector(-Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, -Extent.Z), Center + FVector(Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
-	
+
 	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
 	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, Extent.Z), Center + FVector(-Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
 }
 
-void UBlastMeshComponent::DrawDebugPoint(FVector const& Position, float Size, FColor const& PointColor, uint8 DepthPriority /*= 0*/)
+void UBlastMeshComponent::DrawDebugPoint(FVector const& Position, float Size, FLinearColor const& PointColor, uint8 DepthPriority /*= 0*/)
 {
 	//We don't use the lifetime member
-	PendingDebugPoints.Emplace(Position, PointColor.ReinterpretAsLinear(), Size, 0, DepthPriority);
+	PendingDebugPoints.Emplace(Position, PointColor, Size, 0, DepthPriority);
 }
 
 #endif
@@ -3051,7 +3043,7 @@ const FName UBlastMeshComponent::ActorBaseName("Actor");
 
 FPrimitiveSceneProxy* UBlastMeshComponent::CreateSceneProxy()
 {
-	ERHIFeatureLevel::Type SceneFeatureLevel = GetWorld()->FeatureLevel;
+	ERHIFeatureLevel::Type SceneFeatureLevel = GetWorld()->GetFeatureLevel();
 	FBlastMeshSceneProxy* Result = nullptr;
 	FSkeletalMeshRenderData* SkelMeshRenderData = GetSkeletalMeshRenderData();
 
@@ -3075,7 +3067,7 @@ FPrimitiveSceneProxy* UBlastMeshComponent::CreateSceneProxy()
 	return Result;
 }
 
-FBlastMeshSceneProxy::FBlastMeshSceneProxy(const UBlastMeshComponent* Component, FSkeletalMeshRenderData* InSkelMeshRenderData) : 
+FBlastMeshSceneProxy::FBlastMeshSceneProxy(const UBlastMeshComponent* Component, FSkeletalMeshRenderData* InSkelMeshRenderData) :
 	FBlastMeshSceneProxyBase(Component),
 	FSkeletalMeshSceneProxy(Component, InSkelMeshRenderData)
 {
@@ -3111,7 +3103,7 @@ void FBlastMeshSceneProxyBase::RenderPhysicsAsset(int32 ViewIndex, FMeshElementC
 		FTransform LocalToWorldTransform(ProxyLocalToWorld);
 		const auto& ChunkIndexToBoneIndex = BlastMeshForDebug->ChunkIndexToBoneIndex;
 		const auto& CookedChunkData = BlastMeshForDebug->GetCookedChunkData_AssumeUpToDate();
-	
+
 		if (BoneSpaceBases && EngineShowFlags.Collision)
 		{
 			for (auto ChunkIndex : VisibleChunkIndices)

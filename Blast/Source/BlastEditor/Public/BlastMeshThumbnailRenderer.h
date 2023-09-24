@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 
-#include "UnrealEd/Public/ThumbnailHelpers.h"
+#include "ThumbnailHelpers.h"
 #include "ThumbnailRendering/DefaultSizedThumbnailRenderer.h"
 
 #include "BlastMeshThumbnailRenderer.generated.h"

@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Tools.DotNETCommon;
+using EpicGames.Core;
 
 namespace UnrealBuildTool.Rules
 {
@@ -8,37 +8,13 @@ namespace UnrealBuildTool.Rules
     {
         public static string GetBlastLibraryFolderName(ModuleRules Rules)
         {
-            switch (Rules.Target.Configuration)
+            if (Rules.Target.Configuration == UnrealTargetConfiguration.Debug)
             {
-                case UnrealTargetConfiguration.Debug:
-                    if (Rules.Target.bUseDebugPhysXLibraries)
-                    {
-                        return "debug";
-                    }
-                    else
-                    {
-                        return "checked";
-                    }
-                case UnrealTargetConfiguration.Shipping:
-                    return "release";
-                case UnrealTargetConfiguration.Test:
-                    return "profile";
-                case UnrealTargetConfiguration.Development:
-                case UnrealTargetConfiguration.DebugGame:
-                case UnrealTargetConfiguration.Unknown:
-                default:
-                    if (Rules.Target.bUseShippingPhysXLibraries)
-                    {
-                        return "release";
-                    }
-                    else if (Rules.Target.bUseCheckedPhysXLibraries)
-                    {
-                        return "checked";
-                    }
-                    else
-                    {
-                        return "profile";
-                    }
+                return "debug";
+            }
+            else
+            {
+                return "release";
             }
         }
 
@@ -47,6 +23,9 @@ namespace UnrealBuildTool.Rules
             string LibFolderName = GetBlastLibraryFolderName(Rules);
 
             Rules.PublicDefinitions.Add(string.Format("BLAST_LIB_CONFIG_STRING=\"{0}\"", LibFolderName));
+
+            const bool bUsePhysX = false;
+            Rules.PublicDefinitions.Add(string.Format("BLAST_USE_PHYSX={0}", bUsePhysX ? 1 : 0));
 
             //Go up two from Source/Blast
             DirectoryReference ModuleRootFolder = (new DirectoryReference(Rules.ModuleDirectory)).ParentDirectory.ParentDirectory;
@@ -60,13 +39,8 @@ namespace UnrealBuildTool.Rules
             // Libraries and DLLs for windows platform
             if (Rules.Target.Platform == UnrealTargetPlatform.Win64)
             {
-                DLLSuffix = "_x64.dll";
-                LibSuffix = "_x64.lib";
-            }
-            else if (Rules.Target.Platform == UnrealTargetPlatform.Win32)
-            {
-                DLLSuffix = "_x86.dll";
-                LibSuffix = "_x86.lib";
+                DLLSuffix = ".dll";
+                LibSuffix = ".lib";
             }
             else if (Rules.Target.Platform == UnrealTargetPlatform.Linux)
             {
@@ -85,6 +59,14 @@ namespace UnrealBuildTool.Rules
                 Rules.PublicDelayLoadDLLs.Add(DllName);
                 Rules.RuntimeDependencies.Add(Path.Combine(BLASTLibDir, DllName));
             }
+
+            if (bUsePhysX)
+            {
+            }
+            else
+            {
+                Rules.PrivateDependencyModuleNames.Add("Chaos");
+            }
             
             //It's useful to periodically turn this on since the order of appending files in unity build is random.
             //The use of types without the right header can creep in and cause random build failures
@@ -98,11 +80,12 @@ namespace UnrealBuildTool.Rules
 
             PublicIncludePaths.AddRange(
                 new string[] {
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/extensions/serialization/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/extensions/shaders/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/extensions/stress/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/globals/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/lowlevel/include/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/extensions/serialization/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/extensions/shaders/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/extensions/stress/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/shared/NvFoundation/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/globals/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "Public/lowlevel/")),
                 }
             );
 
@@ -115,7 +98,8 @@ namespace UnrealBuildTool.Rules
                     "RenderCore",
                     "Renderer",
                     "RHI",
-                    "BlastLoader"
+                    "BlastLoader",
+                    "PhysicsCore"
                 }
             );
 
@@ -126,7 +110,7 @@ namespace UnrealBuildTool.Rules
                   {
                         "RawMesh",
                         "UnrealEd",
-                        "BlastLoaderEditor",
+                        "BlastLoaderEditor"
                   }
                 );
             }
@@ -134,8 +118,7 @@ namespace UnrealBuildTool.Rules
             PublicDependencyModuleNames.AddRange(
                 new string[]
                 {
-                    "Engine",
-                    "PhysX",
+                    "Engine"
                 }
             );
 
@@ -151,14 +134,15 @@ namespace UnrealBuildTool.Rules
             PrivateIncludePaths.AddRange(
                 new string[]
                 {
-                    "Blast/Public/extensions/assetutils/include",
-                    "Blast/Public/extensions/authoring/include",
-                    "Blast/Public/extensions/authoringCommon/include",
-                    "Blast/Public/extensions/serialization/include",
-                    "Blast/Public/extensions/shaders/include",
-                    "Blast/Public/extensions/stress/include",
-                    "Blast/Public/globals/include",
-                    "Blast/Public/lowlevel/include"
+                    "Blast/Public/extensions/assetutils",
+                    "Blast/Public/extensions/authoring",
+                    "Blast/Public/extensions/authoringCommon",
+                    "Blast/Public/extensions/serialization",
+                    "Blast/Public/extensions/shaders",
+                    "Blast/Public/extensions/stress",
+                    "Blast/Public/shared/NvFoundation",
+                    "Blast/Public/globals",
+                    "Blast/Public/lowlevel"
                 }
             );
 

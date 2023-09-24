@@ -26,25 +26,19 @@
 // Copyright (c) 2017 NVIDIA Corporation. All rights reserved.
 
 #include "BlastMeshExporterFbxUtils.h"
-#include "fbxsdk.h"
-#include "PxVec3.h"
-#include "PxVec2.h"
+
 #include "NvBlastExtAuthoringTypes.h"
 #include <sstream>
-#include <cctype>
-
-using physx::PxVec3;
-using physx::PxVec2;
 
 
 void FbxUtils::VertexToFbx(const Nv::Blast::Vertex& vert, FbxVector4& outVertex, FbxVector4& outNormal, FbxVector2& outUV)
 {
-	PxVec3ToFbx((PxVec3&)vert.p, outVertex);
-	PxVec3ToFbx((PxVec3&)vert.n, outNormal);
-	PxVec2ToFbx((PxVec2&)vert.uv[0], outUV);
+	NvcVec3ToFbx(vert.p, outVertex);
+	NvcVec3ToFbx(vert.n, outNormal);
+	NvcVec2ToFbx(vert.uv[0], outUV);
 }
 
-void FbxUtils::PxVec3ToFbx(const physx::PxVec3& inVector, FbxVector4& outVector)
+void FbxUtils::NvcVec3ToFbx(const NvcVec3& inVector, FbxVector4& outVector)
 {
 	outVector[0] = inVector.x;
 	outVector[1] = inVector.y;
@@ -52,7 +46,7 @@ void FbxUtils::PxVec3ToFbx(const physx::PxVec3& inVector, FbxVector4& outVector)
 	outVector[3] = 0;
 }
 
-void FbxUtils::PxVec2ToFbx(const physx::PxVec2& inVector, FbxVector2& outVector)
+void FbxUtils::NvcVec2ToFbx(const NvcVec2& inVector, FbxVector2& outVector)
 {
 	outVector[0] = inVector.x;
 	outVector[1] = inVector.y;
@@ -72,83 +66,87 @@ FbxSystemUnit FbxUtils::getBlastFBXUnit()
 	return FbxSystemUnit::cm;
 }
 
-std::string FbxUtils::FbxAxisSystemToString(const FbxAxisSystem& axisSystem)
+FString FbxUtils::FbxAxisSystemToString(const FbxAxisSystem& axisSystem)
 {
-	std::stringstream ss;
+	FString ss;
 	int upSign, frontSign;
 	FbxAxisSystem::EUpVector upVector = axisSystem.GetUpVector(upSign);
 	FbxAxisSystem::EFrontVector frontVector = axisSystem.GetFrontVector(frontSign);
 	FbxAxisSystem::ECoordSystem  coordSystem = axisSystem.GetCoorSystem();
-	ss << "Predefined Type: ";
+	ss.Append(TEXT("Predefined Type: "));
 	if (axisSystem == FbxAxisSystem::MayaZUp)
 	{
-		ss << "MayaZUP";
+		ss.Append(TEXT("MayaZUP"));
 	}
 	else if (axisSystem == FbxAxisSystem::MayaYUp)
 	{
-		ss << "MayaYUp";
+		ss.Append(TEXT("MayaYUp"));
 	}
 	else if (axisSystem == FbxAxisSystem::Max)
 	{
-		ss << "Max";
+		ss.Append(TEXT("Max"));
 	}
 	else if (axisSystem == FbxAxisSystem::Motionbuilder)
 	{
-		ss << "Motionbuilder";
+		ss.Append(TEXT("Motionbuilder"));
 	}
 	else if (axisSystem == FbxAxisSystem::OpenGL)
 	{
-		ss << "OpenGL";
+		ss.Append(TEXT("OpenGL"));
 	}
 	else if (axisSystem == FbxAxisSystem::DirectX)
 	{
-		ss << "OpenGL";
+		ss.Append(TEXT("OpenGL"));
 	}
 	else if (axisSystem == FbxAxisSystem::Lightwave)
 	{
-		ss << "OpenGL";
+		ss.Append(TEXT("OpenGL"));
 	}
 	else
 	{
-		ss << "<Other>";
+		ss.Append(TEXT("<Other>"));
 	}
-	ss << " UpVector: " << (upSign > 0 ? "+" : "-");
+
+	ss.Append(TEXT(" UpVector: "));
+	ss.Append(upSign > 0 ? TEXT("+") : TEXT("-"));
+
 	switch (upVector)
 	{
-		case FbxAxisSystem::eXAxis: ss << "eXAxis"; break;
-		case FbxAxisSystem::eYAxis: ss << "eYAxis"; break;
-		case FbxAxisSystem::eZAxis: ss << "eZAxis"; break;
-		default: ss << "<unknown>"; break;
+	case FbxAxisSystem::eXAxis: ss.Append(TEXT("eXAxis")); break;
+	case FbxAxisSystem::eYAxis: ss.Append(TEXT("eYAxis")); break;
+	case FbxAxisSystem::eZAxis: ss.Append(TEXT("eZAxis")); break;
+	default: ss.Append(TEXT("<unknown>")); break;
 	}
 
-	ss << " FrontVector: " << (frontSign > 0 ? "+" : "-");
+	ss.Append(TEXT(" FrontVector: "));
+	ss.Append(frontSign > 0 ? TEXT("+") : TEXT("-"));
 	switch (frontVector)
 	{
-	case FbxAxisSystem::eParityEven: ss << "eParityEven"; break;
-	case FbxAxisSystem::eParityOdd: ss << "eParityOdd"; break;
-	default: ss << "<unknown>"; break;
+	case FbxAxisSystem::eParityEven:ss.Append(TEXT("eParityEven")); break;
+	case FbxAxisSystem::eParityOdd: ss.Append(TEXT("eParityOdd")); break;
+	default:ss.Append(TEXT("<unknown>")); break;
 	}
 
-	ss << " CoordSystem: ";
+	ss.Append(TEXT(" CoordSystem: "));
 	switch (coordSystem)
 	{
-	case FbxAxisSystem::eLeftHanded: ss << "eLeftHanded"; break;
-	case FbxAxisSystem::eRightHanded: ss << "eRightHanded"; break;
-	default: ss << "<unknown>"; break;
+	case FbxAxisSystem::eLeftHanded: ss.Append(TEXT("eLeftHanded")); break;
+	case FbxAxisSystem::eRightHanded: ss.Append(TEXT("eRightHanded")); break;
+	default: ss.Append(TEXT("<unknown>")); break;
 	}
-	
-	return ss.str();
+
+	return ss;
 }
 
-std::string FbxUtils::FbxSystemUnitToString(const FbxSystemUnit& systemUnit)
+FString FbxUtils::FbxSystemUnitToString(const FbxSystemUnit& systemUnit)
 {
-	return std::string(systemUnit.GetScaleFactorAsString());
+	return FString(systemUnit.GetScaleFactorAsString());
 }
 
-const static std::string currentChunkPrefix = "chunk_";
-const static std::string oldChunkPrefix = "bone_";
+const FString currentChunkPrefix = TEXT("chunk_");
+const FString oldChunkPrefix = TEXT("bone_");
 
-static uint32_t getChunkIndexForNodeInternal(const std::string& chunkPrefix, FbxNode* node, uint32_t* outParentChunkIndex /*=nullptr*/)
+static uint32 getChunkIndexForNodeInternal(const FString& chunkPrefix, FbxNode* node, uint32* outParentChunkIndex /*=nullptr*/)
 {
 	if (!node)
 	{
@@ -156,52 +154,49 @@ static uint32_t getChunkIndexForNodeInternal(const std::string& chunkPrefix, Fbx
 		return UINT32_MAX;
 	}
 
-	std::string nodeName(node->GetNameOnly());
-	for (char& c : nodeName)
-		c = (char)std::tolower(c);
+	FString nodeName(node->GetNameOnly().Buffer());
+	nodeName.ToLowerInline();
 
-	if (nodeName.substr(0, chunkPrefix.size()) == chunkPrefix)
+	if (nodeName.StartsWith(chunkPrefix))
 	{
-		std::istringstream iss(nodeName.substr(chunkPrefix.size()));
-		uint32_t ret = UINT32_MAX;
-		iss >> ret;
-		if (!iss.fail())
+		int32 ChunkIdx = FCString::Atoi(*nodeName.Mid(chunkPrefix.Len()));
+		if (ChunkIdx >= 0)
 		{
 			if (outParentChunkIndex)
 			{
 				*outParentChunkIndex = getChunkIndexForNodeInternal(chunkPrefix, node->GetParent(), nullptr);
 			}
-			return ret;
+			return ChunkIdx;
 		}
 	}
 
 	return getChunkIndexForNodeInternal(chunkPrefix, node->GetParent(), outParentChunkIndex);
 }
 
-uint32_t FbxUtils::getChunkIndexForNode(FbxNode* node, uint32_t* outParentChunkIndex /*=nullptr*/)
+uint32 FbxUtils::getChunkIndexForNode(FbxNode* node, uint32* outParentChunkIndex /*=nullptr*/)
 {
 	return getChunkIndexForNodeInternal(currentChunkPrefix, node, outParentChunkIndex);
 }
 
-uint32_t FbxUtils::getChunkIndexForNodeBackwardsCompatible(FbxNode* node, uint32_t* outParentChunkIndex /*= nullptr*/)
+uint32 FbxUtils::getChunkIndexForNodeBackwardsCompatible(FbxNode* node, uint32* outParentChunkIndex /*= nullptr*/)
 {
 	return getChunkIndexForNodeInternal(oldChunkPrefix, node, outParentChunkIndex);
 }
 
-std::string FbxUtils::getChunkNodeName(uint32_t chunkIndex)
+FString FbxUtils::getChunkNodeName(uint32 chunkIndex)
 {
 	//This naming is required for the UE4 plugin to find them
-	std::ostringstream namestream;
-	namestream << currentChunkPrefix << chunkIndex;
-	return namestream.str();
+	return currentChunkPrefix + FString::FromInt(chunkIndex);
 }
 
-std::string FbxUtils::getCollisionGeometryLayerName()
+FString FbxUtils::getCollisionGeometryLayerName()
 {
-	return "Collision";
+	static const FString CollisionStr(TEXT("Collision"));
+	return CollisionStr;
 }
 
-std::string FbxUtils::getRenderGeometryLayerName()
+FString FbxUtils::getRenderGeometryLayerName()
 {
-	return "Render";
+	static const FString RenderStr(TEXT("Render"));
+	return RenderStr;
 }

@@ -5,7 +5,9 @@
 #include "PhysXPublic.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshModel.h"
+#include "UObject/ObjectSaveContext.h"
 #if WITH_EDITOR
+#include "Engine/SkinnedAssetCommon.h"
 #include "RawMesh.h"
 #include "RawIndexBuffer.h"
 #include "NvBlast.h"
@@ -14,7 +16,7 @@
 
 #define LOCTEXT_NAMESPACE "Blast"
 
-UBlastMesh::UBlastMesh(const FObjectInitializer& ObjectInitializer):
+UBlastMesh::UBlastMesh(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
 	Mesh(nullptr),
 	Skeleton(nullptr),
@@ -139,13 +141,13 @@ void UBlastMesh::PostLoad()
 #endif
 }
 
-void UBlastMesh::PreSave(const class ITargetPlatform* TargetPlatform)
+void UBlastMesh::PreSave(FObjectPreSaveContext SaveContext)
 {
 #if WITH_EDITOR
 	//Since can only do this in the editor, just make 100% sure this up to date if we are cooking
 	RebuildCookedBodySetupsIfRequired();
 #endif
-	Super::PreSave(TargetPlatform);
+	Super::PreSave(SaveContext);
 }
 
 void UBlastMesh::RebuildIndexToBoneNameMap()
@@ -189,7 +191,7 @@ void UBlastMesh::RebuildCookedBodySetupsIfRequired(bool bForceRebuild)
 	{
 		CookedChunkData.SetNum(ChunkCount);
 	}
-	
+
 	for (int32 ChunkIndex = 0; ChunkIndex < ChunkCount; ChunkIndex++)
 	{
 		FBlastCookedChunkData& CurCookedChunkData = CookedChunkData[ChunkIndex];
@@ -201,7 +203,7 @@ void UBlastMesh::RebuildCookedBodySetupsIfRequired(bool bForceRebuild)
 		{
 			//Transform these ahead of time and cache since InitialBoneTransform is constant
 			//Always make the initial actor at the component space origin, this allows the actor space to correspond to the at-rest position which Blast internally uses
-			UBodySetup*  PhysicsAssetBodySetup = PhysicsAsset->SkeletalBodySetups[BodySetupIndex];
+			UBodySetup* PhysicsAssetBodySetup = PhysicsAsset->SkeletalBodySetups[BodySetupIndex];
 			//Whenever this setup is changed the guid is changed
 			if (bForceRebuild || CurCookedChunkData.SourceBodySetupGUID != PhysicsAssetBodySetup->BodySetupGuid)
 			{
@@ -456,6 +458,7 @@ void FBlastCookedChunkData::PopulateBodySetup(UBodySetup* NewBodySetup) const
 	ConvexMeshTempList MirroredConvexMeshes;
 	for (auto& C : CookedBodySetup->AggGeom.ConvexElems)
 	{
+#if BLAST_USE_PHYSX
 		physx::PxConvexMesh* Mesh = C.GetConvexMesh();
 		if (Mesh)
 		{
@@ -468,6 +471,9 @@ void FBlastCookedChunkData::PopulateBodySetup(UBodySetup* NewBodySetup) const
 			Mesh->acquireReference();
 		}
 		MirroredConvexMeshes.Add(Mesh);
+#else
+		ConvexMeshes.Add(C.GetChaosConvexMesh());
+#endif
 	}
 
 	NewBodySetup->CopyBodyPropertiesFrom(CookedBodySetup);
@@ -475,7 +481,7 @@ void FBlastCookedChunkData::PopulateBodySetup(UBodySetup* NewBodySetup) const
 	UpdateAfterShapesAdded(NewBodySetup, ConvexMeshes, MirroredConvexMeshes);
 }
 
-void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const 
+void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
 {
 	//Make sure they are loaded
 	CookedBodySetup->CreatePhysicsMeshes();
@@ -485,13 +491,18 @@ void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
 	ConvexMeshTempList MirroredConvexMeshes;
 	for (auto& C : NewBodySetup->AggGeom.ConvexElems)
 	{
+#if BLAST_USE_PHYSX
 		//Already add-refed these before
 		ConvexMeshes.Add(C.GetConvexMesh());
 		MirroredConvexMeshes.Add(C.GetMirroredConvexMesh());
+#else
+		ConvexMeshes.Add(C.GetChaosConvexMesh());
+#endif
 	}
 
-	for (auto& C : CookedBodySetup->AggGeom.ConvexElems)
+	for (const auto& C : CookedBodySetup->AggGeom.ConvexElems)
 	{
+#if BLAST_USE_PHYSX
 		physx::PxConvexMesh* Mesh = C.GetConvexMesh();
 		if (Mesh)
 		{
@@ -504,6 +515,9 @@ void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
 			Mesh->acquireReference();
 		}
 		MirroredConvexMeshes.Add(Mesh);
+#else
+		ConvexMeshes.Add(C.GetChaosConvexMesh());
+#endif
 	}
 
 	//Should we check the PhysicalMaterial, etc are the same
@@ -520,10 +534,20 @@ void FBlastCookedChunkData::UpdateAfterShapesAdded(UBodySetup* NewBodySetup, Con
 	for (int32 C = 0; C < ConvexCount; C++)
 	{
 		auto& New = NewBodySetup->AggGeom.ConvexElems[C];
-		bAllThere &= (ConvexMeshes[C] != nullptr &&  MirroredConvexMeshes[C] != nullptr);
 
+		bAllThere &= ConvexMeshes.IsValidIndex(C) && ConvexMeshes[C];
+		if (!bAllThere)
+		{
+			break;
+		}
+
+#if BLAST_USE_PHYSX
 		New.SetConvexMesh(ConvexMeshes[C]);
 		New.SetMirroredConvexMesh(MirroredConvexMeshes[C]);
+		bAllThere &= MirroredConvexMeshes.IsValidIndex(C) && MirroredConvexMeshes[C];
+#else
+		New.SetConvexMeshObject(Chaos::FConvexPtr(ConvexMeshes[C]));
+#endif
 	}
 
 	//If any are missing we need to fallback to runtime cooking

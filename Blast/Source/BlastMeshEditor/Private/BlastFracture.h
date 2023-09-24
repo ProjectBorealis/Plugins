@@ -16,13 +16,13 @@ struct FRawMesh;
 
 namespace Nv
 {
-namespace Blast
-{
-struct AuthoringResult;
-class FractureTool;
-class VoronoiSitesGenerator;
-class Mesh;
-}
+	namespace Blast
+	{
+		struct AuthoringResult;
+		class FractureTool;
+		class VoronoiSitesGenerator;
+		class Mesh;
+	}
 }
 
 UENUM()
@@ -66,19 +66,20 @@ typedef TWeakPtr<FFractureSession> FFractureSessionPtr;
 class FBlastFracture : public FGCObject
 {
 public:
+	FBlastFracture();
 	~FBlastFracture();
 
 	static TSharedPtr<FBlastFracture> GetInstance();
 
 	UBlastFractureSettings* CreateFractureSettings(class FBlastMeshEditor* Editor) const;
-	
+
 	UBlastFractureSettingsConfig* GetConfig()
 	{
 		return Config;
 	}
 
 	//Runtime fracture
-	TSharedPtr<FFractureSession> StartFractureSession(UBlastMesh* InSourceBlastMesh, 
+	TSharedPtr<FFractureSession> StartFractureSession(UBlastMesh* InSourceBlastMesh,
 		UStaticMesh* InSourceStaticMesh = nullptr, UBlastFractureSettings* Settings = nullptr, bool ForceLoadFracturedMesh = false);
 
 	void Fracture(UBlastFractureSettings* Settings, TSet<int32>& SelectedChunkIndices, int32 ClickedChunkIndex = INDEX_NONE);
@@ -106,8 +107,6 @@ public:
 	const static FName InteriorMaterialID;
 
 private:
-	
-	FBlastFracture();
 
 	FBlastFracture(const FBlastFracture&) = delete;
 
@@ -130,7 +129,7 @@ private:
 		uint32 CellCount, uint32 ClusterCount, float ClusterRadius, FVector CellAnisotropy, FQuat CellRotation, bool ForceReset);
 
 	bool FractureRadial(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		FVector Origin, FVector Normal, float Radius, uint32_t AngularSteps, uint32_t RadialSteps, float AngleOffset, 
+		FVector Origin, FVector Normal, float Radius, uint32_t AngularSteps, uint32_t RadialSteps, float AngleOffset,
 		float Variability, FVector CellAnisotropy, FQuat CellRotation, bool ForceReset);
 
 	bool FractureInSphere(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
@@ -155,13 +154,18 @@ private:
 
 private:
 
-	FCriticalSection						ExclusiveFractureSection;
+	FCriticalSection							ExclusiveFractureSection;
 
-	UBlastFractureSettingsConfig*			Config;
+	TObjectPtr<UBlastFractureSettingsConfig>	Config;
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Collector.AddReferencedObject(Config);
+	}
+
+	virtual FString GetReferencerName() const override
+	{
+		return TEXT("FBlastFracture");
 	}
 
 	TSharedPtr <class FFractureRandomGenerator> RandomGenerator;

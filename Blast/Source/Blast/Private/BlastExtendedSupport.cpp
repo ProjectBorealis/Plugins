@@ -59,8 +59,7 @@ void UBlastExtendedSupportMeshComponent::SetChunkVisible(int32 ChunkIndex, bool 
 
 bool UBlastExtendedSupportMeshComponent::PopulateComponentBoneTransforms(TArray<FTransform>& Transforms, TBitArray<>& BonesTouched, int32 ComponentIndex)
 {
-	auto PScene = GetPXScene();
-	if (!PScene || !SavedComponents.IsValidIndex(ComponentIndex))
+	if (!SavedComponents.IsValidIndex(ComponentIndex))
 	{
 		//During cooking there is no PhysX scene, so nothing to sync
 		return false;
@@ -77,7 +76,7 @@ bool UBlastExtendedSupportMeshComponent::PopulateComponentBoneTransforms(TArray<
 
 	UBlastMesh* ComponentBlastMesh = Component.MeshComponent->GetBlastMesh();
 
-	SCENE_LOCK_READ(PScene);
+	// SCENE_LOCK_READ(PScene);
 	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 	{
 		FActorData& ActorData = BlastActors[ActorIndex];
@@ -114,7 +113,7 @@ bool UBlastExtendedSupportMeshComponent::PopulateComponentBoneTransforms(TArray<
 			}
 		}
 	}
-	SCENE_UNLOCK_READ(PScene);
+	// SCENE_UNLOCK_READ(PScene);
 
 	return bAnyBodiesChanged;
 }
@@ -124,7 +123,7 @@ FBox UBlastExtendedSupportMeshComponent::GetWorldBoundsOfComponentChunks(int32 C
 	FBox NewBox(ForceInit);
 	if (SavedComponents.IsValidIndex(ComponentIndex))
 	{
-		SCOPED_SCENE_READ_LOCK(GetPXScene());
+		// SCOPED_SCENE_READ_LOCK(GetPXScene());
 		for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 		{
 			UBodySetup* BodySetup = ActorBodySetups[ActorIndex];
@@ -316,7 +315,7 @@ bool UBlastExtendedSupportMeshComponent::ShouldUpdateTransform(bool bLODHasChang
 {
 #if WITH_EDITOR
 	//If we are rendering debug mode make sure the bounds are up to date since we will get culled since our mesh is tiny
-	if (BlastDebugRenderMode != EBlastDebugRenderMode::None)
+	if (StressDebugMode != EBlastStressDebugRenderMode::None || bDrawSupportGraph || bDrawChunkCentroids)
 	{
 		return true;
 	}

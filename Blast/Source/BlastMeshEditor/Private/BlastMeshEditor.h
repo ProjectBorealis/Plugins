@@ -45,6 +45,7 @@ public:
 
 	// FGCObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual FString GetReferencerName() const override;
 	// End of FGCObject interface
 
 	/** IBlastMeshEditor interface */
@@ -182,10 +183,10 @@ private:
 	TSet<int32>											SelectedChunkIndices;
 
 	/* List of currently selected chunks */
-	TArray<class UBlastChunkParamsProxy*>				SelectedChunks;
+	TArray<TObjectPtr<class UBlastChunkParamsProxy>>				SelectedChunks;
 
 	/** Pool of currently unused chunk proxies */
-	TArray<class UBlastChunkParamsProxy*>				UnusedProxies;
+	TArray<TObjectPtr<class UBlastChunkParamsProxy>>				UnusedProxies;
 
 	/** Widget for displaying the available preview depths. */
 	TSharedPtr<class SBlastDepthFilter>					PreviewDepthWidget;
@@ -204,7 +205,7 @@ private:
 	UBlastMesh*											BlastMesh;
 
 	TSharedPtr<class FBlastFracture>					Fracturer;
-	UBlastFractureSettings*								FractureSettings;
+	TObjectPtr<UBlastFractureSettings>								FractureSettings;
 
 	/**	The tab ids for all the tabs used */
 	static const FName ChunkHierarchyTabId;

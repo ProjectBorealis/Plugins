@@ -20,6 +20,7 @@
 #include "Engine/StaticMesh.h"
 #include "Animation/Skeleton.h"
 #include "MeshUtilities.h"
+#include "MaterialDomain.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "PhysicsEngine/PhysicsAsset.h"
@@ -28,7 +29,6 @@
 #include "../Private/MeshMergeHelpers.h"
 #include "../Private/SkeletalMeshTools.h"
 #include "GPUSkinVertexFactory.h"
-#include "IMeshBuilderModule.h"
 #include "RawMesh.h"
 
 #include "Rendering/SkeletalMeshLODModel.h"
@@ -45,76 +45,69 @@
 
 #define USE_FRACTURE_UPDATE 0
 
-namespace
-{
-	IMeshUtilities* MeshUtilities = FModuleManager::Get().LoadModulePtr<IMeshUtilities>("MeshUtilities");
-	TArray<FText> WarningMessages;
-	TArray<FName> WarningNames;
-};
-
 void BuildSmoothingGroups(FRawMesh& RawMesh)
 {
-	uint32_t FacesCount = RawMesh.WedgeIndices.Num() / 3;
-	uint32_t SmoothingGroupCount = 0;
-	TMap<uint32_t, uint32_t> SmoothingGroupVertexMap;
-	TMap<uint32_t, uint32_t> SmoothingGroupFaceMap;
+	uint32 FacesCount = RawMesh.WedgeIndices.Num() / 3;
+	uint32 SmoothingGroupCount = 0;
+	TMap<uint32, uint32> SmoothingGroupVertexMap;
+	TMap<uint32, uint32> SmoothingGroupFaceMap;
 	check(FacesCount == RawMesh.FaceSmoothingMasks.Num())
-	for (uint32_t i = 0; i < FacesCount; i++)
-	{
-		uint32_t FaceSmoothingGroup = 0;
-		TSet<uint32_t> AdjacentFacesSmoothingGroup;
-		for (uint32_t j = 0; j < i; j++)
+		for (uint32 i = 0; i < FacesCount; i++)
 		{
-			FVector P1[3], P2[3];
-			for (uint32_t k = 0; k < 3; k++)
+			uint32 FaceSmoothingGroup = 0;
+			TSet<uint32> AdjacentFacesSmoothingGroup;
+			for (uint32 j = 0; j < i; j++)
 			{
-				P1[k] = RawMesh.VertexPositions[RawMesh.WedgeIndices[3 * i + k]];
-				P2[k] = RawMesh.VertexPositions[RawMesh.WedgeIndices[3 * j + k]];
-			}
-			TArray<TPair<uint32_t, uint32>> Matches;
-			for (uint32_t ki = 0; ki < 3; ki++)
-			{
-				for (uint32_t kj = 0; kj < 3; kj++)
+				FVector3f P1[3], P2[3];
+				for (uint32 k = 0; k < 3; k++)
 				{
-					if (FVector::PointsAreSame(P1[ki], P2[kj]))
+					P1[k] = RawMesh.VertexPositions[RawMesh.WedgeIndices[3 * i + k]];
+					P2[k] = RawMesh.VertexPositions[RawMesh.WedgeIndices[3 * j + k]];
+				}
+				TArray<TPair<uint32, uint32>> Matches;
+				for (uint32 ki = 0; ki < 3; ki++)
+				{
+					for (uint32 kj = 0; kj < 3; kj++)
 					{
-						Matches.Push(TPair<uint32_t, uint32>(ki, kj));
+						if (FVector3f::PointsAreSame(P1[ki], P2[kj]))
+						{
+							Matches.Push(TPair<uint32, uint32>(ki, kj));
+						}
+					}
+				}
+				if (Matches.Num() == 2 || Matches.Num() == 1) // Adjacent faces
+				{
+					bool IsHardEdge = false;
+					for (int32 k = 0; k < Matches.Num(); k++)
+					{
+						IsHardEdge |= !FVector3f::PointsAreNear(RawMesh.WedgeTangentZ[3 * i + Matches[k].Key], RawMesh.WedgeTangentZ[3 * j + Matches[k].Value], 1e-3);
+					}
+					uint32* SG = SmoothingGroupFaceMap.Find(j);
+					if (SG != nullptr)
+					{
+						if (IsHardEdge)
+						{
+							AdjacentFacesSmoothingGroup.Add(*SG);
+						}
+						else
+						{
+							FaceSmoothingGroup = *SG;
+							break;
+						}
 					}
 				}
 			}
-			if (Matches.Num() == 2 || Matches.Num() == 1) // Adjacent faces
+			if (FaceSmoothingGroup == 0)
 			{
-				bool IsHardEdge = false;
-				for (int32_t k = 0; k < Matches.Num(); k++)
+				FaceSmoothingGroup = 1;
+				while (FaceSmoothingGroup && AdjacentFacesSmoothingGroup.Contains(FaceSmoothingGroup))
 				{
-					IsHardEdge |= !FVector::PointsAreNear(RawMesh.WedgeTangentZ[3 * i + Matches[k].Key], RawMesh.WedgeTangentZ[3 * j + Matches[k].Value], 1e-3);
-				}
-				uint32_t* SG = SmoothingGroupFaceMap.Find(j);
-				if (SG != nullptr)
-				{
-					if (IsHardEdge)
-					{
-						AdjacentFacesSmoothingGroup.Add(*SG);
-					}
-					else
-					{
-						FaceSmoothingGroup = *SG;
-						break;
-					}
+					FaceSmoothingGroup <<= 1;
 				}
 			}
+			SmoothingGroupFaceMap.Add(i, FaceSmoothingGroup);
+			RawMesh.FaceSmoothingMasks[i] = FaceSmoothingGroup;
 		}
-		if (FaceSmoothingGroup == 0)
-		{
-			FaceSmoothingGroup = 1;
-			while (FaceSmoothingGroup && AdjacentFacesSmoothingGroup.Contains(FaceSmoothingGroup))
-			{
-				FaceSmoothingGroup <<= 1;
-			}
-		}
-		SmoothingGroupFaceMap.Add(i, FaceSmoothingGroup);
-		RawMesh.FaceSmoothingMasks[i] = FaceSmoothingGroup;
-	}
 }
 
 #if USE_FRACTURE_UPDATE
@@ -122,8 +115,6 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 	TArray<FSkinnedMeshChunk*>& Chunks, const TArray<int32>& PointToOriginalMap, const TMap<int32, int32>& OldToNewBoneMap = {})
 {
 #if WITH_EDITORONLY_DATA
-	check(MeshUtilities != nullptr);
-
 	// Reset 'final vertex to import vertex' map info
 	LODModel.MeshToImportVertexMap.Empty();
 	LODModel.MaxImportVertex = 0;
@@ -193,9 +184,9 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 	{
 		FSkinnedMeshChunk* SrcChunk = Chunks[ChunkIndex];
 		FSkelMeshSection* Section = LODModel.Sections.FindByPredicate([&SrcChunk, &MaxBonesPerChunk](FSkelMeshSection& SkelSection)
-		{
-			return SkelSection.MaterialIndex == SrcChunk->MaterialIndex && SkelSection.BoneMap.Num() + SrcChunk->BoneMap.Num() < MaxBonesPerChunk;
-		});
+			{
+				return SkelSection.MaterialIndex == SrcChunk->MaterialIndex && SkelSection.BoneMap.Num() + SrcChunk->BoneMap.Num() < MaxBonesPerChunk;
+			});
 		if (Section == nullptr)
 		{
 			Section = new(LODModel.Sections) FSkelMeshSection();
@@ -222,7 +213,7 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 
 	// Pack the chunk vertices into a single vertex buffer.
 	int32 CurrentVertexIndex = 0; 			// current vertex index added to the index buffer for all chunks of the same material
-											// rearrange the vert order to minimize the data fetched by the GPU
+	// rearrange the vert order to minimize the data fetched by the GPU
 	for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 	{
 		if (IsInGameThread())
@@ -239,7 +230,8 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 		TArray<uint32>& ChunkIndices = SrcChunk->Indices;
 
 		// Reorder the section index buffer for better vertex cache efficiency.
-		MeshUtilities->CacheOptimizeIndexBuffer(ChunkIndices);
+		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+		MeshUtilities.CacheOptimizeIndexBuffer(ChunkIndices);
 
 		// Calculate the number of triangles in the section.  Note that CacheOptimize may change the number of triangles in the index buffer!
 		TArray<FSoftSkinBuildVertex> OriginalVertices;
@@ -273,7 +265,7 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 			ChunkVertices[ChunkIndices[Index]] = OriginalVertices[OriginalIndex];
 		}
 	}
-	
+
 	// Keep track of index mapping to chunk vertex offsets
 	TArray< TArray<uint32> > VertexIndexRemap;
 	VertexIndexRemap.Empty(LODModel.Sections.Num());
@@ -317,7 +309,7 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 			NewVertex.TangentX = SoftVertex.TangentX;
 			NewVertex.TangentY = SoftVertex.TangentY;
 			NewVertex.TangentZ = SoftVertex.TangentZ;
-			FMemory::Memcpy(NewVertex.UVs, SoftVertex.UVs, sizeof(FVector2D)*MAX_TEXCOORDS);
+			FMemory::Memcpy(NewVertex.UVs, SoftVertex.UVs, sizeof(FVector2D) * MAX_TEXCOORDS);
 			NewVertex.Color = SoftVertex.Color;
 
 			for (int32 i = 0; i < MAX_TOTAL_INFLUENCES; ++i)
@@ -405,8 +397,9 @@ Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const F
 	}
 
 	FOverlappingCorners OverlappingCorners;
-	MeshUtilities->FindOverlappingCorners(OverlappingCorners, RawMesh.VertexPositions, RawMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
-	MeshUtilities->BuildStaticMeshVertexAndIndexBuffers(WeldedVerts, PerSectionIndices, WedgeMap, RawMesh, OverlappingCorners, MaterialToSectionMapping, THRESH_POINTS_ARE_SAME, FVector(1.0f), EImportStaticMeshVersion::LastVersion);
+	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+	MeshUtilities.FindOverlappingCorners(OverlappingCorners, RawMesh.VertexPositions, RawMesh.WedgeIndices, THRESH_POINTS_ARE_SAME);
+	MeshUtilities.BuildStaticMeshVertexAndIndexBuffers(WeldedVerts, PerSectionIndices, WedgeMap, RawMesh, OverlappingCorners, MaterialToSectionMapping, THRESH_POINTS_ARE_SAME, FVector3f(1.0f), EImportStaticMeshVersion::LastVersion);
 
 	const TArray<int32>* FaceMaterialIndices = &RawMesh.FaceMaterialIndices;
 	const TArray<uint32>* FaceSmoothingMasks = &RawMesh.FaceSmoothingMasks;
@@ -454,9 +447,9 @@ Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const F
 		FaceSmoothingMasks = &FilteredFaceSmoothingMasks;
 	}
 
-	TArray<FVector> Positions;
-	TArray<FVector> Normals;
-	TArray<FVector2D> UVs;
+	TArray<FVector3f> Positions;
+	TArray<FVector3f> Normals;
+	TArray<FVector2f> UVs;
 
 	Positions.SetNumUninitialized(WeldedVerts.Num());
 	Normals.SetNumUninitialized(WeldedVerts.Num());
@@ -466,24 +459,24 @@ Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const F
 	for (int32 V = 0; V < WeldedVerts.Num(); V++)
 	{
 		const FStaticMeshBuildVertex& SMBV = WeldedVerts[V];
-		Positions[V] = UE4ToBlastTransform.TransformPosition(SMBV.Position);
-		Normals[V] = UE4ToBlastTransform.TransformVectorNoScale(SMBV.TangentZ);
-		UVs[V] = FVector2D(SMBV.UVs[0].X, 1.0f - SMBV.UVs[0].Y);
+		Positions[V] = FVector3f(UE4ToBlastTransform.TransformPosition(FVector(SMBV.Position)));
+		Normals[V] = FVector3f(UE4ToBlastTransform.TransformVectorNoScale(FVector(SMBV.TangentZ)));
+		UVs[V] = FVector2f(SMBV.UVs[0].X, 1.0f - SMBV.UVs[0].Y);
 	}
-	
+
 	Nv::Blast::Mesh* mesh = NvBlastExtAuthoringCreateMesh((NvcVec3*)Positions.GetData(), (NvcVec3*)Normals.GetData(), (NvcVec2*)UVs.GetData(), WeldedVerts.Num(),
 		PerSectionIndices[0].GetData(), PerSectionIndices[0].Num());
-	mesh->setMaterialId((int32_t*)FaceMaterialIndices->GetData());
+	mesh->setMaterialId((int32*)FaceMaterialIndices->GetData());
 	if (FaceMaterialIndices->Num() == FaceSmoothingMasks->Num())
 	{
-		mesh->setSmoothingGroup((int32_t*)FaceSmoothingMasks->GetData());
+		mesh->setSmoothingGroup((int32*)FaceSmoothingMasks->GetData());
 	}
 	return mesh;
 }
 
 void PrepareLODData(TSharedPtr<FFractureSession> FractureSession,
 	const TArray<FSkeletalMaterial>& ExistingMaterials, TMap<int32, int32>& InteriorMaterialsToSlots,
-	TArray<FVector>& LODPoints, TArray<SkeletalMeshImportData::FMeshWedge>& LODWedges, TArray<SkeletalMeshImportData::FMeshFace>& LODFaces, TArray<SkeletalMeshImportData::FVertInfluence>& LODInfluences, TArray<int32>& LODPointToRawMap,
+	TArray<FVector3f>& LODPoints, TArray<SkeletalMeshImportData::FMeshWedge>& LODWedges, TArray<SkeletalMeshImportData::FMeshFace>& LODFaces, TArray<SkeletalMeshImportData::FVertInfluence>& LODInfluences, TArray<int32>& LODPointToRawMap,
 	int32 ChunkIndex = INDEX_NONE)
 {
 	USkeletalMesh* SkeletalMesh = FractureSession->BlastMesh->Mesh;
@@ -515,15 +508,15 @@ void PrepareLODData(TSharedPtr<FFractureSession> FractureSession,
 			for (uint32 vi = 0; vi < 3; vi++, VertexIndex++)
 			{
 				auto& v = (&tr.a)[vi];
-				LODPoints[VertexIndex] = Converter.TransformPosition(FVector(v.p.x, v.p.y, v.p.z));
+				LODPoints[VertexIndex] = FVector3f(Converter.TransformPosition(FVector(v.p.x, v.p.y, v.p.z)));
 				LODPointToRawMap[VertexIndex] = VertexIndex;
 				LODWedges[VertexIndex].Color = FColor::White;
 				for (uint32 uvi = 0; uvi < MAX_TEXCOORDS; uvi++)
 				{
-					LODWedges[VertexIndex].UVs[uvi] = FVector2D(0.f, 0.f);
+					LODWedges[VertexIndex].UVs[uvi] = FVector2f(0.f, 0.f);
 					if (uvi == 0)
 					{
-						LODWedges[VertexIndex].UVs[uvi] = FVector2D(v.uv[uvi].x, -v.uv[uvi].y + 1.f);
+						LODWedges[VertexIndex].UVs[uvi] = FVector2f(v.uv[uvi].x, -v.uv[uvi].y + 1.f);
 					}
 				}
 				LODWedges[VertexIndex].iVertex = VertexIndex;
@@ -534,7 +527,7 @@ void PrepareLODData(TSharedPtr<FFractureSession> FractureSession,
 			}
 
 			//the interior material ids don't follow after the previously existing materials, there could be a gap, while UE4 needs them tightly packed
-			int32 FinalMatSlot = tr.materialId;			
+			int32 FinalMatSlot = tr.materialId;
 
 			if (!ExistingMaterials.IsValidIndex(tr.materialId))
 			{
@@ -579,17 +572,17 @@ void PrepareLODData(TSharedPtr<FFractureSession> FractureSession,
 			LODFaces[FaceIndex].MeshMaterialIndex = FinalMatSlot;
 			tr.materialId = FinalMatSlot;
 			//tr.smoothingGroup >= 0  is only valid if non-negative
-			LODFaces[FaceIndex].SmoothingGroups = tr.smoothingGroup >= 0 ? tr.smoothingGroup : 0;
+			LODFaces[FaceIndex].SmoothingGroups = FMath::Max(tr.smoothingGroup, 0);
 		}
 	}
 
-	FBox BoundingBox(LODPoints.GetData(), LODPoints.Num());
-	BoundingBox += SkeletalMesh->GetImportedBounds().GetBox();
-	SkeletalMesh->SetImportedBounds(FBoxSphereBounds(BoundingBox));
+	FBox3f BoundingBox(LODPoints.GetData(), LODPoints.Num());
+	BoundingBox += FBox3f(SkeletalMesh->GetImportedBounds().GetBox());
+	SkeletalMesh->SetImportedBounds(FBoxSphereBounds(FBoxSphereBounds3f(BoundingBox)));
 	{
-		FVector MidMesh = 0.5f*(BoundingBox.Min + BoundingBox.Max);
-		SkeletalMesh->SetNegativeBoundsExtension(1.0f*(BoundingBox.Min - MidMesh));// -FVector(0, 0, 0.1f*(BoundingBox.Min[2] - MidMesh[2])));
-		SkeletalMesh->SetPositiveBoundsExtension(1.0f*(BoundingBox.Max - MidMesh));
+		FVector3f MidMesh = 0.5f * (BoundingBox.Min + BoundingBox.Max);
+		SkeletalMesh->SetNegativeBoundsExtension(FVector(1.0f * (BoundingBox.Min - MidMesh)));// -FVector(0, 0, 0.1f*(BoundingBox.Min[2] - MidMesh[2])));
+		SkeletalMesh->SetPositiveBoundsExtension(FVector(1.0f * (BoundingBox.Max - MidMesh)));
 	}
 
 	SkeletalMesh->SetHasVertexColors(false);
@@ -616,7 +609,7 @@ void ProcessImportMeshSkeleton(USkeletalMesh* SkeletalMesh, TSharedPtr<FFracture
 			continue;
 		}
 		FName BoneName = UBlastMesh::GetDefaultChunkBoneNameFromIndex(IndexPair.Key);
-		const FMeshBoneInfo BoneInfo(BoneName, BoneName.ToString(), FractureSession->ChunkToBoneIndex[FractureSession->FractureData->chunkDescs[IndexPair.Key].parentChunkIndex]);
+		const FMeshBoneInfo BoneInfo(BoneName, BoneName.ToString(), FractureSession->ChunkToBoneIndex[FractureSession->FractureData->chunkDescs[IndexPair.Key].parentChunkDescIndex]);
 		RefSkelModifier.Add(BoneInfo, FTransform::Identity);
 	}
 }
@@ -654,13 +647,12 @@ void CreateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 		BlastMesh->AssetImportData = NewObject<UBlastAssetImportData>(BlastMesh);
 	}
 
-	BlastMesh->Mesh = NewObject<USkeletalMesh>(BlastMesh, FName(*InSourceStaticMesh->GetName().Append(TEXT("_SkelMesh"))), RF_NoFlags);
-
 	BlastMesh->Skeleton = NewObject<USkeleton>(BlastMesh, *InSourceStaticMesh->GetName().Append(TEXT("_Skeleton")));
-	BlastMesh->Mesh->SetSkeleton(BlastMesh->Skeleton);
 
-	USkeletalMesh* SkeletalMesh = BlastMesh->Mesh;
-	
+	USkeletalMesh* SkeletalMesh = NewObject<USkeletalMesh>(BlastMesh, FName(*InSourceStaticMesh->GetName().Append(TEXT("_SkelMesh"))), RF_NoFlags);
+	SkeletalMesh->SetSkeleton(BlastMesh->Skeleton);
+	BlastMesh->Mesh = SkeletalMesh;
+
 	SkeletalMesh->PreEditChange(NULL);
 
 	TArray<FSkeletalMaterial> ExistingMaterials;
@@ -675,7 +667,7 @@ void CreateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 		SkeletalMesh->GetMaterials().Add(NewMat);
 	}
 
-	TArray<FVector> LODPoints;
+	TArray<FVector3f> LODPoints;
 	TArray<SkeletalMeshImportData::FMeshWedge> LODWedges;
 	TArray<SkeletalMeshImportData::FMeshFace> LODFaces;
 	TArray<SkeletalMeshImportData::FVertInfluence> LODInfluences;
@@ -685,6 +677,7 @@ void CreateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 
 	ProcessImportMeshSkeleton(SkeletalMesh, FractureSession);
 
+
 	FSkeletalMeshModel& ImportedResource = *SkeletalMesh->GetImportedModel();
 	ImportedResource.LODModels.Empty();
 	ImportedResource.LODModels.Add(new FSkeletalMeshLODModel());
@@ -692,30 +685,30 @@ void CreateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 	FSkeletalMeshLODModel& LODModel = ImportedResource.LODModels[0];
 	LODModel.NumTexCoords = 1;// FMath::Max<uint32>(1, skelMeshImportData->NumTexCoords);
 
-	FSkeletalMeshBuildSettings BuildOptions;
-	BuildOptions.bBuildAdjacencyBuffer = true;
-	BuildOptions.bUseFullPrecisionUVs = false;
-	BuildOptions.bUseHighPrecisionTangentBasis = false;
-	BuildOptions.bRecomputeNormals = true;
-	BuildOptions.bRecomputeTangents = true;
-	BuildOptions.bComputeWeightedNormals = true;
+	IMeshUtilities::MeshBuildOptions BuildOptions;
+	BuildOptions.bComputeNormals = true;
+	BuildOptions.bComputeTangents = true;
 	BuildOptions.bUseMikkTSpace = true;
-	BuildOptions.bRemoveDegenerates = false;
+	BuildOptions.bComputeWeightedNormals = true;
+	BuildOptions.bRemoveDegenerateTriangles = false;
 
-	//The imported LOD is always 0 here, the LOD custom import will import the LOD alone(in a temporary skeletalmesh) and add it to the base skeletal mesh later
-	check(SkeletalMesh->GetLODInfo(0) != nullptr);
-	//Set the build options
-	SkeletalMesh->GetLODInfo(0)->BuildSettings = BuildOptions;
-	//New MeshDescription build process
-	IMeshBuilderModule& MeshBuilderModule = IMeshBuilderModule::GetForRunningPlatform();
-	//We must build the LODModel so we can restore properly the mesh, but we do not have to regenerate LODs
-	const bool bRegenDepLODs = false;
-	FSkeletalMeshBuildParameters SkeletalMeshBuildParameters(SkeletalMesh, GetTargetPlatformManagerRef().GetRunningTargetPlatform(), 0, bRegenDepLODs);
-	bool bBuildSuccess = MeshBuilderModule.BuildSkeletalMesh(SkeletalMeshBuildParameters);
+	TArray<FText> WarningMessages;
+	TArray<FName> WarningNames;
+
+	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+	const bool bBuildSuccess = MeshUtilities.BuildSkeletalMesh(LODModel, SkeletalMesh->GetName(), SkeletalMesh->GetRefSkeleton(), LODInfluences, LODWedges, LODFaces, LODPoints, LODPointToRawMap, BuildOptions, &WarningMessages, &WarningNames);
+
+	if (!WarningMessages.IsEmpty() && WarningNames.Num() == WarningMessages.Num())
+	{
+		for (int32 MessageIdx = 0; MessageIdx < WarningMessages.Num(); ++MessageIdx)
+		{
+			GLog->Log(LogSkeletalMesh.GetCategoryName(), bBuildSuccess ? ELogVerbosity::Warning : ELogVerbosity::Error, FString::Format(TEXT("[BLAST MESH] [{0}] {1}"), { WarningNames[MessageIdx].ToString(), WarningMessages[MessageIdx].ToString() }));
+		}
+	}
 
 	if (!bBuildSuccess)
 	{
-		SkeletalMesh->MarkPendingKill();
+		SkeletalMesh->MarkAsGarbage();
 		return;
 	}
 
@@ -729,16 +722,11 @@ void CreateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 	USkeletalMesh* SkeletalMesh = FractureSession->BlastMesh->Mesh;
 	check(SkeletalMesh);
 
-	TArray<FVector> LODPoints;
+	TArray<FVector3f> LODPoints;
 	TArray<SkeletalMeshImportData::FMeshWedge> LODWedges;
 	TArray<SkeletalMeshImportData::FMeshFace> LODFaces;
 	TArray<SkeletalMeshImportData::FVertInfluence> LODInfluences;
 	TArray<int32> LODPointToRawMap;
-
-	TArray<uint32> TangentsIndices;
-	TArray<FVector2D> TangentsUVs;
-	TArray<uint32> TangentsSmothingGroups;
-	TArray<FVector> TangentsX, TangentsY, TangentsZ;
 
 	SkeletalMesh->PreEditChange(NULL);
 	TArray<FSkeletalMaterial> ExistingMaterials = SkeletalMesh->GetMaterials();
@@ -766,30 +754,30 @@ void CreateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 	FSkeletalMeshLODModel& LODModel = ImportedResource.LODModels[0];
 	LODModel.NumTexCoords = 1;// FMath::Max<uint32>(1, skelMeshImportData->NumTexCoords);
 
-	FSkeletalMeshBuildSettings BuildOptions;
-	BuildOptions.bBuildAdjacencyBuffer = true;
-	BuildOptions.bUseFullPrecisionUVs = false;
-	BuildOptions.bUseHighPrecisionTangentBasis = false;
-	BuildOptions.bRecomputeNormals = true;
-	BuildOptions.bRecomputeTangents = true;
-	BuildOptions.bComputeWeightedNormals = true;
+	IMeshUtilities::MeshBuildOptions BuildOptions;
+	BuildOptions.bComputeNormals = true;
+	BuildOptions.bComputeTangents = true;
 	BuildOptions.bUseMikkTSpace = true;
-	BuildOptions.bRemoveDegenerates = false;
+	BuildOptions.bComputeWeightedNormals = true;
+	BuildOptions.bRemoveDegenerateTriangles = false;
 
-	//The imported LOD is always 0 here, the LOD custom import will import the LOD alone(in a temporary skeletalmesh) and add it to the base skeletal mesh later
-	check(SkeletalMesh->GetLODInfo(0) != nullptr);
-	//Set the build options
-	SkeletalMesh->GetLODInfo(0)->BuildSettings = BuildOptions;
-	//New MeshDescription build process
-	IMeshBuilderModule& MeshBuilderModule = IMeshBuilderModule::GetForRunningPlatform();
-	//We must build the LODModel so we can restore properly the mesh, but we do not have to regenerate LODs
-	const bool bRegenDepLODs = false;
-	FSkeletalMeshBuildParameters SkeletalMeshBuildParameters(SkeletalMesh, GetTargetPlatformManagerRef().GetRunningTargetPlatform(), 0, bRegenDepLODs);
-	bool bBuildSuccess = MeshBuilderModule.BuildSkeletalMesh(SkeletalMeshBuildParameters);
+	TArray<FText> WarningMessages;
+	TArray<FName> WarningNames;
+
+	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+	const bool bBuildSuccess = MeshUtilities.BuildSkeletalMesh(LODModel, SkeletalMesh->GetName(), SkeletalMesh->GetRefSkeleton(), LODInfluences, LODWedges, LODFaces, LODPoints, LODPointToRawMap, BuildOptions, &WarningMessages, &WarningNames);
+
+	if (!WarningMessages.IsEmpty() && WarningNames.Num() == WarningMessages.Num())
+	{
+		for (int32 MessageIdx = 0; MessageIdx < WarningMessages.Num(); ++MessageIdx)
+		{
+			GLog->Log(LogSkeletalMesh.GetCategoryName(), bBuildSuccess ? ELogVerbosity::Warning : ELogVerbosity::Error, FString::Format(TEXT("[BLAST MESH EDIT] [{0}] {1}"), { WarningNames[MessageIdx].ToString(), WarningMessages[MessageIdx].ToString() }));
+		}
+	}
 
 	if (!bBuildSuccess)
 	{
-		SkeletalMesh->MarkPendingKill();
+		SkeletalMesh->MarkAsGarbage();
 		return;
 	}
 
@@ -805,16 +793,16 @@ void LoadFracturedChunk(TSharedPtr<FFractureSession> FractureSession, UMaterialI
 	USkeletalMesh* SkeletalMesh = FractureSession->BlastMesh->Mesh;
 	check(SkeletalMesh);
 
-	TArray<FVector> LODPoints;
+	TArray<FVector3f> LODPoints;
 	TArray<SkeletalMeshImportData::FMeshWedge> LODWedges;
 	TArray<SkeletalMeshImportData::FMeshFace> LODFaces;
 	TArray<SkeletalMeshImportData::FVertInfluence> LODInfluences;
 	TArray<int32> LODPointToRawMap;
 
 	TArray<uint32> TangentsIndices;
-	TArray<FVector2D> TangentsUVs;
+	TArray<FVector2f> TangentsUVs;
 	TArray<uint32> TangentsSmothingGroups;
-	TArray<FVector> TangentsX, TangentsY, TangentsZ;
+	TArray<FVector3f> TangentsX, TangentsY, TangentsZ;
 
 	uint32 VertexIndex = 0;
 
@@ -841,7 +829,7 @@ void LoadFracturedChunk(TSharedPtr<FFractureSession> FractureSession, UMaterialI
 			{
 				if (uvi == 0)
 				{
-					TangentsUVs.Add(FVector2D(v.uv[uvi].x, -v.uv[uvi].y + 1.f));
+					TangentsUVs.Add(FVector2f(v.uv[uvi].x, -v.uv[uvi].y + 1.f));
 				}
 			}
 			TangentsIndices.Add(VertexIndex);
@@ -849,7 +837,8 @@ void LoadFracturedChunk(TSharedPtr<FFractureSession> FractureSession, UMaterialI
 		}
 	}
 
-	MeshUtilities->CalculateTangents(LODPoints, TangentsIndices, TangentsUVs, TangentsSmothingGroups,
+	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+	MeshUtilities.CalculateTangents(LODPoints, TangentsIndices, TangentsUVs, TangentsSmothingGroups,
 		ETangentOptions::BlendOverlappingNormals | ETangentOptions::UseMikkTSpace,
 		TangentsX, TangentsY, TangentsZ);
 
@@ -880,12 +869,12 @@ void LoadFracturedChunk(TSharedPtr<FFractureSession> FractureSession, UMaterialI
 			int32 WedgeIndex = FaceIndex * 3 + VI;
 			const SkeletalMeshImportData::FMeshWedge& Wedge = LODWedges[WedgeIndex];
 			FSoftSkinBuildVertex Vertex;
-			Vertex.Position = LODPoints[WedgeIndex];
-			Vertex.TangentX = TangentsX[WedgeIndex];
-			Vertex.TangentY = TangentsY[WedgeIndex];
-			Vertex.TangentZ = TangentsZ[WedgeIndex];
+			Vertex.Position = FVector3f(LODPoints[WedgeIndex]);
+			Vertex.TangentX = FVector3f(TangentsX[WedgeIndex]);
+			Vertex.TangentY = FVector3f(TangentsY[WedgeIndex]);
+			Vertex.TangentZ = FVector3f(TangentsZ[WedgeIndex]);
 			Vertex.Color = Wedge.Color;
-			FMemory::Memcpy(Vertex.UVs, Wedge.UVs, sizeof(FVector2D)*MAX_TEXCOORDS);
+			FMemory::Memcpy(Vertex.UVs, Wedge.UVs, sizeof(FVector2D) * MAX_TEXCOORDS);
 
 			Chunk->BoneMap.AddUnique(LODInfluences[WedgeIndex].BoneIndex);
 
@@ -956,10 +945,6 @@ void UpdateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 
 	TIndirectArray<FComponentReregisterContext> ComponentContexts;
 
-	if (MeshUtilities == nullptr)
-	{
-		MeshUtilities = &FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
-	}
 	// Chunk vertices to satisfy the requested limit.
 	const uint32 MaxGPUSkinBones = FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones();
 	check(MaxGPUSkinBones <= FGPUBaseSkinVertexFactory::GHardwareMaxGPUSkinBones);
@@ -974,7 +959,7 @@ void UpdateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 	{
 		LoadFracturedChunk(FractureSession, InteriorMaterial, ExistingMaterials, InteriorMaterialsToSlots, Chunks, LODPointToRawMap, NewChunks[i], MaxGPUSkinBones);
 	}
-	
+
 	FSkeletalMeshLODModel& LODModel = SkeletalMesh->GetImportedModel()->LODModels[0];
 	BuildSkeletalModelFromChunks(LODModel, SkeletalMesh->RefSkeleton, MaxGPUSkinBones, Chunks, LODPointToRawMap, OldToNewBoneMap);
 

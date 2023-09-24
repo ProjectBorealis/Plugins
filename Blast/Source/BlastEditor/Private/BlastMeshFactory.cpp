@@ -7,7 +7,7 @@
 #include "FbxImporter.h"
 #include "Misc/FbxErrors.h"
 #include "AssetToolsModule.h"
-#include "AssetRegistryModule.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "PhysicsAssetUtils.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "NvBlastExtSerialization.h"
@@ -374,8 +374,6 @@ USkeletalMesh* UBlastMeshFactory::ImportSkeletalMesh(UBlastMesh* BlastMesh, FNam
 	UnFbx::FBXImportOptions::ResetOptions(FBXImportOptions);
 
 	UnFbx::ApplyImportUIToImportOptions(FBXImportUI, *FBXImportOptions);
-
-	UnFbx::FFbxLoggerSetter Logger(FbxImporter);
 
 	//Force this off since we do it manually
 	FBXImportOptions->bCreatePhysicsAsset = false;

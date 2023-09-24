@@ -20,8 +20,8 @@ void FBlastMeshComponentDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBu
 {
 	DetailBuilder.EditCategory("Blast", FText::GetEmpty(), ECategoryPriority::Important);
 
-	TSharedRef<IPropertyHandle> bUseBoundsFromMasterPoseComponentProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UBlastMeshComponent, bUseBoundsFromMasterPoseComponent));
-	DetailBuilder.HideProperty(bUseBoundsFromMasterPoseComponentProperty);
+	TSharedRef<IPropertyHandle> bUseBoundsFromLeaderPoseComponentProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UBlastMeshComponent, bUseBoundsFromLeaderPoseComponent));
+	DetailBuilder.HideProperty(bUseBoundsFromLeaderPoseComponentProperty);
 }
 
 

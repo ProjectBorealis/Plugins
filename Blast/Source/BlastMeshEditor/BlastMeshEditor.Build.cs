@@ -10,21 +10,21 @@ namespace UnrealBuildTool.Rules
         {
             PrivateIncludePaths.AddRange(
                 new string[] {
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/assetutils/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/authoring/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/authoringCommon/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/serialization/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/shaders/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/stress/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/globals/include/")),
-                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/lowlevel/include/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/assetutils/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/authoring/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/authoringCommon/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/serialization/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/shaders/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/extensions/stress/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/shared/NvFoundation/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/globals/")),
+                    Path.GetFullPath(Path.Combine(ModuleDirectory, "../Blast/Public/lowlevel/")),
                 }
             );
 
             PublicDependencyModuleNames.AddRange(
                 new string[] {
-                "Engine",
-                "PhysX"
+                "Engine"
                 }
             );
 

@@ -20,42 +20,56 @@ struct BLAST_API FBlastStressProperties
 {
 	GENERATED_USTRUCT_BODY()
 
-	FBlastStressProperties() : bCalculateStress(false), Hardness(100.0f), BondIterationsPerFrame(20000), GraphReductionLevel(3), AngularVsLinearStressFraction(0.75f), SplitImpulseStrength(0.f), bApplyImpactImpulses(false), ImpactImpulseToStressImpulseFactor(0.01f){}
-
 	// Is Stress solver enabled? If set to 'true' every frame stress will be calculated and overstressed bonds would be broken.
 	UPROPERTY(EditAnywhere, Category = "Blast")
-	bool							bCalculateStress;
+	bool							bCalculateStress = false;
 
-	// Material hardness. The higher hardness the more stress is required to break bond. Stress Damage = Impulse / (Hardness * ConnectedBonds)
+	// Below this compression pressure no damage is done to bonds.  Also used as the default for shear and tension if they are set to < 0.
 	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
-	float							Hardness; 
+	float							CompressionElasticLimit = 1.0f;
+
+	// Above this compression pressure the bond is immediately broken.  Also used as the default for shear and tension if they are set to < 0.
+	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
+	float							CompressionFatalLimit = 2.0f;
+
+	// Below this tension pressure no damage is done to bonds.  Use a negative value to fall back on compression limit.
+	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
+	float							TensionElasticLimit = -1.0f;
+
+	// Above this tension pressure the bond is immediately broken.  Use a negative value to fall back on compression limit.
+	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
+	float							TensionFatalLimit = -1.0f;
+
+	// Below this shear pressure no damage is done to bonds.  Use a negative value to fall back on compression limit.
+	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
+	float							ShearElasticLimit = -1.0f;
+
+	// Above this shear pressure the bond is immediately broken.  Use a negative value to fall back on compression limit.
+	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
+	float							ShearFatalLimit = -1.0f;
 
 	// This value is linearly connected with amount of time spent in stress solver every frame. The more iterations the better quality of stress propagation.
 	// It is recommended to tune this value first to setup how much frame time can be spent on stress solving and then tune quality with GraphReductionLevel.
-	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress", UIMin = 0, ClampMin = 0, UIMax = 50000, ClampMax = 50000))
-	uint32							BondIterationsPerFrame;
+	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress", UIMin = 1, ClampMin = 1, UIMax = 50, ClampMax = 50))
+	uint32							MaxSolverIterationsPerFrame = 25;
 
 	// Determines how much smaller is stress graph in compare with support graph. The resulting graph will be roughly 2 ^ GraphReductionLevel times smaller than the original.
 	// The smaller stress graph is, the better stress propagation quality will be achieved for the same amount of BondIterationsPerFrame. But the resulting damage would be less detailed, more rough (chunks bigger).
 	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress", UIMin = 0, ClampMin = 0))
-	uint32							GraphReductionLevel;
-
-	// Determines how much of the influence angular momentum in oppose to linear momentum has on bonds overstressing.
-	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress", UIMin = 0, ClampMin = 0, ClampMax = 1, UIMax = 1))
-	float							AngularVsLinearStressFraction;
+	uint32							GraphReductionLevel = 3;
 
 	// Impulse to apply after splitting as the result of bonds broken by stress solver. Velocity based.
 	// Can be used in case the result of stress solver damage is not visibly noticeable because all chunks stay still and the whole construction remains as if it wasn't broken.
 	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
-	float							SplitImpulseStrength;
+	float							SplitImpulseStrength = 0.f;
 
 	// Apply/Pass impact impulses to stress graph. It is an alternative to impact damage, so it is not recommended to use them both turned on. Use stress-based impact damage if you can afford it in terms of computational cost.
 	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bCalculateStress"))
-	bool							bApplyImpactImpulses;
+	bool							bApplyImpactImpulses = false;
 
 	// Impulse multiplier if it's passed into stress solver.
 	UPROPERTY(EditAnywhere, Category = "Blast", meta = (EditCondition = "bApplyImpactImpulses"))
-	float							ImpactImpulseToStressImpulseFactor;
+	float							ImpactImpulseToStressImpulseFactor = 0.01f;
 };
 
 USTRUCT()
@@ -111,8 +125,8 @@ struct FBlastDebrisFilter
 	uint32 bUseDebrisMaxSeparation : 1;
 
 	/**
-	Chunks are considered to be "debris" if they are separated from their origin by a distance 
-	greater than maxSeparation. 
+	Chunks are considered to be "debris" if they are separated from their origin by a distance
+	greater than maxSeparation.
 	*/
 	UPROPERTY(EditAnywhere, Category = BlastDebrisFilter, meta = (EditCondition = "bUseDebrisMaxSeparation", ClampMin = "0", UIMin = "0"))
 	float DebrisMaxSeparation;
@@ -177,7 +191,7 @@ struct FBlastDebrisProperties
 	GENERATED_USTRUCT_BODY()
 
 	/**
-	Each DebrisFilter in array will be applied to chunks. 
+	Each DebrisFilter in array will be applied to chunks.
 	If some chunks matches all conditions of a filter it will be marked as a "debris"
 	and destroyed after specified lifetime.
 	To disable debris processing clear DebrisFilters array
@@ -189,8 +203,8 @@ struct FBlastDebrisProperties
 USTRUCT()
 struct BLAST_API FBlastImpactDamageAdvancedProperties
 {
-	GENERATED_USTRUCT_BODY() 
-		
+	GENERATED_USTRUCT_BODY()
+
 	FBlastImpactDamageAdvancedProperties() :
 		bUseShearDamage(false),
 		bVelocityBased(true),
@@ -248,7 +262,7 @@ struct BLAST_API FBlastImpactDamageProperties
 {
 	GENERATED_USTRUCT_BODY()
 
-	FBlastImpactDamageProperties() : 
+	FBlastImpactDamageProperties() :
 		bEnabled(true),
 		Hardness(10.0f),
 		MaxDamageRadius(200.f),
@@ -301,12 +315,16 @@ struct BLAST_API FBlastCookedChunkData
 private:
 
 	//Store these separately since the FKConvexElem class clears them on assignment so array resizes can clear them
+#if BLAST_USE_PHYSX
 	typedef TArray<physx::PxConvexMesh*, TInlineAllocator<32>> ConvexMeshTempList;
+#else
+	typedef TArray<Chaos::FConvexPtr, TInlineAllocator<32>> ConvexMeshTempList;
+#endif
 	void UpdateAfterShapesAdded(class UBodySetup* NewBodySetup, ConvexMeshTempList& ConvexMeshes, ConvexMeshTempList& MirroredConvexMeshes) const;
 };
 
 /*
-	This composite class represents everything required for the "Mesh" part of the Blast assets. 
+	This composite class represents everything required for the "Mesh" part of the Blast assets.
 
 	Asset points back to the paired BlastAsset and must match the provided skeletal mesh and physics asset.
 */
@@ -326,14 +344,14 @@ public:
 #endif
 
 	UPROPERTY(Instanced)
-	USkeletalMesh*		Mesh;
+	USkeletalMesh* Mesh;
 
 	UPROPERTY(Instanced)
-	USkeleton*			Skeleton;
+	USkeleton* Skeleton;
 
 	/* The physics asset to use for this blast mesh */
 	UPROPERTY(Instanced)
-	UPhysicsAsset*		PhysicsAsset;
+	UPhysicsAsset* PhysicsAsset;
 
 	// Blast material
 	UPROPERTY(EditAnywhere, Category = "Blast")
@@ -376,7 +394,7 @@ public:
 	}
 
 	virtual void PostLoad() override;
-	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
+	virtual void PreSave(FObjectPreSaveContext SaveContext) override;
 
 	void RebuildIndexToBoneNameMap();
 

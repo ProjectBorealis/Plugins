@@ -108,7 +108,7 @@ void FBlastVectorCustomization::CustomizeHeader(TSharedRef<class IPropertyHandle
 
 	HeaderRow.NameContent()
 		[
-			StructPropertyHandle->CreatePropertyNameWidget(StructPropertyHandle->GetProperty()->GetDisplayNameText(), StructPropertyHandle->GetProperty()->GetToolTipText(), true)
+			StructPropertyHandle->CreatePropertyNameWidget(StructPropertyHandle->GetProperty()->GetDisplayNameText(), StructPropertyHandle->GetProperty()->GetToolTipText())
 		]
 		.ValueContent()
 		.MinDesiredWidth(500)
@@ -120,7 +120,6 @@ void FBlastVectorCustomization::CustomizeHeader(TSharedRef<class IPropertyHandle
 			[
 				SNew(SVectorInputBox)
 				.bColorAxisLabels(true)
-				.AllowResponsiveLayout(true)
 				.AllowSpin(false)
 				.X(this, &FBlastVectorCustomization::OnGetValue, 0)
 				.Y(this, &FBlastVectorCustomization::OnGetValue, 1)
@@ -233,8 +232,8 @@ void UBlastStaticMeshHolder::PostEditChangeProperty(struct FPropertyChangedEvent
 
 /*void FFractureMaterial::FillNxFractureMaterialDesc(apex::FractureMaterialDesc& PFractureMaterialDesc)
 {
-	PFractureMaterialDesc.uvScale = PxVec2(UVScale.X, UVScale.Y);
-	PFractureMaterialDesc.uvOffset = PxVec2(UVOffset.X, UVOffset.Y);
+	PFractureMaterialDesc.uvScale = NvcVec2(UVScale.X, UVScale.Y);
+	PFractureMaterialDesc.uvOffset = NvcVec2(UVOffset.X, UVOffset.Y);
 	PFractureMaterialDesc.tangent = U2PVector(Tangent);
 	PFractureMaterialDesc.uAngle = UAngle;
 	PFractureMaterialDesc.interiorSubmeshIndex = InteriorElementIndex >= 0 ? (PxU32)InteriorElementIndex : 0xFFFFFFFF;	// We'll use this value to indicate we should create a new element
@@ -429,7 +428,7 @@ void FBlastFractureSettingsComponentDetails::CustomizeDetails(IDetailLayoutBuild
 					[
 						SNew(SButton)
 						.ToolTipText(ToolTip)
-						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark")
+						.ButtonStyle(FAppStyle::Get(), "FlatButton.Dark")
 						.OnClicked(FOnClicked::CreateStatic(&FBlastFractureSettingsComponentDetails::ExecuteToolCommand, &DetailBuilder, Function))
 						[	
 							SNew(STextBlock)

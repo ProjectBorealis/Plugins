@@ -80,37 +80,37 @@ void FBlastMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& 
 	InTabManager->RegisterTabSpawner(ChunkHierarchyTabId, FOnSpawnTab::CreateSP(this, &FBlastMeshEditor::SpawnTab_ChunkHierarchy))
 		.SetDisplayName(LOCTEXT("ChunkHierarchyTab", "Chunks"))
 		.SetGroup(WorkspaceMenuCategoryRef)
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.ChunkHierarchy"));
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.ChunkHierarchy"));
 
 	InTabManager->RegisterTabSpawner( ViewportTabId, FOnSpawnTab::CreateSP(this, &FBlastMeshEditor::SpawnTab_Viewport) )
 		.SetDisplayName( LOCTEXT("ViewportTab", "Viewport") )
 		.SetGroup(WorkspaceMenuCategoryRef)
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Viewports"));
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Viewports"));
 		
 	InTabManager->RegisterTabSpawner( PropertiesTabId, FOnSpawnTab::CreateSP(this, &FBlastMeshEditor::SpawnTab_Properties) )
 		.SetDisplayName( LOCTEXT("PropertiesTab", "Blast Settings") )
 		.SetGroup(WorkspaceMenuCategoryRef)
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "BlastMeshEditor.Tabs.BlastSettings"));
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "BlastMeshEditor.Tabs.BlastSettings"));
 
 	InTabManager->RegisterTabSpawner( FractureSettingsTabId, FOnSpawnTab::CreateSP(this, &FBlastMeshEditor::SpawnTab_FractureSettings) )
 		.SetDisplayName( LOCTEXT("FractureSettingsTab", "Fracture Settings") )
 		.SetGroup(WorkspaceMenuCategoryRef)
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "BlastMeshEditor.Tabs.FractureSettings"));
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "BlastMeshEditor.Tabs.FractureSettings"));
 
 	//InTabManager->RegisterTabSpawner(FractureHistoryTabId, FOnSpawnTab::CreateSP(this, &FBlastMeshEditor::SpawnTab_FractureHistory))
 	//	.SetDisplayName(LOCTEXT("FractureScriptsTab", "Fracture history"))
 	//	.SetGroup(WorkspaceMenuCategoryRef)
-	//	.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "BlastMeshEditor.Tabs.FractureHistory"));
+	//	.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "BlastMeshEditor.Tabs.FractureHistory"));
 
 	InTabManager->RegisterTabSpawner( ChunkParametersTabId, FOnSpawnTab::CreateSP(this, &FBlastMeshEditor::SpawnTab_ChunkParameters) )
 		.SetDisplayName( LOCTEXT("ChunkParametersTab", "Chunk Parameters") )
 		.SetGroup(WorkspaceMenuCategoryRef)
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "BlastMeshEditor.Tabs.ChunkParameters"));
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "BlastMeshEditor.Tabs.ChunkParameters"));
 
 	InTabManager->RegisterTabSpawner(AdvancedPreviewTabId, FOnSpawnTab::CreateSP(this, &FBlastMeshEditor::SpawnTab_AdvancedPreview))
 		.SetDisplayName(NSLOCTEXT("PersonaModes", "PreviewSceneSettingsTab", "Preview Scene Settings"))
 		.SetGroup(WorkspaceMenuCategoryRef)
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"))
+		.SetIcon(FSlateIcon(FAppStyle::GetAppStyleSetName(), "LevelEditor.Tabs.Details"))
 		.SetTooltipText(NSLOCTEXT("PersonaModes", "AdvancedPreviewSettingsToolTip", "The Advanced Preview Settings tab will let you alter the preview scene's settings."));
 
 }
@@ -487,7 +487,7 @@ void FBlastMeshEditor::ExtendToolbar()
 			[
 				SNew( STextBlock )
 				.Text( LOCTEXT("ExplodeAmount", "Explode Amount")  )
-				.Font( FEditorStyle::GetFontStyle( TEXT( "MenuItem.Font" ) ) )
+				.Font( FAppStyle::GetFontStyle( TEXT( "MenuItem.Font" ) ) )
 			]
 			+SVerticalBox::Slot()
 			.AutoHeight()
@@ -509,7 +509,7 @@ void FBlastMeshEditor::ExtendToolbar()
 				[
 					SNew( STextBlock )
 					.Text(this, &FBlastMeshEditor::GetButtonLabel )
-					.Font( FEditorStyle::GetFontStyle( TEXT( "MenuItem.Font" ) ) )
+					.Font( FAppStyle::GetFontStyle( TEXT( "MenuItem.Font" ) ) )
 				]
 			]
 		];
@@ -786,6 +786,11 @@ void FBlastMeshEditor::AddReferencedObjects(FReferenceCollector& Collector)
 	Collector.AddReferencedObject(FractureSettings);
 	Collector.AddReferencedObjects(SelectedChunks);
 	Collector.AddReferencedObjects(UnusedProxies);
+}
+
+FString FBlastMeshEditor::GetReferencerName() const
+{
+	return TEXT("FBlastMeshEditor");
 }
 
 //TSharedRef<ITableRow> FBlastMeshEditor::OnGenerateRowForFractureHistory(TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& OwnerTable)

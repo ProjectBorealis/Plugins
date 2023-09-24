@@ -13,6 +13,7 @@
 #include "ComponentReregisterContext.h"
 #include "SkeletalMeshTypes.h"
 #include "Animation/Skeleton.h"
+#include "Engine/SkinnedAssetCommon.h"
 
 #include "NvBlastExtAssetUtils.h"
 #include "NvBlastExtAuthoring.h"
@@ -51,7 +52,7 @@ DEFINE_LOG_CATEGORY(LogBlastEditor);
 
 #define LOCTEXT_NAMESPACE "Blast"
 
-FBlastEditorModule::FBlastEditorModule() 
+FBlastEditorModule::FBlastEditorModule()
 {
 
 }
@@ -70,34 +71,34 @@ void FBlastEditorModule::StartupModule()
 	FEditorBuildUtils::RegisterCustomBuildType(BlastBuildStepId, FDoEditorBuildDelegate::CreateRaw(this, &FBlastEditorModule::DoBlastBuild), FBuildOptions::BuildGeometry);
 
 	BindCommands();
-	
-	BuildMenuExtender = FLevelEditorModule::FLevelEditorMenuExtender::CreateLambda([this](const TSharedRef<FUICommandList> EditorCommandList) 
-	{
-		TSharedRef<FExtender> Ret = MakeShared<FExtender>();
-		Ret->AddMenuExtension("LevelEditorGeometry", EExtensionHook::Before, CommandList, FMenuExtensionDelegate::CreateLambda([](FMenuBuilder& InMenuBuilder) 
+
+	BuildMenuExtender = FLevelEditorModule::FLevelEditorMenuExtender::CreateLambda([this](const TSharedRef<FUICommandList> EditorCommandList)
 		{
-			InMenuBuilder.BeginSection("Blast", LOCTEXT("BuildBlast", "Build Blast"));
-			InMenuBuilder.AddMenuEntry(FBlastUICommands::Get().BuildBlast);
-			InMenuBuilder.EndSection();
-		}));
-		return Ret;
-	});
+			TSharedRef<FExtender> Ret = MakeShared<FExtender>();
+			Ret->AddMenuExtension("LevelEditorGeometry", EExtensionHook::Before, CommandList, FMenuExtensionDelegate::CreateLambda([](FMenuBuilder& InMenuBuilder)
+				{
+					InMenuBuilder.BeginSection("Blast", LOCTEXT("BuildBlast", "Build Blast"));
+					InMenuBuilder.AddMenuEntry(FBlastUICommands::Get().BuildBlast);
+					InMenuBuilder.EndSection();
+				}));
+			return Ret;
+		});
 
 	ActorMenuExtender = FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors::CreateLambda([this](const TSharedRef<FUICommandList> EditorCommandList, const TArray<AActor*>& Actors)
-	{
-		TSharedRef<FExtender> Ret = MakeShared<FExtender>();
-		TArray<AActor*> FilteredActors = GetActorsWithBlastComponents(Actors);
-		if (FilteredActors.Num() > 0)
 		{
-			Ret->AddMenuExtension("ActorAsset", EExtensionHook::Before, CommandList, FMenuExtensionDelegate::CreateLambda([this, FilteredActors](FMenuBuilder& InMenuBuilder)
+			TSharedRef<FExtender> Ret = MakeShared<FExtender>();
+			TArray<AActor*> FilteredActors = GetActorsWithBlastComponents(Actors);
+			if (FilteredActors.Num() > 0)
 			{
-				InMenuBuilder.BeginSection("Blast", LOCTEXT("Blast", "Blast"));
-				PopulateBlastMenuForActors(InMenuBuilder, FilteredActors);
-				InMenuBuilder.EndSection();
-			}));
-		}
-		return Ret;
-	});
+				Ret->AddMenuExtension("ActorAsset", EExtensionHook::Before, CommandList, FMenuExtensionDelegate::CreateLambda([this, FilteredActors](FMenuBuilder& InMenuBuilder)
+					{
+						InMenuBuilder.BeginSection("Blast", LOCTEXT("Blast", "Blast"));
+						PopulateBlastMenuForActors(InMenuBuilder, FilteredActors);
+						InMenuBuilder.EndSection();
+					}));
+			}
+			return Ret;
+		});
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 	LevelEditorModule.GetAllLevelEditorToolbarBuildMenuExtenders().Add(BuildMenuExtender);
@@ -107,7 +108,7 @@ void FBlastEditorModule::StartupModule()
 
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	PropertyModule.RegisterCustomClassLayout(UBlastMeshComponent::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FBlastMeshComponentDetails::MakeInstance));
-	
+
 }
 
 void FBlastEditorModule::ShutdownModule()
@@ -115,7 +116,7 @@ void FBlastEditorModule::ShutdownModule()
 	if (FModuleManager::Get().IsModuleLoaded("AssetTools"))
 	{
 		IAssetTools& AssetTools = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools").Get();
-		
+
 		if (BlastMeshAssetTypeActions.IsValid())
 		{
 			AssetTools.UnregisterAssetTypeActions(BlastMeshAssetTypeActions.ToSharedRef());
@@ -138,10 +139,10 @@ void FBlastEditorModule::ShutdownModule()
 	FEditorBuildUtils::UnregisterCustomBuildType(BlastBuildStepId);
 
 	FLevelEditorModule& LevelEditorModule = FModuleManager::Get().LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	LevelEditorModule.GetAllLevelEditorToolbarBuildMenuExtenders().RemoveAll([=](const FLevelEditorModule::FLevelEditorMenuExtender& Extender) { return Extender.GetHandle() == BuildMenuExtender.GetHandle(); });
+	LevelEditorModule.GetAllLevelEditorToolbarBuildMenuExtenders().RemoveAll([this](const FLevelEditorModule::FLevelEditorMenuExtender& Extender) { return Extender.GetHandle() == BuildMenuExtender.GetHandle(); });
 	BuildMenuExtender.Unbind();
 
-	LevelEditorModule.GetAllLevelViewportContextMenuExtenders().RemoveAll([=](const FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors& Extender) { return Extender.GetHandle() == ActorMenuExtender.GetHandle(); });
+	LevelEditorModule.GetAllLevelViewportContextMenuExtenders().RemoveAll([this](const FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors& Extender) { return Extender.GetHandle() == ActorMenuExtender.GetHandle(); });
 	ActorMenuExtender.Unbind();
 
 	if (UObjectInitialized())
@@ -157,13 +158,13 @@ void FBlastEditorModule::ShutdownModule()
 }
 
 void FBlastEditorModule::BindCommands()
-{	
+{
 	FBlastUICommands::Register();
 	CommandList = MakeShareable(new FUICommandList());
-	CommandList->MapAction(FBlastUICommands::Get().BuildBlast, FExecuteAction::CreateLambda([] 
-	{
-		FEditorBuildUtils::EditorBuild(GEditor->GetEditorWorldContext().World(), FBlastEditorModule::BlastBuildStepId);
-	}));
+	CommandList->MapAction(FBlastUICommands::Get().BuildBlast, FExecuteAction::CreateLambda([]
+		{
+			FEditorBuildUtils::EditorBuild(GEditor->GetEditorWorldContext().World(), FBlastEditorModule::BlastBuildStepId);
+		}));
 }
 
 void FBlastEditorModule::HandleGetOnScreenMessages(FCoreDelegates::FSeverityMessageMap& OutMessages)
@@ -346,9 +347,9 @@ public:
 			cTransform.AddToTranslation(-essCentroid);
 			UBlastAsset* ComponentAsset = ParticipatingComponent->GetBlastAsset();
 			AssetList[I] = ComponentAsset->GetLoadedAsset();
-			AssetRotations[I] = NvcQuat{ cTransform.GetRotation().X, cTransform.GetRotation().Y, cTransform.GetRotation().Z, cTransform.GetRotation().W };
-			AssetLocations[I] = NvcVec3{ cTransform.GetTranslation().X, cTransform.GetTranslation().Y, cTransform.GetTranslation().Z };
-			AssetScales[I] = NvcVec3{ cTransform.GetScale3D().X, cTransform.GetScale3D().Y, cTransform.GetScale3D().Z };
+			AssetRotations[I] = ToNvQuat(cTransform.GetRotation());
+			AssetLocations[I] = ToNvVector(cTransform.GetTranslation());
+			AssetScales[I] = ToNvVector(cTransform.GetScale3D());
 			FMatrix TransformAtMergeMat = cTransform.ToMatrixWithScale();
 			ComponentTransforms.Add(cTransform);
 
@@ -383,16 +384,14 @@ public:
 				{
 					Convex.BakeTransformToVerts();
 				}
-				if (TempBodySetup->AggGeom.SphereElems.Num() > 0 ||
-					TempBodySetup->AggGeom.SphylElems.Num() > 0)
+				if (!TempBodySetup->AggGeom.SphereElems.IsEmpty() ||
+					!TempBodySetup->AggGeom.SphylElems.IsEmpty())
 				{
 					UE_LOG(LogBlastEditor, Warning, TEXT("Collision contains unsupported elements"));
 				}
 				TempBodySetup->CreatePhysicsMeshes();
 				for (const auto& C : ConvexList)
 				{
-					physx::PxConvexMesh* pxMesh = C.GetConvexMesh();
-
 					PerComponentHullLists[I].Emplace();
 					FTempCollisionHull& NewHull = PerComponentHullLists[I].Last();
 
@@ -400,50 +399,70 @@ public:
 					//NewUEHull is transformed with the TransformAtMerge, but NewHull is not
 					FBlastCollisionHull& NewUEHull = NewUEHulls.Last();
 
+					int32 NumIndicies = 0;
+#if BLAST_USE_PHYSX
+					physx::PxConvexMesh* pxMesh = C.GetConvexMesh();
+					NewHull.Polygons.SetNum(pxMesh->getNbPolygons());
+					NewUEHull.PolygonData.SetNum(pxMesh->getNbPolygons());
 					NewHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
 					NewUEHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
-					const physx::PxVec3* OrigVerts = pxMesh->getVertices();
+					const NvcVec3* OrigVerts = pxMesh->getVertices();
 					FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts, NewHull.Points.Num() * sizeof(*OrigVerts));
 					for (int32 P = 0; P < NewHull.Points.Num(); P++)
 					{
-						FVector Point = P2UVector(OrigVerts[P]);
-						NewUEHull.Points[P] = cTransform.TransformPosition(Point);
+						NewUEHull.Points[P] = cTransform.TransformPosition(FromNvVector(OrigVerts[P]));
 					}
-					int32 IndexCount = 0;
-					NewHull.Polygons.SetNum(pxMesh->getNbPolygons());
-					NewUEHull.PolygonData.SetNum(pxMesh->getNbPolygons());
+#else
+					const Chaos::FConvex* chaosMesh = C.GetChaosConvexMesh().GetReference();
+					NewHull.Polygons.SetNum(chaosMesh->NumPlanes());
+					NewUEHull.PolygonData.SetNum(chaosMesh->NumPlanes());
+					NewHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
+					NewUEHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
+					const TArray<Chaos::FVec3f>& OrigVerts = chaosMesh->GetVertices();
+					FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts.GetData(), NewHull.Points.Num() * sizeof(Chaos::FVec3f));
+					for (int32 P = 0; P < NewHull.Points.Num(); P++)
+					{
+						NewUEHull.Points[P] = cTransform.TransformPosition(FVector(OrigVerts[P]));
+					}
+#endif
+
 					for (int32 P = 0; P < NewHull.Polygons.Num(); P++)
 					{
-						physx::PxHullPolygon HullPoly;
+						FBlastCollisionHull::HullPolygon HullPoly;
+#if BLAST_USE_PHYSX
 						pxMesh->getPolygonData(P, HullPoly);
-						IndexCount = FMath::Max(IndexCount, HullPoly.mIndexBase + HullPoly.mNbVerts);
+						NumIndicies = FMath::Max(NumIndicies, HullPoly.IndexBase + HullPoly.NbVerts);
+#else
+						const Chaos::FConvex::FPlaneType& ChaosPlane = chaosMesh->GetPlaneRaw(P);
+						ToNvPlane4(FPlane(FVector(ChaosPlane.X()), FVector(ChaosPlane.Normal())), HullPoly.Plane);
+						HullPoly.NbVerts = chaosMesh->NumPlaneVertices(P);
+						HullPoly.IndexBase = NumIndicies;
+						NumIndicies += HullPoly.NbVerts;
+#endif
 
-						NewHull.Polygons[P].indexBase = HullPoly.mIndexBase;
-						NewHull.Polygons[P].vertexCount = HullPoly.mNbVerts;
-						FMemory::Memcpy(NewHull.Polygons[P].plane, HullPoly.mPlane, sizeof(HullPoly.mPlane[0]) * 4);
+						NewHull.Polygons[P].indexBase = HullPoly.IndexBase;
+						NewHull.Polygons[P].vertexCount = HullPoly.NbVerts;
+						FMemory::Memcpy(NewHull.Polygons[P].plane, HullPoly.Plane, sizeof(float) * 4);
 
-						FPlane Plane = P2UPlane(HullPoly.mPlane);
+						FPlane Plane = FromNvPlane4(HullPoly.Plane);
 						//This flips the normal automatically if required
 						Plane = Plane.TransformBy(TransformAtMergeMat);
 
-						PxPlane TempPlane = U2PPlane(Plane);
-						NewUEHull.PolygonData[P].IndexBase = HullPoly.mIndexBase;
-						NewUEHull.PolygonData[P].NbVerts = HullPoly.mNbVerts;
-
-						NewUEHull.PolygonData[P].Plane[0] = TempPlane.n[0];
-						NewUEHull.PolygonData[P].Plane[1] = TempPlane.n[1];
-						NewUEHull.PolygonData[P].Plane[2] = TempPlane.n[2];
-						NewUEHull.PolygonData[P].Plane[3] = TempPlane.d;
-					}
-					NewHull.Indices.SetNumUninitialized(IndexCount);
-					NewUEHull.Indices.SetNumUninitialized(IndexCount);
-
-					for (int32 idx = 0; idx < IndexCount; ++idx)
-					{
-						NewHull.Indices[idx] = pxMesh->getIndexBuffer()[idx];
-						NewUEHull.Indices[idx] = pxMesh->getIndexBuffer()[idx];
+						NewUEHull.PolygonData[P].IndexBase = HullPoly.IndexBase;
+						NewUEHull.PolygonData[P].NbVerts = HullPoly.NbVerts;
+						ToNvPlane4(Plane, NewUEHull.PolygonData[P].Plane);
 					}
 
+					NewHull.Indices.SetNumUninitialized(NumIndicies);
+					NewUEHull.Indices.SetNumUninitialized(NumIndicies);
+					const uint32* IndiciesToCopy;
+#if BLAST_USE_PHYSX
+					IndiciesToCopy = pxMesh->getIndexBuffer();
+#else
+					IndiciesToCopy = reinterpret_cast<const uint32*>(C.IndexData.GetData());
+#endif
+					FMemory::Memcpy(NewHull.Indices.GetData(), IndiciesToCopy, sizeof(uint32) * NumIndicies);
+					FMemory::Memcpy(NewUEHull.Indices.GetData(), IndiciesToCopy, sizeof(uint32) * NumIndicies);
 				}
 				PerComponentHullRanges[I].Add(PerComponentHullRanges[I].Last() + ConvexList.Num());
 			}
@@ -529,7 +548,7 @@ public:
 
 			for (int32 NewChunk = 0; NewChunk < int32(MergedAssetDesc.chunkCount); NewChunk++)
 			{
-				uint32 ParentChunk = MergedAssetDesc.chunkDescs[NewChunk].parentChunkIndex;
+				uint32 ParentChunk = MergedAssetDesc.chunkDescs[NewChunk].parentChunkDescIndex;
 				FName BoneName = UBlastMesh::GetDefaultChunkBoneNameFromIndex(NewChunk);
 				//+1 to skip root
 				int32 ParentBone = (ParentChunk != INDEX_NONE) ? (ParentChunk + 1) : 0;
@@ -546,7 +565,7 @@ public:
 
 		LODModel.MeshToImportVertexMap.Empty();
 		LODModel.MaxImportVertex = 0;
-		LODModel.RawPointIndices.RemoveBulkData();
+		LODModel.GetRawPointIndices().Empty();
 		LODModel.ActiveBoneIndices.Reset();
 		LODModel.NumTexCoords = 1;
 
@@ -557,7 +576,7 @@ public:
 		TArray<TArray<uint32> > materialMapping;
 		materialMapping.SetNum(meshes.Num());
 		for (int32 i = 0; i < meshes.Num(); ++i)
-		{			
+		{
 			const auto& inmats = meshes[i]->GetMaterials();
 			materialMapping[i].SetNum(inmats.Num());
 
@@ -567,7 +586,7 @@ public:
 			{
 				if (uniteMaterials == false)
 				{
-					SkeletalMesh->GetMaterials().Add(meshes[i]->SkeletalMesh->GetMaterials()[mat]);
+					SkeletalMesh->GetMaterials().Add(meshes[i]->GetSkinnedAsset()->GetMaterials()[mat]);
 					SkeletalMesh->GetMaterials().Last().MaterialInterface = inmats[mat];
 					SkeletalMesh->GetMaterials().Last().ImportedMaterialSlotName = SlotsNames[mat];
 					SkeletalMesh->GetMaterials().Last().MaterialSlotName = SlotsNames[mat];
@@ -578,7 +597,7 @@ public:
 					uint32* pntr = materialToIndex.Find(inmats[mat]);
 					if (pntr == nullptr)
 					{
-						SkeletalMesh->GetMaterials().Add(meshes[i]->SkeletalMesh->GetMaterials()[mat]);
+						SkeletalMesh->GetMaterials().Add(meshes[i]->GetSkinnedAsset()->GetMaterials()[mat]);
 						SkeletalMesh->GetMaterials().Last().MaterialInterface = inmats[mat];
 						SkeletalMesh->GetMaterials().Last().ImportedMaterialSlotName = SlotsNames[mat];
 						SkeletalMesh->GetMaterials().Last().MaterialSlotName = SlotsNames[mat];
@@ -603,8 +622,8 @@ public:
 
 		for (int32 i = 0; i < meshes.Num(); ++i)
 		{
-			const auto& rresource = meshes[i]->SkeletalMesh->GetResourceForRendering();
-			const auto& rmodel = meshes[i]->SkeletalMesh->GetImportedModel()->LODModels[0];
+			const auto& rresource = meshes[i]->GetSkinnedAsset()->GetResourceForRendering();
+			const auto& rmodel = meshes[i]->GetSkinnedAsset()->GetImportedModel()->LODModels[0];
 			const FSkeletalMeshLODRenderData& LODRenderData = rresource->LODRenderData[0];
 
 			oldIndices.Emplace();
@@ -615,7 +634,7 @@ public:
 			{
 				int32 sct = materialMapping[i][sect.MaterialIndex];
 				for (; sct < LODModel.Sections.Num() && LODModel.Sections[sct].BoneMap.Num() + sect.BoneMap.Num() > maxBonesPerSection; ++sct);
-				
+
 				if (sct >= LODModel.Sections.Num())
 				{
 					LODModel.Sections.Add(sect);
@@ -627,7 +646,7 @@ public:
 					lsect.NumVertices = 0;
 					perSectionParents.Add(TArray<int32>());
 					sectionToPerParentSection.Add(TArray<int32>());
-				}				
+				}
 				auto& lsect = LODModel.Sections[sct];
 				perSectionParents[sct].Add(i);
 				sectionToPerParentSection[sct].Add(sectNumber);
@@ -637,13 +656,13 @@ public:
 				for (int32 vrt = 0; vrt < sect.SoftVertices.Num(); ++vrt)
 				{
 					lsect.SoftVertices.Add(sect.SoftVertices[vrt]);
-					lsect.SoftVertices.Last().Position = ComponentTransforms[i].TransformPosition(lsect.SoftVertices.Last().Position);
-					lsect.SoftVertices.Last().TangentX = ComponentTransforms[i].TransformVectorNoScale(lsect.SoftVertices.Last().TangentX);
-					lsect.SoftVertices.Last().TangentY = ComponentTransforms[i].TransformVectorNoScale(lsect.SoftVertices.Last().TangentY);
-					lsect.SoftVertices.Last().TangentZ = ComponentTransforms[i].TransformVectorNoScale(lsect.SoftVertices.Last().TangentZ);					
+					lsect.SoftVertices.Last().Position = FVector3f(ComponentTransforms[i].TransformPosition(FVector(lsect.SoftVertices.Last().Position)));
+					lsect.SoftVertices.Last().TangentX = FVector3f(ComponentTransforms[i].TransformVectorNoScale(FVector(lsect.SoftVertices.Last().TangentX)));
+					lsect.SoftVertices.Last().TangentY = FVector3f(ComponentTransforms[i].TransformVectorNoScale(FVector(lsect.SoftVertices.Last().TangentY)));
+					lsect.SoftVertices.Last().TangentZ = FVector3f(ComponentTransforms[i].TransformVectorNoScale(FVector(lsect.SoftVertices.Last().TangentZ)));
 					lsect.SoftVertices.Last().InfluenceBones[0] += lsect.BoneMap.Num();
 
-					MeshBounds += lsect.SoftVertices.Last().Position;
+					MeshBounds += FVector(lsect.SoftVertices.Last().Position);
 				}
 				for (int32 bid = 0; bid < sect.BoneMap.Num(); ++bid)
 				{
@@ -665,14 +684,14 @@ public:
 			FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
 			Section.BaseIndex = LODModel.IndexBuffer.Num();
 			Section.BaseVertexIndex = vertexIndexOffset;
-	
+
 
 			for (int32 parentMesh = 0; parentMesh < perSectionParents[SectionIndex].Num(); ++parentMesh)
 			{
 				int32 cpar = perSectionParents[SectionIndex][parentMesh];
 				int32 psec = sectionToPerParentSection[SectionIndex][parentMesh];
 
-				const auto& rresource = meshes[cpar]->SkeletalMesh->GetImportedModel()->LODModels[0];
+				const auto& rresource = meshes[cpar]->GetSkinnedAsset()->GetImportedModel()->LODModels[0];
 				const auto& csec = rresource.Sections[psec];
 
 				for (uint32 Index = 0; Index < rresource.Sections[psec].NumTriangles * 3; Index++)
@@ -700,7 +719,7 @@ public:
 		SkeletalMesh->CalculateInvRefMatrices();
 		SkeletalMesh->PostEditChange();
 		SkeletalMesh->MarkPackageDirty();
-		
+
 		SkeletalMesh->GetSkeleton()->MergeAllBonesToBoneTree(SkeletalMesh);
 
 		TArray<TArray<FBlastCollisionHull> > combinedHullsRemapped;
@@ -756,8 +775,8 @@ public:
 	SLATE_BEGIN_ARGS(SUniteAssetsDialog) {}
 	SLATE_END_ARGS()
 
-		// Constructs this widget with InArgs
-		void Construct(const FArguments& InArgs)
+	// Constructs this widget with InArgs
+	void Construct(const FArguments& InArgs)
 	{
 
 		mDistThreshold = 0.f;
@@ -765,52 +784,52 @@ public:
 		ChildSlot
 			[
 				SNew(SBorder)
-				.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
-			[
-				SNew(SVerticalBox)
+					.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
+					[
+						SNew(SVerticalBox)
 
-				+ SVerticalBox::Slot()
-			.Padding(2.0f)
-			.AutoHeight()
+							+ SVerticalBox::Slot()
+							.Padding(2.0f)
+							.AutoHeight()
 
-			+ SVerticalBox::Slot()
-			.Padding(2.0f)
-			.HAlign(HAlign_Right)
-			.AutoHeight()
-			[
-				SNew(SUniformGridPanel)
-				.SlotPadding(2)
-			+ SUniformGridPanel::Slot(0, 1)
-			[
-				SNew(SButton)
-				.Text(FText::FromString("Generate united asset"))
-			.OnClicked(this, &SUniteAssetsDialog::OnClicked, true)
-			]
-		+ SUniformGridPanel::Slot(1, 1)
-			[
-				SNew(SButton)
-				.Text(FText::FromString("Cancel"))
-			.OnClicked(this, &SUniteAssetsDialog::OnClicked, false)
-			]
-		+ SUniformGridPanel::Slot(0, 0)
-			[
-				SNew(SNumericEntryBox<float>).MinValue(0).OnValueChanged(this, &SUniteAssetsDialog::OnDistanceThrChanged).Value(this, &SUniteAssetsDialog::getDistanceValue)
-			]
-		+ SUniformGridPanel::Slot(1, 0)
-			[
-				SNew(STextBlock).Text(FText::FromString("Distance threshold")).Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
-			]
-		+ SUniformGridPanel::Slot(2, 0)
-			[
-				SNew(SCheckBox).OnCheckStateChanged(this, &SUniteAssetsDialog::OnCheckBoxChanged).IsChecked(this, &SUniteAssetsDialog::getMaterialBoxValue).ToolTipText(LOCTEXT("UniteTool_MatUnionTT", "Unite materials"))
-		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("UniteMaterialLabelT", "Unite material slots with same material"))
-		]
-			]
-		
-			]
-			]
+							+ SVerticalBox::Slot()
+							.Padding(2.0f)
+							.HAlign(HAlign_Right)
+							.AutoHeight()
+							[
+								SNew(SUniformGridPanel)
+									.SlotPadding(2)
+									+ SUniformGridPanel::Slot(0, 1)
+									[
+										SNew(SButton)
+											.Text(FText::FromString("Generate united asset"))
+											.OnClicked(this, &SUniteAssetsDialog::OnClicked, true)
+									]
+									+ SUniformGridPanel::Slot(1, 1)
+									[
+										SNew(SButton)
+											.Text(FText::FromString("Cancel"))
+											.OnClicked(this, &SUniteAssetsDialog::OnClicked, false)
+									]
+									+ SUniformGridPanel::Slot(0, 0)
+									[
+										SNew(SNumericEntryBox<float>).MinValue(0).OnValueChanged(this, &SUniteAssetsDialog::OnDistanceThrChanged).Value(this, &SUniteAssetsDialog::getDistanceValue)
+									]
+									+ SUniformGridPanel::Slot(1, 0)
+									[
+										SNew(STextBlock).Text(FText::FromString("Distance threshold")).Font(FAppStyle::GetFontStyle(TEXT("MenuItem.Font")))
+									]
+									+ SUniformGridPanel::Slot(2, 0)
+									[
+										SNew(SCheckBox).OnCheckStateChanged(this, &SUniteAssetsDialog::OnCheckBoxChanged).IsChecked(this, &SUniteAssetsDialog::getMaterialBoxValue).ToolTipText(LOCTEXT("UniteTool_MatUnionTT", "Unite materials"))
+											[
+												SNew(STextBlock)
+													.Text(LOCTEXT("UniteMaterialLabelT", "Unite material slots with same material"))
+											]
+									]
+
+							]
+					]
 			];
 	}
 	void OnDistanceThrChanged(float value)
@@ -911,78 +930,78 @@ void FBlastEditorModule::PopulateBlastMenuForActors(FMenuBuilder& InMenuBuilder,
 	}
 
 	InMenuBuilder.AddMenuEntry(LOCTEXT("UniteAssets", "Unite assets"), FText(), FSlateIcon(), FExecuteAction::CreateLambda([Actors]
-	{
-		if (Actors.Num() < 2)
 		{
-			return;
-		}
-		SUniteAssetsDialog::ShowWindow(Actors);
-	}));
+			if (Actors.Num() < 2)
+			{
+				return;
+			}
+			SUniteAssetsDialog::ShowWindow(Actors);
+		}));
 
 
 	if (!bAnyInSupportGraphAlready)
 	{
 		InMenuBuilder.AddMenuEntry(LOCTEXT("AddToNewExtSupport", "Add New Extended Support Group"), FText(), FSlateIcon(), FExecuteAction::CreateLambda([Actors]
-		{
-			if (Actors.Num() == 0)
 			{
-				return;
-			}
-
-			FBox BoundsBox(ForceInit);
-			for (AActor* Actor : Actors)
-			{
-				BoundsBox += Actor->GetComponentsBoundingBox();
-			}
-
-			FActorSpawnParameters SpawnParams;
-			SpawnParams.bNoFail = true;
-			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-			ABlastExtendedSupportStructure* SupportStructure = Actors[0]->GetWorld()->SpawnActor<ABlastExtendedSupportStructure>(BoundsBox.GetCenter(), FRotator::ZeroRotator, SpawnParams);
-
-			FName CurrentFolder;
-			for (AActor* Actor : Actors)
-			{
-				if (CurrentFolder.IsNone())
+				if (Actors.Num() == 0)
 				{
-					CurrentFolder = Actor->GetFolderPath();
+					return;
 				}
-				SupportStructure->AddStructureActor(Actor);
-			}
-			//Clear the old associations of the actors if any and re-assign them
-			SupportStructure->ResetActorAssociations();
 
-			if (!CurrentFolder.IsNone())
-			{
-				SupportStructure->SetFolderPath(CurrentFolder);
-			}
+				FBox BoundsBox(ForceInit);
+				for (AActor* Actor : Actors)
+				{
+					BoundsBox += Actor->GetComponentsBoundingBox();
+				}
 
-			GEditor->SelectNone(true, true);
-			GEditor->SelectActor(SupportStructure, true, true);
-		}));
+				FActorSpawnParameters SpawnParams;
+				SpawnParams.bNoFail = true;
+				SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+				ABlastExtendedSupportStructure* SupportStructure = Actors[0]->GetWorld()->SpawnActor<ABlastExtendedSupportStructure>(BoundsBox.GetCenter(), FRotator::ZeroRotator, SpawnParams);
+
+				FName CurrentFolder;
+				for (AActor* Actor : Actors)
+				{
+					if (CurrentFolder.IsNone())
+					{
+						CurrentFolder = Actor->GetFolderPath();
+					}
+					SupportStructure->AddStructureActor(Actor);
+				}
+				//Clear the old associations of the actors if any and re-assign them
+				SupportStructure->ResetActorAssociations();
+
+				if (!CurrentFolder.IsNone())
+				{
+					SupportStructure->SetFolderPath(CurrentFolder);
+				}
+
+				GEditor->SelectNone(true, true);
+				GEditor->SelectActor(SupportStructure, true, true);
+			}));
 	}
 
 	if (bAnyInSupportGraphAlready)
 	{
 		InMenuBuilder.AddMenuEntry(LOCTEXT("RemoveFromExtSupport", "Remove Extended Support Groups"), FText(), FSlateIcon(), FExecuteAction::CreateLambda([Actors]
-		{
-			TArray<UBlastMeshComponent*> AllBlastComponents;
-			ABlastExtendedSupportStructure::GetStructureComponents(Actors, AllBlastComponents);
-			for (UBlastMeshComponent* MC : AllBlastComponents)
 			{
-				ABlastExtendedSupportStructure* CurrentStructure = MC->GetOwningSupportStructure();
-				if (CurrentStructure)
+				TArray<UBlastMeshComponent*> AllBlastComponents;
+				ABlastExtendedSupportStructure::GetStructureComponents(Actors, AllBlastComponents);
+				for (UBlastMeshComponent* MC : AllBlastComponents)
 				{
-					MC->SetOwningSuppportStructure(nullptr, INDEX_NONE);
-					CurrentStructure->RemoveStructureActor(MC->GetOwner());
-					if (CurrentStructure->GetStructureActors().Num() == 0)
+					ABlastExtendedSupportStructure* CurrentStructure = MC->GetOwningSupportStructure();
+					if (CurrentStructure)
 					{
-						//remove this one
-						CurrentStructure->Destroy();
+						MC->SetOwningSuppportStructure(nullptr, INDEX_NONE);
+						CurrentStructure->RemoveStructureActor(MC->GetOwner());
+						if (CurrentStructure->GetStructureActors().Num() == 0)
+						{
+							//remove this one
+							CurrentStructure->Destroy();
+						}
 					}
 				}
-			}
-		}));
+			}));
 	}
 }
 
@@ -1178,7 +1197,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 	AssetRotations.SetNumUninitialized(ParticipatingComponents.Num());
 	AssetLocations.SetNumUninitialized(ParticipatingComponents.Num());
 	AssetScales.SetNumUninitialized(ParticipatingComponents.Num());
-	
+
 	//This is not required but it's used for validation our assumption about how the API orders chunks
 	TArray<uint32> ChunkIndexOffsets;
 	ChunkIndexOffsets.SetNumUninitialized(ParticipatingComponents.Num());
@@ -1196,12 +1215,12 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 
 		UBlastAsset* ComponentAsset = ParticipatingComponent->GetBlastAsset();
 		Component.GUIDAtMerge = ComponentAsset->GetAssetGUID();
-		
+
 		AssetList[I] = ComponentAsset->GetLoadedAsset();
 
-		AssetRotations[I] = NvcQuat{ Component.TransformAtMerge.GetRotation().X, Component.TransformAtMerge.GetRotation().Y, Component.TransformAtMerge.GetRotation().Z, Component.TransformAtMerge.GetRotation().W };
-		AssetLocations[I] = NvcVec3{ Component.TransformAtMerge.GetTranslation().X, Component.TransformAtMerge.GetTranslation().Y, Component.TransformAtMerge.GetTranslation().Z };
-		AssetScales[I] = NvcVec3{ Component.TransformAtMerge.GetScale3D().X, Component.TransformAtMerge.GetScale3D().Y, Component.TransformAtMerge.GetScale3D().Z };
+		AssetRotations[I] = ToNvQuat(Component.TransformAtMerge.GetRotation());
+		AssetLocations[I] = ToNvVector(Component.TransformAtMerge.GetTranslation());
+		AssetScales[I] = ToNvVector(Component.TransformAtMerge.GetScale3D());
 
 		FMatrix TransformAtMergeMat = Component.TransformAtMerge.ToMatrixWithScale();
 
@@ -1230,7 +1249,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 				ConvexList.Last().ConvexFromBoxElem(Box);
 			}
 			TempBodySetup->AggGeom.BoxElems.Empty();
-			
+
 			for (auto& Convex : ConvexList)
 			{
 				Convex.BakeTransformToVerts();
@@ -1243,10 +1262,9 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 			}
 
 			TempBodySetup->CreatePhysicsMeshes();
-			
+
 			for (const auto& C : ConvexList)
 			{
-				physx::PxConvexMesh* pxMesh = C.GetConvexMesh();
 
 				PerComponentHullLists[I].Emplace();
 				FTempCollisionHull& NewHull = PerComponentHullLists[I].Last();
@@ -1254,47 +1272,70 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 				NewUEHulls.Emplace();
 				//NewUEHull is transformed with the TransformAtMerge, but NewHull is not
 				FBlastCollisionHull& NewUEHull = NewUEHulls.Last();
-				
+
+				int32 NumIndicies = 0;
+#if BLAST_USE_PHYSX
+				physx::PxConvexMesh* pxMesh = C.GetConvexMesh();
+				NewHull.Polygons.SetNum(pxMesh->getNbPolygons());
+				NewUEHull.PolygonData.SetNum(pxMesh->getNbPolygons());
 				NewHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
 				NewUEHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
-				const physx::PxVec3* OrigVerts = pxMesh->getVertices();
+				const NvcVec3* OrigVerts = pxMesh->getVertices();
 				FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts, NewHull.Points.Num() * sizeof(*OrigVerts));
 				for (int32 P = 0; P < NewHull.Points.Num(); P++)
 				{
-					FVector Point = P2UVector(OrigVerts[P]);
-					NewUEHull.Points[P] = Component.TransformAtMerge.TransformPosition(Point);
+					NewUEHull.Points[P] = Component.TransformAtMerge.TransformPosition(FromNvVector(OrigVerts[P]));
 				}
+#else
+				const Chaos::FConvex* chaosMesh = C.GetChaosConvexMesh().GetReference();
+				NewHull.Polygons.SetNum(chaosMesh->NumPlanes());
+				NewUEHull.PolygonData.SetNum(chaosMesh->NumPlanes());
+				NewHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
+				NewUEHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
+				const TArray<Chaos::FVec3f>& OrigVerts = chaosMesh->GetVertices();
+				FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts.GetData(), NewHull.Points.Num() * sizeof(Chaos::FVec3f));
+				for (int32 P = 0; P < NewHull.Points.Num(); P++)
+				{
+					NewUEHull.Points[P] = Component.TransformAtMerge.TransformPosition(FVector(OrigVerts[P]));
+				}
+#endif
 
-				int32 IndexCount = 0;
-				NewHull.Polygons.SetNum(pxMesh->getNbPolygons());
-				NewUEHull.PolygonData.SetNum(pxMesh->getNbPolygons());
 				for (int32 P = 0; P < NewHull.Polygons.Num(); P++)
 				{
-					physx::PxHullPolygon HullPoly;
+					FBlastCollisionHull::HullPolygon HullPoly;
+#if BLAST_USE_PHYSX
 					pxMesh->getPolygonData(P, HullPoly);
-					IndexCount = FMath::Max(IndexCount, HullPoly.mIndexBase + HullPoly.mNbVerts);
-					
-					NewHull.Polygons[P].indexBase = HullPoly.mIndexBase;
-					NewHull.Polygons[P].vertexCount = HullPoly.mNbVerts;
-					FMemory::Memcpy(NewHull.Polygons[P].plane, HullPoly.mPlane, sizeof(HullPoly.mPlane[0])*4);
+					NumIndicies = FMath::Max(NumIndicies, HullPoly.IndexBase + HullPoly.NbVerts);
+#else
+					const Chaos::FConvex::FPlaneType& ChaosPlane = chaosMesh->GetPlaneRaw(P);
+					ToNvPlane4(FPlane(FVector(ChaosPlane.X()), FVector(ChaosPlane.Normal())), HullPoly.Plane);
+					HullPoly.NbVerts = chaosMesh->NumPlaneVertices(P);
+					HullPoly.IndexBase = NumIndicies;
+					NumIndicies += HullPoly.NbVerts;
+#endif
 
-					FPlane Plane = P2UPlane(HullPoly.mPlane);
-					//This flips the normal automatically if required
+					NewHull.Polygons[P].indexBase = HullPoly.IndexBase;
+					NewHull.Polygons[P].vertexCount = HullPoly.NbVerts;
+					FMemory::Memcpy(NewHull.Polygons[P].plane, HullPoly.Plane, sizeof(float) * 4);
+
+					FPlane Plane = FromNvPlane4(HullPoly.Plane);
 					Plane = Plane.TransformBy(TransformAtMergeMat);
 
-					PxPlane TempPlane = U2PPlane(Plane);
-					NewUEHull.PolygonData[P].IndexBase = HullPoly.mIndexBase;
-					NewUEHull.PolygonData[P].NbVerts = HullPoly.mNbVerts;
-
-					NewUEHull.PolygonData[P].Plane[0] = TempPlane.n[0];
-					NewUEHull.PolygonData[P].Plane[1] = TempPlane.n[1];
-					NewUEHull.PolygonData[P].Plane[2] = TempPlane.n[2];
-					NewUEHull.PolygonData[P].Plane[3] = TempPlane.d;
+					NewUEHull.PolygonData[P].IndexBase = HullPoly.IndexBase;
+					NewUEHull.PolygonData[P].NbVerts = HullPoly.NbVerts;
+					ToNvPlane4(Plane, NewUEHull.PolygonData[P].Plane);
 				}
-				NewHull.Indices.SetNumUninitialized(IndexCount);
-				NewUEHull.Indices.SetNumUninitialized(IndexCount);
-				FMemory::Memcpy(NewHull.Indices.GetData(), pxMesh->getIndexBuffer(), NewHull.Indices.GetTypeSize() * NewHull.Indices.Num());
-				FMemory::Memcpy(NewUEHull.Indices.GetData(), pxMesh->getIndexBuffer(), NewUEHull.Indices.GetTypeSize() * NewUEHull.Indices.Num());
+
+				NewHull.Indices.SetNumUninitialized(NumIndicies);
+				NewUEHull.Indices.SetNumUninitialized(NumIndicies);
+				const uint32* IndiciesToCopy;
+#if BLAST_USE_PHYSX
+				IndiciesToCopy = pxMesh->getIndexBuffer();
+#else
+				IndiciesToCopy = reinterpret_cast<const uint32*>(C.IndexData.GetData());
+#endif
+				FMemory::Memcpy(NewHull.Indices.GetData(), IndiciesToCopy, sizeof(uint32) * NumIndicies);
+				FMemory::Memcpy(NewUEHull.Indices.GetData(), IndiciesToCopy, sizeof(uint32) * NumIndicies);
 			}
 			PerComponentHullRanges[I].Add(PerComponentHullRanges[I].Last() + ConvexList.Num());
 		}
@@ -1321,9 +1362,9 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 		ConvexHullOffsets[I] = PerComponentHullRanges[I].GetData();
 		ConvexHulls[I] = PerComponentHullPtrLists[I].GetData();
 	}
-		
+
 	NvBlastExtAssetUtilsBondDesc* NewBonds = nullptr;
-	int32 NewBondsCount = NvBlastExtAuthoringFindAssetConnectingBonds(AssetList.GetData(), 
+	int32 NewBondsCount = NvBlastExtAuthoringFindAssetConnectingBonds(AssetList.GetData(),
 		AssetScales.GetData(), AssetRotations.GetData(), AssetLocations.GetData(),
 		ConvexHullOffsets.GetData(), ConvexHulls.GetData(), ParticipatingComponents.Num(), NewBonds, ExtSupportActor->GetBondGenerationDistance());
 
@@ -1333,7 +1374,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 	TArray<uint32> ResultingChunkIndexOffsets;
 	ResultingChunkIndexOffsets.SetNumUninitialized(ParticipatingComponents.Num());
 
-	NvBlastAssetDesc MergedAssetDesc =  NvBlastExtAssetUtilsMergeAssets(AssetList.GetData(),
+	NvBlastAssetDesc MergedAssetDesc = NvBlastExtAssetUtilsMergeAssets(AssetList.GetData(),
 		AssetScales.GetData(),
 		AssetRotations.GetData(),
 		AssetLocations.GetData(),
@@ -1382,7 +1423,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 	TArray<uint8> MergedAsset, MergedScratch;
 	MergedAsset.SetNumUninitialized(NvBlastGetAssetMemorySize(&MergedAssetDesc, Nv::Blast::logLL));
 	MergedScratch.SetNumUninitialized(NvBlastGetRequiredScratchForCreateAsset(&MergedAssetDesc, Nv::Blast::logLL));
-	
+
 	NvBlastAsset* MergedLLAsset = NvBlastCreateAsset(MergedAsset.GetData(), &MergedAssetDesc, MergedScratch.GetData(), &Nv::Blast::logLL);
 
 	UBlastMeshExtendedSupport* BlastMesh = NewObject<UBlastMeshExtendedSupport>(ExtSupportActor->GetExtendedSupportMeshComponent());
@@ -1407,7 +1448,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 
 		for (int32 NewChunk = 0; NewChunk < int32(MergedAssetDesc.chunkCount); NewChunk++)
 		{
-			uint32 ParentChunk = MergedAssetDesc.chunkDescs[NewChunk].parentChunkIndex;
+			uint32 ParentChunk = MergedAssetDesc.chunkDescs[NewChunk].parentChunkDescIndex;
 			FName BoneName = UBlastMesh::GetDefaultChunkBoneNameFromIndex(NewChunk);
 			//+1 to skip root
 			int32 ParentBone = (ParentChunk != INDEX_NONE) ? (ParentChunk + 1) : 0;
@@ -1456,7 +1497,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 	//Now that we are populated we can set this which rebuilds the components
 	for (int32 I = 0; I < StoredComponents.Num(); I++)
 	{
-		StoredComponents[I].MeshComponent ->SetOwningSuppportStructure(ExtSupportActor, I);
+		StoredComponents[I].MeshComponent->SetOwningSuppportStructure(ExtSupportActor, I);
 	}
 
 	return true;

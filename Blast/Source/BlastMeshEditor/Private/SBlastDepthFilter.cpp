@@ -22,7 +22,7 @@
 
 #define ADD_BUTTON(container, i) \
 	SAssignNew(container[i], SButton) \
-	.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark") \
+	.ButtonStyle(FAppStyle::Get(), "FlatButton.Dark") \
 	.Text(FText::FromString(FString::FormatAsNumber(i))) \
 	.IsEnabled(true) \
 	.OnClicked(this, &SBlastDepthFilter::OnButtonClicked, i) \
@@ -66,7 +66,7 @@ void SBlastDepthFilter::Construct(const FArguments& InArgs)
 			[
 				SNew(STextBlock)
 				.Text(Text)
-				.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
+				.Font(FAppStyle::GetFontStyle(TEXT("MenuItem.Font")))
 			]
 
 			+ SHorizontalBox::Slot()
@@ -75,7 +75,7 @@ void SBlastDepthFilter::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Center)
 			[
 				SAssignNew(LeavesButton, SButton)
-				.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark")
+				.ButtonStyle(FAppStyle::Get(), "FlatButton.Dark")
 				.Text(LOCTEXT("BlastDepthFilter_Leaves", "Leaves"))
 				.IsEnabled(true)
 				.OnClicked(this, &SBlastDepthFilter::OnButtonClicked, LEAVES_BUTTON_ID)
@@ -89,7 +89,7 @@ void SBlastDepthFilter::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Center)
 			[
 				SAssignNew(ShowAllDepthsButton, SButton)
-				.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark")
+				.ButtonStyle(FAppStyle::Get(), "FlatButton.Dark")
 				//.Text(LOCTEXT("BlastDepthFilter_A", "A"))
 				.IsEnabled(true)
 				.OnClicked(this, &SBlastDepthFilter::OnButtonClicked, ALL_DEPTHS_BUTTON_ID)

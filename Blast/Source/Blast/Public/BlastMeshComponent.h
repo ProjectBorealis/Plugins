@@ -1,17 +1,20 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "NvBlastTypes.h"
-#include "NvBlastExtDamageShaders.h"
-#include "BlastMesh.h"
-#include "BlastAsset.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/LineBatchComponent.h"
 #include "SkeletalMeshTypes.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "ComponentInstanceDataCache.h"
+#include "SkeletalMeshSceneProxy.h"
+
+#include "NvBlastTypes.h"
+#include "NvBlastExtDamageShaders.h"
+#include "BlastMesh.h"
+#include "BlastAsset.h"
 #include "BlastBaseDamageComponent.h"
 #include "BlastBaseDamageProgram.h"
-#include "ComponentInstanceDataCache.h"
+
 #include "BlastMeshComponent.generated.h"
 
 struct NvBlastActor;
@@ -21,15 +24,10 @@ class ABlastExtendedSupportStructure;
 
 namespace Nv
 {
-namespace Blast
-{
-class ExtStressSolver;
-}
-}
-
-namespace physx
-{
-class PxScene;
+	namespace Blast
+	{
+		class ExtStressSolver;
+	}
 }
 
 UENUM()
@@ -43,13 +41,13 @@ enum class EBlastDamageResult : uint8
 
 #if WITH_EDITORONLY_DATA
 UENUM(BlueprintType)
-enum class EBlastDebugRenderMode : uint8
+enum class EBlastStressDebugRenderMode : uint8
 {
-	None UMETA(DisplayName = "None"),
-	SupportGraph UMETA(DisplayName = "SupportGraph"),
-	StressSolverStress UMETA(DisplayName = "StressSolverStress"),
-	StressSolverBondImpulses UMETA(DisplayName = "StressSolverBondImpulses"),
-	ChunkCentroids UMETA(DisplayName = "ChunkCentroids"),
+	None,
+	MaxPercentages UMETA(DisplayName = "Max Percentages", ToolTip = "Render the maximum of the compression, tension, and shear stress percentages"),
+	Compression UMETA(ToolTip = "Render the compression stress percentage"),
+	Tension UMETA(ToolTip = "Render the tension stress percentage"),
+	Shear UMETA(ToolTip = "Render the shear stress percentage")
 };
 #endif
 
@@ -120,7 +118,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnBondsDamagedS
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnChunksDamagedSignature, UBlastMeshComponent*, Component, FName, ActorName, bool, bIsSplit, FName, DamageType, const TArray<FChunkDamageEvent>&, Events);
 
 //BlastMeshComponent is used to create an instance of an BlastMesh asset.
-UCLASS(ClassGroup=Blast, editinlinenew, hidecategories=(Object, Mesh), meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup = Blast, editinlinenew, hidecategories = (Object, Mesh), meta = (BlueprintSpawnableComponent))
 class BLAST_API UBlastMeshComponent : public USkinnedMeshComponent
 {
 	GENERATED_BODY()
@@ -128,22 +126,22 @@ public:
 	UBlastMeshComponent(const FObjectInitializer& ObjectInitializer);
 protected:
 	UPROPERTY(EditAnywhere, Category = "BlastMesh", meta = (DisplayThumbnail = "true"))
-	UBlastMesh*						BlastMesh;
+	UBlastMesh* BlastMesh;
 
 	//Usually these are the same object, but in the case where the modified asset happens to not actually need modifications it's useful to be able to reference the asset directly,
 	//and that requires a non-Instanced property. This is the same behavior as if ModifiedAsset, but it marks the component as "clean" for Blast Glue build dirtiness.
 	//So ModifiedAssetOwned holds the object which can be serialized inline as if it's a one-off instance.
 	UPROPERTY(VisibleAnywhere, Instanced, Category = "BlastMesh", AdvancedDisplay)
-	UBlastAsset*					ModifiedAssetOwned;
+	UBlastAsset* ModifiedAssetOwned;
 
-	UPROPERTY(VisibleAnywhere, Category="BlastMesh", AdvancedDisplay)
-	UBlastAsset*					ModifiedAsset;
+	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
+	UBlastAsset* ModifiedAsset;
 
 	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
 	FTransform						ModifiedAssetComponentToWorldAtBake;
 
 	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
-	ABlastExtendedSupportStructure*	OwningSupportStructure;
+	ABlastExtendedSupportStructure* OwningSupportStructure;
 
 	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
 	int32							OwningSupportStructureIndex;
@@ -213,17 +211,23 @@ public:
 	FBodyInstance CrumbledChunkBodyInstance;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(EditAnywhere, Category = "Blast", AdvancedDisplay, meta=(CantUseWithExtendedSupport))
-	EBlastDebugRenderMode			BlastDebugRenderMode;
+	UPROPERTY(EditAnywhere, Category = "Blast", AdvancedDisplay, meta = (CantUseWithExtendedSupport))
+	EBlastStressDebugRenderMode		StressDebugMode = EBlastStressDebugRenderMode::None;
+
+	UPROPERTY(EditAnywhere, Category = "Blast", AdvancedDisplay, meta = (CantUseWithExtendedSupport))
+	bool							bDrawSupportGraph = false;
+
+	UPROPERTY(EditAnywhere, Category = "Blast", AdvancedDisplay, meta = (CantUseWithExtendedSupport))
+	bool							bDrawChunkCentroids = false;
 #endif
 
 	/* Gets the current UBlastAsset - modified if it exists, or the unmodified if not. */
-	UBlastAsset*					GetBlastAsset(bool bAllowModifiedAsset = true) const;
+	UBlastAsset* GetBlastAsset(bool bAllowModifiedAsset = true) const;
 
-	UBlastMesh*						GetBlastMesh() const { return BlastMesh;  }
+	UBlastMesh* GetBlastMesh() const { return BlastMesh; }
 	void SetBlastMesh(UBlastMesh* NewBlastMesh);
 
-	UBlastAsset*					GetModifiedAsset() const { return ModifiedAsset; }
+	UBlastAsset* GetModifiedAsset() const { return ModifiedAsset; }
 	void SetModifiedAsset(UBlastAsset* newModifiedAsset);
 
 	//You probably shouldn't call this directly. Instead use the Add/Remove methods on ABlastExtendedSupportStructure
@@ -236,11 +240,11 @@ public:
 	bool IsExtendedSupportDirty() const;
 #endif
 
-	ABlastExtendedSupportStructure*	GetOwningSupportStructure() const { return OwningSupportStructure; }
+	ABlastExtendedSupportStructure* GetOwningSupportStructure() const { return OwningSupportStructure; }
 	NvBlastExtDamageAccelerator* GetAccelerator() const { return DamageAccelerator; }
 	int32	GetOwningSupportStructureIndex() const { return OwningSupportStructureIndex; }
 
-	const FBlastMaterial&			GetUsedBlastMaterial() const
+	const FBlastMaterial& GetUsedBlastMaterial() const
 	{
 		return bOverride_BlastMaterial ? BlastMaterial : BlastMesh->BlastMaterial;
 	}
@@ -250,12 +254,12 @@ public:
 		return bOverride_ImpactDamageProperties ? ImpactDamageProperties : BlastMesh->ImpactDamageProperties;
 	}
 
-	const FBlastStressProperties&	GetUsedStressProperties() const
+	const FBlastStressProperties& GetUsedStressProperties() const
 	{
 		return bOverride_StressProperties || BlastMesh == nullptr ? StressProperties : BlastMesh->StressProperties;
 	}
 
-	const FBlastDebrisProperties&	GetUsedDebrisProperties() const
+	const FBlastDebrisProperties& GetUsedDebrisProperties() const
 	{
 		return bOverride_DebrisProperties || BlastMesh == nullptr ? DebrisProperties : BlastMesh->DebrisProperties;
 	}
@@ -269,31 +273,31 @@ public:
 	*	Event called when any actor is damaged. This event always occurs before actor create/destroyed events (split).
 	*	But not every damaged events lead to split.
 	*/
-	UPROPERTY(BlueprintAssignable, Category="Blast")
+	UPROPERTY(BlueprintAssignable, Category = "Blast")
 	FBlastMeshComponentOnDamagedSignature OnDamaged;
 
 	/**
 	*	Event called when any new actor is created.
 	*/
-	UPROPERTY(BlueprintAssignable, Category="Blast")
+	UPROPERTY(BlueprintAssignable, Category = "Blast")
 	FBlastMeshComponentOnActorCreatedSignature OnActorCreated;
 
 	/**
 	*	Event called when any actor is about to be destroyed. Actor is still valid in the scope of this event.
 	*/
-	UPROPERTY(BlueprintAssignable, Category="Blast")
+	UPROPERTY(BlueprintAssignable, Category = "Blast")
 	FBlastMeshComponentOnActorDestroyedSignature OnActorDestroyed;
 
 	/**
 	*	Event called when any new actor is created as the result of damage, therefore it contains damage data.
 	*/
-	UPROPERTY(BlueprintAssignable, Category="Blast")
+	UPROPERTY(BlueprintAssignable, Category = "Blast")
 	FBlastMeshComponentOnActorCreatedFromDamageSignature OnActorCreatedFromDamage;
 
 	/**
 	*	Event called when any actor's bonds are damaged. Called per actor.
 	*	bIsSplit signals if actor is about to be split (destroyed and new smaller actors are to be created).
-	*	IMPORTANT: subscribing to this event adds small overhead to fill all the data. Subscribe only if you need it. 
+	*	IMPORTANT: subscribing to this event adds small overhead to fill all the data. Subscribe only if you need it.
 	*	Use less detailed event like OnDamaged if possible.
 	*/
 	UPROPERTY(BlueprintAssignable, Category = "Blast")
@@ -346,7 +350,7 @@ public:
 	EBlastDamageResult ApplyDamageComponent(UBlastBaseDamageComponent* DamageComponent, FVector Origin, FRotator Rot = FRotator::ZeroRotator, FName BoneName = NAME_None);
 
 	/**
-	* Apply damage on this component using Damage Program from Damage Component. Damage is applied on all live actors inside of overlap collision shape from FBlastBaseDamageProgram. 
+	* Apply damage on this component using Damage Program from Damage Component. Damage is applied on all live actors inside of overlap collision shape from FBlastBaseDamageProgram.
 	*
 	* @param DamageComponent Damage Component to be used
 	* @param Origin Damage origin
@@ -357,7 +361,7 @@ public:
 	EBlastDamageResult ApplyDamageComponentOverlap(UBlastBaseDamageComponent* DamageComponent, FVector Origin, FRotator Rot = FRotator::ZeroRotator);
 
 	/**
-	* Apply damage on all BlastMeshComponents inside of overlap collision shape from FBlastBaseDamageProgram using Damage Program from Damage Component. 
+	* Apply damage on all BlastMeshComponents inside of overlap collision shape from FBlastBaseDamageProgram using Damage Program from Damage Component.
 	*
 	* @param DamageComponent Damage Component to be used
 	* @param Origin Damage origin
@@ -596,7 +600,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blast")
 	void SetDynamicChunkCollisionEnabled(ECollisionEnabled::Type NewType);
-	
+
 	UFUNCTION(BlueprintCallable, Category = "Blast")
 	void SetDynamicChunkCollisionProfileName(FName InCollisionProfileName);
 
@@ -609,7 +613,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Blast")
 	void SetDynamicChunkCollisionResponseToChannel(ECollisionChannel Channel, ECollisionResponse NewResponse);
-		
+
 	UFUNCTION(BlueprintCallable, Category = "Blast")
 	void SetDynamicChunkCollisionResponseToAllChannels(ECollisionResponse NewResponse);
 
@@ -632,7 +636,7 @@ public:
 	virtual void PostEditImport() override;
 
 	virtual class UBodySetup* GetBodySetup() override;
-	virtual FBodyInstance* GetBodyInstance(FName BoneName = NAME_None, bool bGetWelded = true) const override;
+	virtual FBodyInstance* GetBodyInstance(FName BoneName = NAME_None, bool bGetWelded = true, int32 Index = INDEX_NONE) const override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	virtual FTransform GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace = RTS_World) const override;
 	virtual bool DoesSocketExist(FName InSocketName) const override;
@@ -657,7 +661,7 @@ public:
 	bool IsChunkVisible(int32 ChunkIndex) const;
 
 	virtual bool MoveComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* Hit, EMoveComponentFlags MoveFlags, ETeleportType Teleport) override;
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void RefreshBoneTransforms(FActorComponentTickFunction* TickFunction = NULL) override;
 
 	friend class FBlastMeshComponentInstanceData;
@@ -673,7 +677,7 @@ protected:
 
 	virtual void OnCreatePhysicsState() override;
 	virtual void OnDestroyPhysicsState() override;
-	
+
 	virtual bool AllocateTransformData() override;
 
 	virtual bool ShouldCreatePhysicsState() const override;
@@ -712,7 +716,7 @@ protected:
 	TSharedPtr<NvBlastFamily>			BlastFamily;
 
 	// Stress solver 
-	Nv::Blast::ExtStressSolver*			StressSolver;
+	Nv::Blast::ExtStressSolver* StressSolver;
 
 	NvBlastExtDamageAccelerator* DamageAccelerator = nullptr;
 
@@ -747,7 +751,7 @@ protected:
 	void UpdateFractureBufferSize();
 
 	void TickStressSolver();
-	
+
 	void UpdateDebris();
 	void UpdateDebris(int32 AcotrIndex, const FTransform& ActorTransform);
 
@@ -759,9 +763,9 @@ protected:
 	TArray<FBatchedLine> PendingDebugLines;
 	TArray<FBatchedPoint> PendingDebugPoints;
 
-	void DrawDebugLine(FVector const& LineStart, FVector const& LineEnd, FColor const& Color, uint8 DepthPriority = 0, float Thickness = 0.f);
-	void DrawDebugBox(FVector const& Center, FVector const& Extent, FColor const& Color, uint8 DepthPriority = 0, float Thickness = 0.f);
-	void DrawDebugPoint(FVector const& Position, float Size, FColor const& PointColor, uint8 DepthPriority = 0);
+	void DrawDebugLine(FVector const& LineStart, FVector const& LineEnd, FLinearColor const& Color, uint8 DepthPriority = 0, float Thickness = 0.f);
+	void DrawDebugBox(FVector const& Center, FVector const& Extent, FLinearColor const& Color, uint8 DepthPriority = 0, float Thickness = 0.f);
+	void DrawDebugPoint(FVector const& Position, float Size, FLinearColor const& PointColor, uint8 DepthPriority = 0);
 #endif
 
 	void InitBlastFamily();
@@ -808,8 +812,6 @@ protected:
 
 	class FBlastMeshSceneProxyBase* BlastProxy;
 
-	physx::PxScene* GetPXScene() const;
-
 };
 
 class BLAST_API FBlastMeshSceneProxyBase
@@ -854,6 +856,7 @@ class BLAST_API FBlastMeshSceneProxy : public FBlastMeshSceneProxyBase, public F
 {
 public:
 	FBlastMeshSceneProxy(const UBlastMeshComponent* Component, FSkeletalMeshRenderData* InSkelMeshRenderData);
+	virtual ~FBlastMeshSceneProxy() {}
 
 	/**
 	* Render physics asset for debug display
