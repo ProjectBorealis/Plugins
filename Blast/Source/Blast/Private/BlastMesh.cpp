@@ -209,6 +209,7 @@ void UBlastMesh::RebuildCookedBodySetupsIfRequired(bool bForceRebuild)
 			{
 				//rebuild this one
 				UBodySetup* CookedTransformedBodySetup = NewObject<UBodySetup>(this);
+				CookedTransformedBodySetup->bGenerateMirroredCollision = false;
 				//Copy the settings, but not the actual colliders
 				CookedTransformedBodySetup->CopyBodySetupProperty(PhysicsAssetBodySetup);
 				//We are on the root bone now
@@ -455,7 +456,6 @@ void FBlastCookedChunkData::PopulateBodySetup(UBodySetup* NewBodySetup) const
 
 	//The assignment operators clear these so make sure we cache them before we touch the arrays
 	ConvexMeshTempList ConvexMeshes;
-	ConvexMeshTempList MirroredConvexMeshes;
 	for (auto& C : CookedBodySetup->AggGeom.ConvexElems)
 	{
 #if BLAST_USE_PHYSX
@@ -465,12 +465,6 @@ void FBlastCookedChunkData::PopulateBodySetup(UBodySetup* NewBodySetup) const
 			Mesh->acquireReference();
 		}
 		ConvexMeshes.Add(Mesh);
-		Mesh = C.GetMirroredConvexMesh();
-		if (Mesh)
-		{
-			Mesh->acquireReference();
-		}
-		MirroredConvexMeshes.Add(Mesh);
 #else
 		ConvexMeshes.Add(C.GetChaosConvexMesh());
 #endif
@@ -478,7 +472,7 @@ void FBlastCookedChunkData::PopulateBodySetup(UBodySetup* NewBodySetup) const
 
 	NewBodySetup->CopyBodyPropertiesFrom(CookedBodySetup);
 
-	UpdateAfterShapesAdded(NewBodySetup, ConvexMeshes, MirroredConvexMeshes);
+	UpdateAfterShapesAdded(NewBodySetup, ConvexMeshes);
 }
 
 void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
@@ -488,13 +482,11 @@ void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
 
 	//The assignment operators clear these so make sure we cache them before we touch the arrays
 	ConvexMeshTempList ConvexMeshes;
-	ConvexMeshTempList MirroredConvexMeshes;
 	for (auto& C : NewBodySetup->AggGeom.ConvexElems)
 	{
 #if BLAST_USE_PHYSX
 		//Already add-refed these before
 		ConvexMeshes.Add(C.GetConvexMesh());
-		MirroredConvexMeshes.Add(C.GetMirroredConvexMesh());
 #else
 		ConvexMeshes.Add(C.GetChaosConvexMesh());
 #endif
@@ -509,12 +501,6 @@ void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
 			Mesh->acquireReference();
 		}
 		ConvexMeshes.Add(Mesh);
-		Mesh = C.GetMirroredConvexMesh();
-		if (Mesh)
-		{
-			Mesh->acquireReference();
-		}
-		MirroredConvexMeshes.Add(Mesh);
 #else
 		ConvexMeshes.Add(C.GetChaosConvexMesh());
 #endif
@@ -523,10 +509,10 @@ void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
 	//Should we check the PhysicalMaterial, etc are the same
 	NewBodySetup->AddCollisionFrom(CookedBodySetup);
 
-	UpdateAfterShapesAdded(NewBodySetup, ConvexMeshes, MirroredConvexMeshes);
-}
+	UpdateAfterShapesAdded(NewBodySetup, ConvexMeshes);
+	}
 
-void FBlastCookedChunkData::UpdateAfterShapesAdded(UBodySetup* NewBodySetup, ConvexMeshTempList& ConvexMeshes, ConvexMeshTempList& MirroredConvexMeshes) const
+void FBlastCookedChunkData::UpdateAfterShapesAdded(UBodySetup* NewBodySetup, ConvexMeshTempList& ConvexMeshes) const
 {
 	//Always make sure these get set since they are cleared on copy
 	bool bAllThere = true;
@@ -543,8 +529,6 @@ void FBlastCookedChunkData::UpdateAfterShapesAdded(UBodySetup* NewBodySetup, Con
 
 #if BLAST_USE_PHYSX
 		New.SetConvexMesh(ConvexMeshes[C]);
-		New.SetMirroredConvexMesh(MirroredConvexMeshes[C]);
-		bAllThere &= MirroredConvexMeshes.IsValidIndex(C) && MirroredConvexMeshes[C];
 #else
 		New.SetConvexMeshObject(Chaos::FConvexPtr(ConvexMeshes[C]));
 #endif

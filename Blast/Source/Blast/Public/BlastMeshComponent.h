@@ -126,22 +126,22 @@ public:
 	UBlastMeshComponent(const FObjectInitializer& ObjectInitializer);
 protected:
 	UPROPERTY(EditAnywhere, Category = "BlastMesh", meta = (DisplayThumbnail = "true"))
-	UBlastMesh* BlastMesh;
+	TObjectPtr<UBlastMesh> BlastMesh;
 
 	//Usually these are the same object, but in the case where the modified asset happens to not actually need modifications it's useful to be able to reference the asset directly,
 	//and that requires a non-Instanced property. This is the same behavior as if ModifiedAsset, but it marks the component as "clean" for Blast Glue build dirtiness.
 	//So ModifiedAssetOwned holds the object which can be serialized inline as if it's a one-off instance.
 	UPROPERTY(VisibleAnywhere, Instanced, Category = "BlastMesh", AdvancedDisplay)
-	UBlastAsset* ModifiedAssetOwned;
+	TObjectPtr<UBlastAsset> ModifiedAssetOwned;
 
 	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
-	UBlastAsset* ModifiedAsset;
+	TObjectPtr<UBlastAsset> ModifiedAsset;
 
 	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
 	FTransform						ModifiedAssetComponentToWorldAtBake;
 
 	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
-	ABlastExtendedSupportStructure* OwningSupportStructure;
+	TObjectPtr<ABlastExtendedSupportStructure>	OwningSupportStructure;
 
 	UPROPERTY(VisibleAnywhere, Category = "BlastMesh", AdvancedDisplay)
 	int32							OwningSupportStructureIndex;

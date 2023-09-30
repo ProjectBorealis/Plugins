@@ -2,6 +2,9 @@
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
 #include "Serialization/BulkData.h"
+
+#include "NvBlastExtAuthoringTypes.h"
+
 #include "BlastAsset.generated.h"
 
 struct NvBlastAsset;
@@ -23,17 +26,16 @@ enum class EBlastMeshChunkFlags : uint8
 };
 ENUM_CLASS_FLAGS(EBlastMeshChunkFlags);
 
-
 USTRUCT()
 struct FBlastFractureToolData
 {
 	GENERATED_USTRUCT_BODY()
 
-	TArray<uint8> Vertices;
+	TArray<Nv::Blast::Vertex> Vertices;
 
-	TArray<uint8> Edges;
+	TArray<Nv::Blast::Edge> Edges;
 
-	TArray<uint8> Faces;
+	TArray<Nv::Blast::Facet> Faces;
 
 	TArray<uint32> VerticesOffset;
 

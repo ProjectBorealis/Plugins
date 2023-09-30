@@ -1912,8 +1912,8 @@ void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFracture
 					{
 						uint32 BondIndex = Graph.adjacentBondIndices[AdjacencyIndex];
 						const NvBlastBond& SolverBond = Bonds[BondIndex];
-						const FVector& LocalCentroid = reinterpret_cast<const FVector&>(SolverBond.centroid);
-						const FVector& LocalNormal = reinterpret_cast<const FVector&>(SolverBond.normal);
+						const FVector LocalCentroid(FromNvVector(SolverBond.centroid));
+						const FVector LocalNormal(FromNvVector(SolverBond.normal));
 						const uint32 chunk0 = Graph.chunkIndices[FractureData.nodeIndex0];
 						const uint32 chunk1 = Graph.chunkIndices[FractureData.nodeIndex1];
 
@@ -1940,7 +1940,7 @@ void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFracture
 			{
 				const NvBlastChunkFractureData& FractureData = fractureBuffers.chunkFractures[i];
 				const NvBlastChunk& SolverChunk = Chunks[FractureData.chunkIndex];
-				const FVector& LocalCentroid = reinterpret_cast<const FVector&>(SolverChunk.centroid);
+				const FVector LocalCentroid(FromNvVector(SolverChunk.centroid));
 
 				FChunkDamageEvent ChunkDmgEvent;
 				ChunkDmgEvent.ChunkIndex = (int32)FractureData.chunkIndex;
@@ -2748,68 +2748,70 @@ void UBlastMeshComponent::UpdateDebris()
 void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& ActorTransform)
 {
 	const FBlastDebrisProperties& debrisProp = GetUsedDebrisProperties();
-	if (debrisProp.DebrisFilters.Num() > 0)
+	if (debrisProp.DebrisFilters.IsEmpty())
 	{
-		FActorData& BlastActor = BlastActors[ActorIndex];
+		return;
+	}
 
-		//skip empty BlastActors and BlastActors with countdown to destroy
-		if (BlastActor.BodyInstance && BlastActor.Chunks.Num() && !BlastActor.TimerHandle.IsValid())
+	FActorData& BlastActor = BlastActors[ActorIndex];
+
+	//skip empty BlastActors and BlastActors with countdown to destroy
+	if (BlastActor.BodyInstance && BlastActor.Chunks.Num() && !BlastActor.TimerHandle.IsValid())
+	{
+		FBox AABB = ActorBodySetups[ActorIndex]->AggGeom.CalcAABB(ActorTransform);
+		float lifetime = TNumericLimits<float>::Max();
+
+		for (const FBlastDebrisFilter& filter : debrisProp.DebrisFilters)
 		{
-			FBox AABB = ActorBodySetups[ActorIndex]->AggGeom.CalcAABB(ActorTransform);
-			float lifetime = TNumericLimits<float>::Max();
-
-			for (const FBlastDebrisFilter& filter : debrisProp.DebrisFilters)
+			bool isDebris = true;
+			if (filter.bUseDebrisDepth)
 			{
-				bool isDebris = true;
-				if (filter.bUseDebrisDepth)
+				uint32 depth = TNumericLimits<uint32>::Max();
+				for (const FActorChunkData& ChunkData : BlastActor.Chunks)
 				{
-					uint32 depth = TNumericLimits<uint32>::Max();
-					for (const FActorChunkData& ChunkData : BlastActor.Chunks)
-					{
-						depth = FMath::Min(BlastMesh->GetChunkDepth(ChunkData.ChunkIndex), depth);
-					}
-					isDebris &= filter.DebrisDepth <= depth;
+					depth = FMath::Min(BlastMesh->GetChunkDepth(ChunkData.ChunkIndex), depth);
 				}
-				if (filter.bUseDebrisMaxSeparation)
-				{
-					isDebris &= FVector::Dist(BlastActor.StartLocation, AABB.GetCenter()) > filter.DebrisMaxSeparation;
-				}
-				if (filter.bUseValidBounds)
-				{
-					isDebris &= !filter.ValidBounds.IsInside(AABB.GetCenter());
-				}
-				if (filter.bUseDebrisMaxSize)
-				{
-					isDebris &= AABB.GetExtent().GetAbsMax() * 2.f < filter.DebrisMaxSize;
-				}
-
-				if (isDebris && (filter.bUseDebrisDepth || filter.bUseDebrisMaxSeparation || filter.bUseValidBounds || filter.bUseDebrisMaxSize))
-				{
-					if (filter.DebrisLifetimeMin < filter.DebrisLifetimeMax)
-					{
-						lifetime = FMath::Min(lifetime, FMath::RandRange(filter.DebrisLifetimeMin, filter.DebrisLifetimeMax));
-					}
-					else
-					{
-						lifetime = FMath::Min(lifetime, 0.5f * (filter.DebrisLifetimeMin + filter.DebrisLifetimeMax));
-					}
-					if (lifetime < 1e-2) //destroy debris immediately if its lifetime less then 0.01 s
-					{
-						//PB (Omar): Original implementation had no read unlock here which is wrong as BreakDownBlastActor has a TermBody call that
-						//does a SCOPED_SCENE_WRITE_LOCK and this sequence is not allowed. 
-						// SCENE_UNLOCK_READ(GetPXScene());
-						BreakDownBlastActor(ActorIndex);
-						// SCENE_LOCK_READ(GetPXScene());
-						break;
-					}
-				}
+				isDebris &= filter.DebrisDepth <= depth;
+			}
+			if (filter.bUseDebrisMaxSeparation)
+			{
+				isDebris &= FVector::Dist(BlastActor.StartLocation, AABB.GetCenter()) > filter.DebrisMaxSeparation;
+			}
+			if (filter.bUseValidBounds)
+			{
+				isDebris &= !filter.ValidBounds.IsInside(AABB.GetCenter());
+			}
+			if (filter.bUseDebrisMaxSize)
+			{
+				isDebris &= AABB.GetExtent().GetAbsMax() * 2.f < filter.DebrisMaxSize;
 			}
 
-			if (lifetime < TNumericLimits<float>::Max()) //activate lifetime timer for debris
+			if (isDebris && (filter.bUseDebrisDepth || filter.bUseDebrisMaxSeparation || filter.bUseValidBounds || filter.bUseDebrisMaxSize))
 			{
-				GetWorld()->GetTimerManager().SetTimer(BlastActor.TimerHandle, lifetime, false);
-				DebrisCount++;
+				if (filter.DebrisLifetimeMin < filter.DebrisLifetimeMax)
+				{
+					lifetime = FMath::Min(lifetime, FMath::RandRange(filter.DebrisLifetimeMin, filter.DebrisLifetimeMax));
+				}
+				else
+				{
+					lifetime = FMath::Min(lifetime, 0.5f * (filter.DebrisLifetimeMin + filter.DebrisLifetimeMax));
+				}
+				if (lifetime < 1e-2) //destroy debris immediately if its lifetime less then 0.01 s
+				{
+					//PB (Omar): Original implementation had no read unlock here which is wrong as BreakDownBlastActor has a TermBody call that
+					//does a SCOPED_SCENE_WRITE_LOCK and this sequence is not allowed. 
+					// SCENE_UNLOCK_READ(GetPXScene());
+					BreakDownBlastActor(ActorIndex);
+					// SCENE_LOCK_READ(GetPXScene());
+					break;
+				}
 			}
+		}
+
+		if (lifetime < TNumericLimits<float>::Max()) //activate lifetime timer for debris
+		{
+			GetWorld()->GetTimerManager().SetTimer(BlastActor.TimerHandle, lifetime, false);
+			DebrisCount++;
 		}
 	}
 }
@@ -2860,7 +2862,7 @@ void UBlastMeshComponent::DrawDebugChunkCentroids()
 				Parent = Chunks[Parent].parentChunkIndex;
 			}
 
-			FVector worldCentroid = RestSpaceToWorldSpace.TransformPosition(*reinterpret_cast<const FVector*>(LLChunk.centroid));
+			FVector worldCentroid = RestSpaceToWorldSpace.TransformPosition(FromNvVector(LLChunk.centroid));
 			DrawDebugBox(worldCentroid, FVector(10.0f), ActorData.bIsAttachedToComponent ? FLinearColor::White : FLinearColor::Green);
 		}
 	}
@@ -2868,7 +2870,7 @@ void UBlastMeshComponent::DrawDebugChunkCentroids()
 	for (TConstSetBitIterator<> It(NeedsToDraw); It; ++It)
 	{
 		const NvBlastChunk& LLChunk = Chunks[It.GetIndex()];
-		FVector worldCentroid = GetComponentTransform().TransformPosition(*reinterpret_cast<const FVector*>(LLChunk.centroid));
+		FVector worldCentroid = GetComponentTransform().TransformPosition(FromNvVector(LLChunk.centroid));
 		DrawDebugBox(worldCentroid, FVector(10.0f), FLinearColor::Blue);
 	}
 
@@ -2937,12 +2939,11 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 				const FLinearColor color = bondHealthColor(healthVal);
 
 				const NvBlastBond& solverBond = bonds[bondIndex];
-				const FVector& centroid = reinterpret_cast<const FVector&>(solverBond.centroid);
+				const FVector centroid(FromNvVector(solverBond.centroid));
 
 				// centroid
 				if (true)
 				{
-					//const NvcVec3& normal = reinterpret_cast<const NvcVec3&>(solverBond.normal);
 					FVector worldCentroid = RestSpaceToWorldSpace.TransformPosition(centroid);
 					float extent = FMath::Sqrt(solverBond.area) * 0.5f; // approximation
 					extent /= 10.0f; // scale down for visual candy
@@ -2952,8 +2953,8 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 				// chunk connection (bond)
 				if (!invisibleBond)
 				{
-					DrawDebugLine(RestSpaceToWorldSpace.TransformPosition(FVector(reinterpret_cast<const FVector&>(BlastAsset->GetChunkInfo(chunkIndex0).centroid))),
-						RestSpaceToWorldSpace.TransformPosition(FVector(reinterpret_cast<const FVector&>(BlastAsset->GetChunkInfo(chunkIndex1).centroid))),
+					DrawDebugLine(RestSpaceToWorldSpace.TransformPosition(FromNvVector(BlastAsset->GetChunkInfo(chunkIndex0).centroid)),
+						RestSpaceToWorldSpace.TransformPosition(FromNvVector(BlastAsset->GetChunkInfo(chunkIndex1).centroid)),
 						color);
 				}
 			}

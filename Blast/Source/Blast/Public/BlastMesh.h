@@ -320,7 +320,7 @@ private:
 #else
 	typedef TArray<Chaos::FConvexPtr, TInlineAllocator<32>> ConvexMeshTempList;
 #endif
-	void UpdateAfterShapesAdded(class UBodySetup* NewBodySetup, ConvexMeshTempList& ConvexMeshes, ConvexMeshTempList& MirroredConvexMeshes) const;
+	void UpdateAfterShapesAdded(class UBodySetup* NewBodySetup, ConvexMeshTempList& ConvexMeshes) const;
 };
 
 /*
@@ -337,21 +337,21 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(Category = ImportSettings, VisibleAnywhere, Instanced)
-	class UBlastAssetImportData* AssetImportData;
+	TObjectPtr<class UBlastAssetImportData> AssetImportData;
 
 	UPROPERTY()
 	FBlastFractureToolData FractureToolData;
 #endif
 
 	UPROPERTY(Instanced)
-	USkeletalMesh* Mesh;
+	TObjectPtr<USkeletalMesh> Mesh;
 
 	UPROPERTY(Instanced)
-	USkeleton* Skeleton;
+	TObjectPtr<USkeleton> Skeleton;
 
 	/* The physics asset to use for this blast mesh */
 	UPROPERTY(Instanced)
-	UPhysicsAsset* PhysicsAsset;
+	TObjectPtr<UPhysicsAsset> PhysicsAsset;
 
 	// Blast material
 	UPROPERTY(EditAnywhere, Category = "Blast")

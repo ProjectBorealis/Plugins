@@ -94,7 +94,7 @@ public:
 
 	void FinishFractureSession(FFractureSessionPtr FractureSession);
 
-	void GetVoronoiSites(TSharedPtr<FFractureSession> FractureSession, int32 ChunkId, TArray<FVector>& Sites);
+	void GetVoronoiSites(TSharedPtr<FFractureSession> FractureSession, int32 ChunkId, TArray<FVector3f>& Sites);
 
 	bool CanUndo(UBlastFractureSettings* Settings) const;
 
@@ -123,32 +123,32 @@ private:
 	TSharedPtr <Nv::Blast::VoronoiSitesGenerator> GetVoronoiSitesGenerator(TSharedPtr<FFractureSession> FractureSession, int32 FractureChunkId, bool ForceReset);
 
 	bool FractureVoronoi(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		uint32 CellCount, FVector CellAnisotropy, FQuat CellRotation, bool ForceReset);
+		uint32 CellCount, FVector3f CellAnisotropy, FQuat4f CellRotation, bool ForceReset);
 
 	bool FractureClusteredVoronoi(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		uint32 CellCount, uint32 ClusterCount, float ClusterRadius, FVector CellAnisotropy, FQuat CellRotation, bool ForceReset);
+		uint32 CellCount, uint32 ClusterCount, float ClusterRadius, FVector3f CellAnisotropy, FQuat4f CellRotation, bool ForceReset);
 
 	bool FractureRadial(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		FVector Origin, FVector Normal, float Radius, uint32_t AngularSteps, uint32_t RadialSteps, float AngleOffset,
-		float Variability, FVector CellAnisotropy, FQuat CellRotation, bool ForceReset);
+		FVector3f Origin, FVector3f Normal, float Radius, uint32_t AngularSteps, uint32_t RadialSteps, float AngleOffset,
+		float Variability, FVector3f CellAnisotropy, FQuat4f CellRotation, bool ForceReset);
 
 	bool FractureInSphere(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		uint32 CellCount, float Radius, FVector Origin, FVector CellAnisotropy, FQuat CellRotation, bool ForceReset);
+		uint32 CellCount, float Radius, FVector3f Origin, FVector3f CellAnisotropy, FQuat4f CellRotation, bool ForceReset);
 
 	bool RemoveInSphere(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		float Radius, FVector Origin, float Probability, bool ForceReset);
+		float Radius, FVector3f Origin, float Probability, bool ForceReset);
 
 	bool FractureUniformSlicing(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
 		FIntVector Slices, float AngleVariation, float OffsetVariation,
-		float NoiseAmplitude, float NoiseFrequency, int32 NoiseOctaveNumber, FVector SamplingInterval);
+		float NoiseAmplitude, float NoiseFrequency, int32 NoiseOctaveNumber, FVector3f SamplingInterval);
 
 	bool FractureCutout(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		UTexture2D* Pattern, FVector Origin, FVector Normal, FVector2D Size, float RotationZ, float Aperture, bool bPeriodic, bool bFillGaps,
-		float NoiseAmplitude, float NoiseFrequency, int32 NoiseOctaveNumber, FVector SamplingInterval);
+		UTexture2D* Pattern, FVector3f Origin, FVector3f Normal, FVector2f Size, float RotationZ, float Aperture, bool bPeriodic, bool bFillGaps,
+		float NoiseAmplitude, float NoiseFrequency, int32 NoiseOctaveNumber, FVector3f SamplingInterval);
 
 	bool FractureCut(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed, bool IsReplace,
-		FVector Origin, FVector Normal,
-		float NoiseAmplitude, float NoiseFrequency, int32 NoiseOctaveNumber, FVector SamplingInterval);
+		FVector3f Origin, FVector3f Normal,
+		float NoiseAmplitude, float NoiseFrequency, int32 NoiseOctaveNumber, FVector3f SamplingInterval);
 
 	bool FractureChunksFromIslands(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId);
 

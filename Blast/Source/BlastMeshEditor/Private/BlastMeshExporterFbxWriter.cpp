@@ -1129,7 +1129,7 @@ void FbxFileWriter::generateSmoothingGroups(fbxsdk::FbxMesh* mesh, FbxSkin* skin
 			const int clusterCPListLength = cluster->GetControlPointIndicesCount();
 
 			cpsPerCluster[c].resize(clusterCPListLength);
-			memcpy(cpsPerCluster[c].data(), clusterCPList, sizeof(int) * clusterCPListLength);
+			FMemory::Memcpy(cpsPerCluster[c].data(), clusterCPList, sizeof(int) * clusterCPListLength);
 			std::sort(cpsPerCluster[c].begin(), cpsPerCluster[c].end());
 		}
 	}

@@ -260,7 +260,7 @@ bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 			{
 				int32 elemCount = bmesh->Mesh->GetMaterials()[i].MaterialSlotName.ToString().Len();
 				char* data = new char[elemCount + 1];
-				FMemory::Memcpy(data, TCHAR_TO_UTF8(bmesh->Mesh->GetMaterials()[i].MaterialSlotName.ToString().GetCharArray().GetData()), sizeof(char) * elemCount);
+				FMemory::Memcpy(data, TCHAR_TO_UTF8(bmesh->Mesh->GetMaterials()[i].MaterialSlotName.ToString().GetCharArray().GetData()), elemCount);
 				data[elemCount] = 0; // set terminating character
 				matNames.Add(data);
 			}

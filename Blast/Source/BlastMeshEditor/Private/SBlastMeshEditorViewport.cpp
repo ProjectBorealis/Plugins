@@ -43,7 +43,7 @@ public:
 
 	// FEditorViewportClient interface
 	virtual void Tick(float DeltaTime) override;
-	virtual void Draw(const FSceneView* View,FPrimitiveDrawInterface* PDI) override;
+	virtual void Draw(const FSceneView* View, FPrimitiveDrawInterface* PDI) override;
 	FLinearColor GetBackgroundColor() const override { return FLinearColor::Black; }
 	virtual bool InputKey(const FInputKeyEventArgs& EventArgs) override;
 	virtual bool InputAxis(FViewport* Viewport, FInputDeviceId DeviceID, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override;
@@ -55,8 +55,8 @@ public:
 	void ResetCamera();
 
 	/** Function to set the mesh component used for preview */
-	void SetPreviewComponent( UViewportBlastMeshComponent* InPreviewBlastComp );
-	
+	void SetPreviewComponent(UViewportBlastMeshComponent* InPreviewBlastComp);
+
 	inline void SetExplodeAmount(float InExplodeAmount)
 	{
 		ExplodeAmount = InExplodeAmount;
@@ -127,8 +127,8 @@ private:
 
 FBlastMeshEditorViewportClient::FBlastMeshEditorViewportClient(TWeakPtr<IBlastMeshEditor> InBlastMeshEditor, FPreviewScene& InPreviewScene, const TSharedRef<SBlastMeshEditorViewport>& InBlastMeshEditorViewport)
 	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InBlastMeshEditorViewport))
-//FBlastMeshEditorViewportClient::FBlastMeshEditorViewportClient(TWeakPtr<IBlastMeshEditor> InBlastMeshEditor, FPreviewScene& InPreviewScene, TWeakPtr<SBlastMeshEditorViewport>& InBlastMeshEditorViewport)
-	//: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InBlastMeshEditorViewport.Pin().ToSharedRef()))
+	//FBlastMeshEditorViewportClient::FBlastMeshEditorViewportClient(TWeakPtr<IBlastMeshEditor> InBlastMeshEditor, FPreviewScene& InPreviewScene, TWeakPtr<SBlastMeshEditorViewport>& InBlastMeshEditorViewport)
+		//: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InBlastMeshEditorViewport.Pin().ToSharedRef()))
 	, BlastMeshEditorPtr(InBlastMeshEditor)
 	, BlastMeshEditorViewportPtr(InBlastMeshEditorViewport)
 {
@@ -144,7 +144,7 @@ FBlastMeshEditorViewportClient::FBlastMeshEditorViewportClient(TWeakPtr<IBlastMe
 	DrawHelper.bDrawGrid = true;
 	DrawHelper.GridColorAxis = FColor(70, 70, 70);
 	DrawHelper.GridColorMajor = FColor(40, 40, 40);
-	DrawHelper.GridColorMinor =  FColor(20, 20, 20);
+	DrawHelper.GridColorMinor = FColor(20, 20, 20);
 	DrawHelper.PerspectiveGridSize = HALF_WORLD_MAX1;
 }
 
@@ -276,14 +276,14 @@ void FBlastMeshEditorViewportClient::Tick(float DeltaTime)
 	}
 }
 
-void FBlastMeshEditorViewportClient::Draw( const FSceneView* View,FPrimitiveDrawInterface* PDI )
+void FBlastMeshEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDrawInterface* PDI)
 {
 	FEditorViewportClient::Draw(View, PDI);
 
 	const bool DrawChunkMarker = true;
 
 	UViewportBlastMeshComponent* Comp = PreviewBlastComp.Get();
-	
+
 	if (Comp && Comp->GetBlastMesh() != NULL)
 	{
 		FDynamicColoredMaterialRenderProxy* SelectedColorInstance = new FDynamicColoredMaterialRenderProxy(GEngine->GeomMaterial->GetRenderProxy(), FLinearColor(255, 0, 0, 128));
@@ -313,15 +313,15 @@ void FBlastMeshEditorViewportClient::Draw( const FSceneView* View,FPrimitiveDraw
 
 				if (bShowVoronoiSites)
 				{
-					auto Sites = ChunkModels[ChunkIndex]->VoronoiSites;
+					TSharedPtr<TArray<FVector3f>> Sites = ChunkModels[ChunkIndex]->VoronoiSites;
 					if (Sites.IsValid())
 					{
 						int32 BoneIndex = Comp->GetBlastMesh()->ChunkIndexToBoneIndex[ChunkIndex];
-						auto tr = Comp->GetBlastMesh()->GetComponentSpaceInitialBoneTransform(BoneIndex).Inverse();
+						FTransform tr = Comp->GetBlastMesh()->GetComponentSpaceInitialBoneTransform(BoneIndex).Inverse();
 						FVector Displacement = ExplodeAmount * Comp->ChunkDisplacements[ChunkIndex];
-						for (auto& Site : *Sites)
+						for (const FVector3f& Site : *Sites)
 						{
-							DrawWireStar(PDI, tr.TransformPosition(Site + Displacement), 3, Green, 0);
+							DrawWireStar(PDI, tr.TransformPosition(FVector(Site) + Displacement), 3, Green, 0);
 						}
 					}
 				}
@@ -342,11 +342,11 @@ void FBlastMeshEditorViewportClient::Draw( const FSceneView* View,FPrimitiveDraw
 			switch (BMEV->GetBlastVectorMode())
 			{
 			case EBlastViewportControlMode::Normal:
-				{
-					FQuat Rot = FQuat::FindBetweenVectors(FVector(1.f, 0.f, 0.f), MouseChunkHitNorm);
-					DrawDirectionalArrow(PDI, FTransform(Rot, MouseChunkHitLoc).ToMatrixNoScale(), FColor::Blue, 10, 1, 255, .5f);
-				}
-				break;
+			{
+				FQuat Rot = FQuat::FindBetweenVectors(FVector(1.f, 0.f, 0.f), MouseChunkHitNorm);
+				DrawDirectionalArrow(PDI, FTransform(Rot, MouseChunkHitLoc).ToMatrixNoScale(), FColor::Blue, 10, 1, 255, .5f);
+			}
+			break;
 			case EBlastViewportControlMode::TwoPoint:
 				if (Values.Num())
 				{
@@ -394,25 +394,25 @@ void FBlastMeshEditorViewportClient::Draw( const FSceneView* View,FPrimitiveDraw
 						Displacement = ExplodeAmount * Comp->ChunkDisplacements[ChunkIndex];
 					}
 				}
-				auto Tr = Comp->GetBlastMesh()->GetComponentSpaceInitialBoneTransform(BoneIndex).Inverse();
+				FTransform Tr = Comp->GetBlastMesh()->GetComponentSpaceInitialBoneTransform(BoneIndex).Inverse();
 				Displacement = Tr.TransformPosition(Displacement);
 				switch (FS->FractureMethod)
 				{
 				case EBlastFractureMethod::VoronoiInSphere:
-					Origin = Tr.TransformPosition(FS->InSphereFracture->Origin) + Displacement;
+					Origin = Tr.TransformPosition(FVector(FS->InSphereFracture->Origin.V)) + Displacement;
 					Scale = FVector(FS->InSphereFracture->Radius);
 					DrawSphere(PDI, Origin, FRotator(0.f), Scale, 32, 32, SelectedColorInstance, 0);
 					DrawWireSphereAutoSides(PDI, Origin, FColor::Red, Scale.X, 0);
 					break;
 				case EBlastFractureMethod::VoronoiRemoveInSphere:
-					Origin = Tr.TransformPosition(FS->RemoveInSphere->Origin) + Displacement;
+					Origin = Tr.TransformPosition(FVector(FS->RemoveInSphere->Origin.V)) + Displacement;
 					Scale = FVector(FS->RemoveInSphere->Radius);
 					DrawSphere(PDI, Origin, FRotator(0.f), Scale, 32, 32, SelectedColorInstance, 0);
 					DrawWireSphereAutoSides(PDI, Origin, FColor::Red, Scale.X, 0);
 					break;
 				case EBlastFractureMethod::VoronoiRadial:
-					Normal = Tr.TransformVector(FS->RadialFracture->Normal);
-					Origin = Tr.TransformPosition(FS->RadialFracture->Origin) + Displacement;
+					Normal = Tr.TransformVector(FVector(FS->RadialFracture->Normal.V));
+					Origin = Tr.TransformPosition(FVector(FS->RadialFracture->Origin.V)) + Displacement;
 					Scale = FVector(FS->RadialFracture->Radius);
 					{
 						FVector tangent, cotangent;
@@ -422,14 +422,14 @@ void FBlastMeshEditorViewportClient::Draw( const FSceneView* View,FPrimitiveDraw
 					}
 					break;
 				case EBlastFractureMethod::Cut:
-					Normal = Tr.TransformVector(FS->CutFracture->Normal);
-					Origin = Tr.TransformPosition(FS->CutFracture->Point) + Displacement;
+					Normal = Tr.TransformVector(FVector(FS->CutFracture->Normal.V));
+					Origin = Tr.TransformPosition(FVector(FS->CutFracture->Point.V)) + Displacement;
 					Scale = FVector(2 * MeshBounds.SphereRadius, 2 * MeshBounds.SphereRadius, 0);
 				case EBlastFractureMethod::Cutout:
 					if (FS->FractureMethod == EBlastFractureMethod::Cutout)
 					{
-						Normal = Tr.TransformVector(FS->CutoutFracture->Normal);
-						Origin = Tr.TransformPosition(FS->CutoutFracture->Origin) + Displacement;
+						Normal = Tr.TransformVector(FVector(FS->CutoutFracture->Normal.V));
+						Origin = Tr.TransformPosition(FVector(FS->CutoutFracture->Origin.V)) + Displacement;
 						Scale = FVector(FS->CutoutFracture->Size.X, FS->CutoutFracture->Size.Y, FS->CutoutFracture->RotationZ);
 					}
 					{
@@ -517,7 +517,7 @@ void FBlastMeshEditorViewportClient::RenderCollisionMesh(FPrimitiveDrawInterface
 
 			for (int32 j = 0; j < AggGeom->ConvexElems.Num(); ++j)
 			{
-				FTransform ElemTM = BoneTM *  AggGeom->ConvexElems[j].GetTransform();
+				FTransform ElemTM = BoneTM * AggGeom->ConvexElems[j].GetTransform();
 				AggGeom->ConvexElems[j].DrawElemWire(PDI, ElemTM, Scale, Color);
 			}
 
@@ -581,7 +581,7 @@ void SBlastMeshEditorViewport::Construct(const FArguments& InArgs)
 	SEditorViewport::Construct(SEditorViewport::FArguments());
 
 	//PreviewComponent = NewObject<UViewportBlastMeshComponent>(NewActor, "BlastMesh", RF_Transactional);
-	PreviewComponent = NewObject<UViewportBlastMeshComponent>(GetTransientPackage(), NAME_None, RF_Transient );
+	PreviewComponent = NewObject<UViewportBlastMeshComponent>(GetTransientPackage(), NAME_None, RF_Transient);
 
 	SetPreviewMesh(InArgs._ObjectToEdit);
 
@@ -609,7 +609,7 @@ SBlastMeshEditorViewport::~SBlastMeshEditorViewport()
 	}
 }
 
-void SBlastMeshEditorViewport::AddReferencedObjects( FReferenceCollector& Collector )
+void SBlastMeshEditorViewport::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(PreviewComponent);
 	Collector.AddReferencedObject(BlastMesh);
@@ -620,9 +620,9 @@ FString SBlastMeshEditorViewport::GetReferencerName() const
 	return TEXT("SBlastMeshEditorViewport");
 }
 
-void SBlastMeshEditorViewport::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, class FEditPropertyChain* PropertyThatChanged)
+void SBlastMeshEditorViewport::NotifyPostChange(const FPropertyChangedEvent& PropertyChangedEvent, class FEditPropertyChain* PropertyThatChanged)
 {
-	for( FEditPropertyChain::TIterator It(PropertyThatChanged->GetHead()); It; ++It )
+	for (FEditPropertyChain::TIterator It(PropertyThatChanged->GetHead()); It; ++It)
 	{
 		if (*It->GetName() == FName(TEXT("Materials")))
 		{
@@ -708,13 +708,13 @@ void SBlastMeshEditorViewport::UpdateBlastVectorValue(FVector NewValue, FVector 
 	{
 	case EBlastViewportControlMode::Normal:
 	case EBlastViewportControlMode::Point:
-		*BlastVector = NewValue;
+		*BlastVector = FVector3f(NewValue);
 		ResetBlastVectorMode(true);
 		break;
 	case EBlastViewportControlMode::TwoPoint:
 		if (BlastVectorPreviouslyClickedValues.Num() >= 1)
 		{
-			*BlastVector = NewValue - BlastVectorPreviouslyClickedValues.Last();
+			*BlastVector = FVector3f(NewValue - BlastVectorPreviouslyClickedValues.Last());
 			ResetBlastVectorMode(true);
 		}
 		else
@@ -728,13 +728,13 @@ void SBlastMeshEditorViewport::UpdateBlastVectorValue(FVector NewValue, FVector 
 		{
 			if (BlastVector->DefaultControlMode == EBlastViewportControlMode::Normal)
 			{
-				*BlastVector = (NewValue - BlastVectorPreviouslyClickedValues[0]).ProjectOnTo(
-					BlastVectorPreviouslyClickedValues[1] - BlastVectorPreviouslyClickedValues[0]);
+				*BlastVector = FVector3f((NewValue - BlastVectorPreviouslyClickedValues[0]).ProjectOnTo(
+					BlastVectorPreviouslyClickedValues[1] - BlastVectorPreviouslyClickedValues[0]));
 			}
 			else
 			{
-				*BlastVector = BlastVectorPreviouslyClickedValues[0] + (NewValue - BlastVectorPreviouslyClickedValues[0]).ProjectOnTo(
-					BlastVectorPreviouslyClickedValues[1] - BlastVectorPreviouslyClickedValues[0]);
+				*BlastVector = FVector3f(BlastVectorPreviouslyClickedValues[0] + (NewValue - BlastVectorPreviouslyClickedValues[0]).ProjectOnTo(
+					BlastVectorPreviouslyClickedValues[1] - BlastVectorPreviouslyClickedValues[0]));
 			}
 			ResetBlastVectorMode(true);
 		}
@@ -817,11 +817,11 @@ void SBlastMeshEditorViewport::SetPreviewMesh(UBlastMesh* InBlastMesh)
 		return;
 	}
 
-	FComponentReregisterContext ReregisterContext( PreviewComponent );
+	FComponentReregisterContext ReregisterContext(PreviewComponent);
 
 	PreviewComponent->SetBlastMesh(InBlastMesh);
-	
-	PreviewScene->AddComponent( PreviewComponent, FTransform::Identity);
+
+	PreviewScene->AddComponent(PreviewComponent, FTransform::Identity);
 
 	EditorViewportClient->SetPreviewComponent(PreviewComponent);
 
@@ -885,7 +885,7 @@ void SBlastMeshEditorViewport::SetExplodeAmount(float InExplodeAmount)
 
 void SBlastMeshEditorViewport::SetViewModeWireframe()
 {
-	if(CurrentViewMode != VMI_Wireframe)
+	if (CurrentViewMode != VMI_Wireframe)
 	{
 		CurrentViewMode = VMI_Wireframe;
 	}
@@ -985,8 +985,8 @@ TSharedRef<FEditorViewportClient> SBlastMeshEditorViewport::MakeEditorViewportCl
 
 	EditorViewportClient->bSetListenerPosition = false;
 
-	EditorViewportClient->SetRealtime( false );
-	EditorViewportClient->VisibilityDelegate.BindSP( this, &SBlastMeshEditorViewport::IsVisible );
+	EditorViewportClient->SetRealtime(false);
+	EditorViewportClient->VisibilityDelegate.BindSP(this, &SBlastMeshEditorViewport::IsVisible);
 
 	return EditorViewportClient.ToSharedRef();
 }

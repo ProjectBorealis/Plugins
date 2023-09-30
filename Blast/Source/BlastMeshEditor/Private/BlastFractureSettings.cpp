@@ -450,7 +450,7 @@ UBlastFractureSettingsNoise::UBlastFractureSettingsNoise(const FObjectInitialize
 {
 }
 
-void UBlastFractureSettingsNoise::Setup(float InAmplitude, float InFrequency, int32 InOctaveNumber, FVector InSamplingInterval)
+void UBlastFractureSettingsNoise::Setup(float InAmplitude, float InFrequency, int32 InOctaveNumber, FVector3f InSamplingInterval)
 {
 	Amplitude = InAmplitude;
 	Frequency = InFrequency;
@@ -468,7 +468,7 @@ UBlastFractureSettingsVoronoi::UBlastFractureSettingsVoronoi(const FObjectInitia
 {
 }
 
-void UBlastFractureSettingsVoronoi::Setup(bool InForceReset, const FVector& InAnisotropy, const FQuat& InRotation)
+void UBlastFractureSettingsVoronoi::Setup(bool InForceReset, const FVector3f& InAnisotropy, const FQuat4f& InRotation)
 {
 	ForceReset = InForceReset;
 	CellAnisotropy = InAnisotropy;
@@ -680,14 +680,14 @@ void UBlastFractureSettings::PostEditChangeProperty(struct FPropertyChangedEvent
 UBlastFractureSettingsConfig::UBlastFractureSettingsConfig(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	VoronoiCellAnisotropy = FVector(1.f);
-	VoronoiCellRotation = FQuat::Identity;
+	VoronoiCellAnisotropy = FVector3f(1.f);
+	VoronoiCellRotation = FQuat4f::Identity;
 	VoronoiUniformCellCount = 10;
 	VoronoiClusteredCellCount = 10;
 	VoronoiClusteredClusterCount = 5;
 	VoronoiClusteredClusterRadius = 100.f;
-	//RadialOrigin = FVector(0.f);
-	//RadialNormal = FVector(0.f, 0.f, 1.f);
+	//RadialOrigin = FVector3f(0.f);
+	//RadialNormal = FVector3f(0.f, 0.f, 1.f);
 	RadialRadius = 100.f;
 	RadialAngularSteps = 6;
 	RadialRadialSteps = 5;
@@ -700,7 +700,7 @@ UBlastFractureSettingsConfig::UBlastFractureSettingsConfig(const FObjectInitiali
 	UniformSlicingSlicesCount = FIntVector(2, 2, 2);
 	UniformSlicingAngleVariation = 0.f;
 	UniformSlicingOffsetVariation = 0.f;
-	CutoutSize = FVector2D(100, 100);
+	CutoutSize = FVector2f(100, 100);
 	CutoutRotationZ = 0.f;
 	CutoutAperture = 0.f;
 	bCutoutPeriodic = false;
@@ -708,7 +708,7 @@ UBlastFractureSettingsConfig::UBlastFractureSettingsConfig(const FObjectInitiali
 	NoiseAmplitude = 0.f;
 	NoiseFrequency = 1.f;
 	NoiseOctaveNumber = 1;
-	NoiseSamplingInterval = FVector(100.f);
+	NoiseSamplingInterval = FVector3f(100.f);
 	RandomSeed = -1;
 	DefaultSupportDepth = -1;
 	bRemoveIslands = true;

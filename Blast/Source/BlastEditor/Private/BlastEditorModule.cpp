@@ -314,12 +314,12 @@ public:
 		}
 		centroid = essCentroid;
 
-		TArray<ChMapping> chunkMapping;
-
 		TArray<NvcQuat> AssetRotations;
 		TArray<NvcVec3> AssetLocations;
 		TArray<NvcVec3> AssetScales;
-		TArray<FTransform> ComponentTransforms;
+		TArray<FTransform3f> ComponentTransforms;
+
+		ComponentTransforms.SetNumUninitialized(meshes.Num());
 
 		TArray<const NvBlastAsset*> AssetList;
 		TArray<TArray<uint32> > PerComponentHullRanges;
@@ -336,22 +336,22 @@ public:
 		PerComponentHullPtrLists.SetNum(meshes.Num());
 
 
-		TArray<TArray<FBlastCollisionHull> > NewCombinedHulls;
+		TArray<TArray<FBlastCollisionHull>> NewCombinedHulls;
 		uint32 CurChunkCount = 0;
 
 		for (int32 I = 0; I < meshes.Num(); I++)
 		{
 			UBlastMeshComponent* ParticipatingComponent = meshes[I];
 
-			FTransform cTransform = ParticipatingComponent->GetComponentTransform();
-			cTransform.AddToTranslation(-essCentroid);
+			FTransform3f cTransform = FTransform3f(ParticipatingComponent->GetComponentTransform());
+			cTransform.AddToTranslation(-FVector3f(essCentroid));
 			UBlastAsset* ComponentAsset = ParticipatingComponent->GetBlastAsset();
 			AssetList[I] = ComponentAsset->GetLoadedAsset();
 			AssetRotations[I] = ToNvQuat(cTransform.GetRotation());
 			AssetLocations[I] = ToNvVector(cTransform.GetTranslation());
 			AssetScales[I] = ToNvVector(cTransform.GetScale3D());
-			FMatrix TransformAtMergeMat = cTransform.ToMatrixWithScale();
-			ComponentTransforms.Add(cTransform);
+			FMatrix44f TransformAtMergeMat = cTransform.ToMatrixWithScale();
+			ComponentTransforms[I] = cTransform;
 
 			const TArray<FBlastCookedChunkData>& CookedChunkData = ParticipatingComponent->GetBlastMesh()->GetCookedChunkData();
 
@@ -360,11 +360,6 @@ public:
 			//Transform convex hulls to world space also
 			for (int32 Chunk = 0; Chunk < CookedChunkData.Num(); Chunk++)
 			{
-				chunkMapping.Emplace();
-				chunkMapping.Last().cmp = I;
-				chunkMapping.Last().ch = Chunk;
-
-
 				NewCombinedHulls.Emplace();
 				TArray<FBlastCollisionHull>& NewUEHulls = NewCombinedHulls.Last();
 
@@ -407,7 +402,7 @@ public:
 					NewHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
 					NewUEHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
 					const NvcVec3* OrigVerts = pxMesh->getVertices();
-					FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts, NewHull.Points.Num() * sizeof(*OrigVerts));
+					FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts, NewHull.Points.Num() * sizeof(FVector3f));
 					for (int32 P = 0; P < NewHull.Points.Num(); P++)
 					{
 						NewUEHull.Points[P] = cTransform.TransformPosition(FromNvVector(OrigVerts[P]));
@@ -419,38 +414,35 @@ public:
 					NewHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
 					NewUEHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
 					const TArray<Chaos::FVec3f>& OrigVerts = chaosMesh->GetVertices();
-					FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts.GetData(), NewHull.Points.Num() * sizeof(Chaos::FVec3f));
+					FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts.GetData(), NewHull.Points.Num() * sizeof(FVector3f));
 					for (int32 P = 0; P < NewHull.Points.Num(); P++)
 					{
-						NewUEHull.Points[P] = cTransform.TransformPosition(FVector(OrigVerts[P]));
+						NewUEHull.Points[P] = cTransform.TransformPosition(OrigVerts[P]);
 					}
 #endif
 
 					for (int32 P = 0; P < NewHull.Polygons.Num(); P++)
 					{
-						FBlastCollisionHull::HullPolygon HullPoly;
 #if BLAST_USE_PHYSX
+						Nv::Blast::HullPolygon HullPoly;
 						pxMesh->getPolygonData(P, HullPoly);
 						NumIndicies = FMath::Max(NumIndicies, HullPoly.IndexBase + HullPoly.NbVerts);
 #else
+						Nv::Blast::HullPolygon& outPoly = NewHull.Polygons[P];
 						const Chaos::FConvex::FPlaneType& ChaosPlane = chaosMesh->GetPlaneRaw(P);
-						ToNvPlane4(FPlane(FVector(ChaosPlane.X()), FVector(ChaosPlane.Normal())), HullPoly.Plane);
-						HullPoly.NbVerts = chaosMesh->NumPlaneVertices(P);
-						HullPoly.IndexBase = NumIndicies;
-						NumIndicies += HullPoly.NbVerts;
+						ToNvPlane4(FPlane4f(ChaosPlane.X(), ChaosPlane.Normal()), outPoly.plane);
+						outPoly.vertexCount = chaosMesh->NumPlaneVertices(P);
+						outPoly.indexBase = NumIndicies;
+						NumIndicies += outPoly.vertexCount;
 #endif
 
-						NewHull.Polygons[P].indexBase = HullPoly.IndexBase;
-						NewHull.Polygons[P].vertexCount = HullPoly.NbVerts;
-						FMemory::Memcpy(NewHull.Polygons[P].plane, HullPoly.Plane, sizeof(float) * 4);
-
-						FPlane Plane = FromNvPlane4(HullPoly.Plane);
+						FPlane4f Plane = FromNvPlane4f(outPoly.plane);
 						//This flips the normal automatically if required
 						Plane = Plane.TransformBy(TransformAtMergeMat);
 
-						NewUEHull.PolygonData[P].IndexBase = HullPoly.IndexBase;
-						NewUEHull.PolygonData[P].NbVerts = HullPoly.NbVerts;
-						ToNvPlane4(Plane, NewUEHull.PolygonData[P].Plane);
+						NewUEHull.PolygonData[P].indexBase = outPoly.indexBase;
+						NewUEHull.PolygonData[P].vertexCount = outPoly.vertexCount;
+						ToNvPlane4(Plane, NewUEHull.PolygonData[P].plane);
 					}
 
 					NewHull.Indices.SetNumUninitialized(NumIndicies);
@@ -529,7 +521,7 @@ public:
 		}
 		SkeletalMesh->GetRefSkeleton().Empty();
 
-		TArray<TArray<int32> > perComponentBoneToMerged;
+		TArray<TArray<int32>> perComponentBoneToMerged;
 		perComponentBoneToMerged.SetNum(meshes.Num());
 
 		for (int32 cmp = 0; cmp < meshes.Num(); ++cmp)
@@ -656,10 +648,10 @@ public:
 				for (int32 vrt = 0; vrt < sect.SoftVertices.Num(); ++vrt)
 				{
 					lsect.SoftVertices.Add(sect.SoftVertices[vrt]);
-					lsect.SoftVertices.Last().Position = FVector3f(ComponentTransforms[i].TransformPosition(FVector(lsect.SoftVertices.Last().Position)));
-					lsect.SoftVertices.Last().TangentX = FVector3f(ComponentTransforms[i].TransformVectorNoScale(FVector(lsect.SoftVertices.Last().TangentX)));
-					lsect.SoftVertices.Last().TangentY = FVector3f(ComponentTransforms[i].TransformVectorNoScale(FVector(lsect.SoftVertices.Last().TangentY)));
-					lsect.SoftVertices.Last().TangentZ = FVector3f(ComponentTransforms[i].TransformVectorNoScale(FVector(lsect.SoftVertices.Last().TangentZ)));
+					lsect.SoftVertices.Last().Position = ComponentTransforms[i].TransformPosition(lsect.SoftVertices.Last().Position);
+					lsect.SoftVertices.Last().TangentX = ComponentTransforms[i].TransformVectorNoScale(lsect.SoftVertices.Last().TangentX);
+					lsect.SoftVertices.Last().TangentY = ComponentTransforms[i].TransformVectorNoScale(lsect.SoftVertices.Last().TangentY);
+					lsect.SoftVertices.Last().TangentZ = ComponentTransforms[i].TransformVectorNoScale(lsect.SoftVertices.Last().TangentZ);
 					lsect.SoftVertices.Last().InfluenceBones[0] += lsect.BoneMap.Num();
 
 					MeshBounds += FVector(lsect.SoftVertices.Last().Position);
@@ -1222,7 +1214,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 		AssetLocations[I] = ToNvVector(Component.TransformAtMerge.GetTranslation());
 		AssetScales[I] = ToNvVector(Component.TransformAtMerge.GetScale3D());
 
-		FMatrix TransformAtMergeMat = Component.TransformAtMerge.ToMatrixWithScale();
+		FMatrix44f TransformAtMergeMat = FMatrix44f(Component.TransformAtMerge.ToMatrixWithScale());
 
 		const TArray<FBlastCookedChunkData>& CookedChunkData = ParticipatingComponent->GetBlastMesh()->GetCookedChunkData();
 
@@ -1281,7 +1273,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 				NewHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
 				NewUEHull.Points.SetNumUninitialized(pxMesh->getNbVertices());
 				const NvcVec3* OrigVerts = pxMesh->getVertices();
-				FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts, NewHull.Points.Num() * sizeof(*OrigVerts));
+				FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts, NewHull.Points.Num() * sizeof(FVector3f));
 				for (int32 P = 0; P < NewHull.Points.Num(); P++)
 				{
 					NewUEHull.Points[P] = Component.TransformAtMerge.TransformPosition(FromNvVector(OrigVerts[P]));
@@ -1293,37 +1285,34 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 				NewHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
 				NewUEHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
 				const TArray<Chaos::FVec3f>& OrigVerts = chaosMesh->GetVertices();
-				FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts.GetData(), NewHull.Points.Num() * sizeof(Chaos::FVec3f));
+				FMemory::Memcpy(NewHull.Points.GetData(), OrigVerts.GetData(), NewHull.Points.Num() * sizeof(FVector3f));
 				for (int32 P = 0; P < NewHull.Points.Num(); P++)
 				{
-					NewUEHull.Points[P] = Component.TransformAtMerge.TransformPosition(FVector(OrigVerts[P]));
+					NewUEHull.Points[P] = FVector3f(Component.TransformAtMerge.TransformPosition(FVector(OrigVerts[P])));
 				}
 #endif
 
 				for (int32 P = 0; P < NewHull.Polygons.Num(); P++)
 				{
-					FBlastCollisionHull::HullPolygon HullPoly;
 #if BLAST_USE_PHYSX
+					Nv::Blast::HullPolygon HullPoly;
 					pxMesh->getPolygonData(P, HullPoly);
 					NumIndicies = FMath::Max(NumIndicies, HullPoly.IndexBase + HullPoly.NbVerts);
 #else
+					Nv::Blast::HullPolygon& outPoly = NewHull.Polygons[P];
 					const Chaos::FConvex::FPlaneType& ChaosPlane = chaosMesh->GetPlaneRaw(P);
-					ToNvPlane4(FPlane(FVector(ChaosPlane.X()), FVector(ChaosPlane.Normal())), HullPoly.Plane);
-					HullPoly.NbVerts = chaosMesh->NumPlaneVertices(P);
-					HullPoly.IndexBase = NumIndicies;
-					NumIndicies += HullPoly.NbVerts;
+					ToNvPlane4(FPlane4f(ChaosPlane.X(), ChaosPlane.Normal()), outPoly.plane);
+					outPoly.vertexCount = chaosMesh->NumPlaneVertices(P);
+					outPoly.indexBase = NumIndicies;
+					NumIndicies += outPoly.vertexCount;
 #endif
 
-					NewHull.Polygons[P].indexBase = HullPoly.IndexBase;
-					NewHull.Polygons[P].vertexCount = HullPoly.NbVerts;
-					FMemory::Memcpy(NewHull.Polygons[P].plane, HullPoly.Plane, sizeof(float) * 4);
-
-					FPlane Plane = FromNvPlane4(HullPoly.Plane);
+					FPlane4f Plane = FromNvPlane4f(outPoly.plane);
 					Plane = Plane.TransformBy(TransformAtMergeMat);
 
-					NewUEHull.PolygonData[P].IndexBase = HullPoly.IndexBase;
-					NewUEHull.PolygonData[P].NbVerts = HullPoly.NbVerts;
-					ToNvPlane4(Plane, NewUEHull.PolygonData[P].Plane);
+					NewUEHull.PolygonData[P].indexBase = outPoly.indexBase;
+					NewUEHull.PolygonData[P].vertexCount = outPoly.vertexCount;
+					ToNvPlane4(Plane, NewUEHull.PolygonData[P].plane);
 				}
 
 				NewHull.Indices.SetNumUninitialized(NumIndicies);

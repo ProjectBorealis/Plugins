@@ -96,9 +96,9 @@ void FBlastCollisionFbxImporter::ReadMeshSpaceCollisionHullsFromFBX(UBlastMesh* 
 		for (int32_t i = 0; i < FbxMesh->GetControlPointsCount(); ++i)
 		{
 			FbxVector4 WorldPos = TotalMatrix.MultT(*vpos);
-			chull.Points[i].X = (float)WorldPos[0];
-			chull.Points[i].Y = -(float)WorldPos[1];
-			chull.Points[i].Z = (float)WorldPos[2];
+			chull.Points[i].X = WorldPos[0];
+			chull.Points[i].Y = -WorldPos[1];
+			chull.Points[i].Z = WorldPos[2];
 			vpos++;
 		}
 
@@ -109,12 +109,12 @@ void FBlastCollisionFbxImporter::ReadMeshSpaceCollisionHullsFromFBX(UBlastMesh* 
 
 		for (uint32_t poly = 0; poly < polyCount; ++poly)
 		{
-			int32_t vInPolyCount = FbxMesh->GetPolygonSize(poly);
-			chull.PolygonData[poly].IndexBase = (uint16_t)chull.Indices.Num();
-			chull.PolygonData[poly].NbVerts = (uint16_t)vInPolyCount;
+			int32_t numVerts = FbxMesh->GetPolygonSize(poly);
+			chull.PolygonData[poly].indexBase = (uint16_t)chull.Indices.Num();
+			chull.PolygonData[poly].vertexCount = (uint16_t)numVerts;
 			int32_t* ind = &FbxMesh->GetPolygonVertices()[FbxMesh->GetPolygonVertexIndex(poly)];
 
-			for (int32_t v = 0; v < vInPolyCount; ++v)
+			for (int32_t v = 0; v < numVerts; ++v)
 			{
 				chull.Indices.Push(*ind);
 				++ind;
@@ -123,11 +123,11 @@ void FBlastCollisionFbxImporter::ReadMeshSpaceCollisionHullsFromFBX(UBlastMesh* 
 			narr.GetAt(poly, &normal);
 			normal = TotalMatrixForNormal.MultT(normal);
 
-			chull.PolygonData[poly].Plane[0] = (float)normal[0];
-			chull.PolygonData[poly].Plane[1] = (float)-normal[1];
-			chull.PolygonData[poly].Plane[2] = (float)normal[2];
-			FVector polyLastVertex = chull.Points[chull.Indices.Last()];
-			chull.PolygonData[poly].Plane[3] = -((float)(polyLastVertex.X * normal[0] + polyLastVertex.Y * -normal[1] + polyLastVertex.Z * normal[2]));
+			chull.PolygonData[poly].plane[0] = (float)normal[0];
+			chull.PolygonData[poly].plane[1] = (float)-normal[1];
+			chull.PolygonData[poly].plane[2] = (float)normal[2];
+			FVector3f polyLastVertex = chull.Points[chull.Indices.Last()];
+			chull.PolygonData[poly].plane[3] = -((float)(polyLastVertex.X * normal[0] + polyLastVertex.Y * -normal[1] + polyLastVertex.Z * normal[2]));
 		}
 	}
 }

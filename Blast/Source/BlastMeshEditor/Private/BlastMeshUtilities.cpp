@@ -4,6 +4,7 @@
 #include "BlastFracture.h"
 #include "BlastMesh.h"
 #include "BlastMeshFactory.h"
+#include "BlastGlobals.h"
 
 #include "NvBlastExtAuthoring.h"
 #include "NvBlastExtAuthoringTypes.h"
@@ -309,7 +310,7 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 			NewVertex.TangentX = SoftVertex.TangentX;
 			NewVertex.TangentY = SoftVertex.TangentY;
 			NewVertex.TangentZ = SoftVertex.TangentZ;
-			FMemory::Memcpy(NewVertex.UVs, SoftVertex.UVs, sizeof(FVector2D) * MAX_TEXCOORDS);
+			FMemory::Memcpy(NewVertex.UVs, SoftVertex.UVs, sizeof(FVector2f) * MAX_TEXCOORDS);
 			NewVertex.Color = SoftVertex.Color;
 
 			for (int32 i = 0; i < MAX_TOTAL_INFLUENCES; ++i)
@@ -381,7 +382,7 @@ void BuildSkeletalModelFromChunks(FSkeletalMeshLODModel& LODModel, const FRefere
 }
 #endif // USE_FRACTURE_UPDATE
 
-Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const FTransform& UE4ToBlastTransform)
+Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const FTransform3f& UE4ToBlastTransform)
 {
 	//Raw meshes are unwelded by default so weld them together and generate a real index buffer
 	TArray<FStaticMeshBuildVertex> WeldedVerts;
@@ -459,8 +460,8 @@ Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const F
 	for (int32 V = 0; V < WeldedVerts.Num(); V++)
 	{
 		const FStaticMeshBuildVertex& SMBV = WeldedVerts[V];
-		Positions[V] = FVector3f(UE4ToBlastTransform.TransformPosition(FVector(SMBV.Position)));
-		Normals[V] = FVector3f(UE4ToBlastTransform.TransformVectorNoScale(FVector(SMBV.TangentZ)));
+		Positions[V] = UE4ToBlastTransform.TransformPosition(SMBV.Position);
+		Normals[V] = UE4ToBlastTransform.TransformVectorNoScale(SMBV.TangentZ);
 		UVs[V] = FVector2f(SMBV.UVs[0].X, 1.0f - SMBV.UVs[0].Y);
 	}
 
@@ -480,7 +481,7 @@ void PrepareLODData(TSharedPtr<FFractureSession> FractureSession,
 	int32 ChunkIndex = INDEX_NONE)
 {
 	USkeletalMesh* SkeletalMesh = FractureSession->BlastMesh->Mesh;
-	auto FractureData = FractureSession->FractureData;
+	TSharedPtr<Nv::Blast::AuthoringResult> FractureData = FractureSession->FractureData;
 	check(ChunkIndex < (int32)FractureData->chunkCount);
 	UFbxSkeletalMeshImportData* skelMeshImportData = Cast<UFbxSkeletalMeshImportData>(SkeletalMesh->GetAssetImportData());
 	auto Converter = UBlastMeshFactory::GetTransformBlastToUE4CoordinateSystem(skelMeshImportData);
@@ -507,8 +508,8 @@ void PrepareLODData(TSharedPtr<FFractureSession> FractureSession,
 			//No need to pass normals, it is computed in mesh builder anyway
 			for (uint32 vi = 0; vi < 3; vi++, VertexIndex++)
 			{
-				auto& v = (&tr.a)[vi];
-				LODPoints[VertexIndex] = FVector3f(Converter.TransformPosition(FVector(v.p.x, v.p.y, v.p.z)));
+				Nv::Blast::Vertex& v = (&tr.a)[vi];
+				LODPoints[VertexIndex] = Converter.TransformPosition(FVector3f(v.p.x, v.p.y, v.p.z));
 				LODPointToRawMap[VertexIndex] = VertexIndex;
 				LODWedges[VertexIndex].Color = FColor::White;
 				for (uint32 uvi = 0; uvi < MAX_TEXCOORDS; uvi++)
@@ -869,12 +870,12 @@ void LoadFracturedChunk(TSharedPtr<FFractureSession> FractureSession, UMaterialI
 			int32 WedgeIndex = FaceIndex * 3 + VI;
 			const SkeletalMeshImportData::FMeshWedge& Wedge = LODWedges[WedgeIndex];
 			FSoftSkinBuildVertex Vertex;
-			Vertex.Position = FVector3f(LODPoints[WedgeIndex]);
-			Vertex.TangentX = FVector3f(TangentsX[WedgeIndex]);
-			Vertex.TangentY = FVector3f(TangentsY[WedgeIndex]);
-			Vertex.TangentZ = FVector3f(TangentsZ[WedgeIndex]);
+			Vertex.Position = LODPoints[WedgeIndex];
+			Vertex.TangentX = TangentsX[WedgeIndex];
+			Vertex.TangentY = TangentsY[WedgeIndex];
+			Vertex.TangentZ = TangentsZ[WedgeIndex];
 			Vertex.Color = Wedge.Color;
-			FMemory::Memcpy(Vertex.UVs, Wedge.UVs, sizeof(FVector2D) * MAX_TEXCOORDS);
+			FMemory::Memcpy(Vertex.UVs, Wedge.UVs, sizeof(FVector2f) * MAX_TEXCOORDS);
 
 			Chunk->BoneMap.AddUnique(LODInfluences[WedgeIndex].BoneIndex);
 
