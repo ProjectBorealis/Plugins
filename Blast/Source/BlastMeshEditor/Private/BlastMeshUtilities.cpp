@@ -650,7 +650,7 @@ void CreateSkeletalMeshFromAuthoring(TSharedPtr<FFractureSession> FractureSessio
 
 	BlastMesh->Skeleton = NewObject<USkeleton>(BlastMesh, *InSourceStaticMesh->GetName().Append(TEXT("_Skeleton")));
 
-	USkeletalMesh* SkeletalMesh = NewObject<USkeletalMesh>(BlastMesh, FName(*InSourceStaticMesh->GetName().Append(TEXT("_SkelMesh"))), RF_NoFlags);
+	USkeletalMesh* SkeletalMesh = NewObject<USkeletalMesh>(BlastMesh, FName(*InSourceStaticMesh->GetName().Append(TEXT("_SkelMesh"))), RF_Public);
 	SkeletalMesh->SetSkeleton(BlastMesh->Skeleton);
 	BlastMesh->Mesh = SkeletalMesh;
 

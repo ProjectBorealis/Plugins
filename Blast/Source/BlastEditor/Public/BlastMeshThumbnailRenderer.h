@@ -24,7 +24,7 @@ protected:
 	virtual void GetViewMatrixParameters(const float InFOVDegrees, FVector& OutOrigin, float& OutOrbitPitch, float& OutOrbitYaw, float& OutOrbitZoom) const override;
 
 private:
-	class UBlastMeshComponent* PreviewComponent;
+	TObjectPtr<class UBlastMeshComponent> PreviewComponent;
 };
 
 UCLASS(MinimalAPI)

@@ -70,7 +70,7 @@ public:
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
-	UArrowComponent* GlueVectorComponent;
+	TObjectPtr<UArrowComponent> GlueVectorComponent;
 
 	//These are used to invalidate the components after we are edited
 	UPROPERTY(DuplicateTransient)

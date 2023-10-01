@@ -61,9 +61,9 @@ public:
 	}
 
 private:
-	UBlastImportUI*			ImportUI;
-	TWeakPtr<SWindow>		WidgetWindow;
-	TSharedPtr<SButton>		ImportButton;
+	TObjectPtr<UBlastImportUI>	ImportUI;
+	TWeakPtr<SWindow>			WidgetWindow;
+	TSharedPtr<SButton>			ImportButton;
 
 	bool					bShouldImport;
 

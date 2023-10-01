@@ -61,31 +61,31 @@ struct FBondDamageEvent
 
 	// Chunk connected with this bond. The lowest chunk index of two.
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	int32 ChunkIndex;
+	int32 ChunkIndex = 0;
 
 	// Other Chunk connected with this bond. The highest chunk index of two. Can be invalid if bond connects to the "world".
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	int32 OtherChunkIndex;
+	int32 OtherChunkIndex = 0;
 
 	// Amount of damage applied
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	float Damage;
+	float Damage = 0.f;
 
 	// Amount of health left after damage, if <= 0 bond is broken
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	float HealthLeft;
+	float HealthLeft = 0.f;
 
 	// Contact surface area
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	float BondArea;
+	float BondArea = 0.f;
 
 	// Bond centroid in world coordinates
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	FVector WorldCentroid;
+	FVector WorldCentroid = FVector(ForceInitToZero);
 
 	// Bond normal in world coordinates
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	FVector WorldNormal;
+	FVector WorldNormal = FVector(ForceInitToZero);
 };
 
 /**
@@ -98,15 +98,15 @@ struct FChunkDamageEvent
 
 	// Chunk index in NvBlastAsset
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	int32 ChunkIndex;
+	int32 ChunkIndex = 0;
 
 	// Amount of damage applied
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	float Damage;
+	float Damage = 0.f;
 
 	// Chunk centroid in world coordinates
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Blast")
-	FVector WorldCentroid;
+	FVector WorldCentroid = FVector(ForceInitToZero);
 };
 
 // Delagates/Events signatures

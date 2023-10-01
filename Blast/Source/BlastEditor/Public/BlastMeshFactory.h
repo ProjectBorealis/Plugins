@@ -44,7 +44,7 @@ public:
 	//~ End FReimportHandler Interface
 
 	bool						bReimporting;
-	UBlastMesh* ReimportMesh;
+	TObjectPtr<UBlastMesh>		ReimportMesh;
 
 	BLASTEDITOR_API static FTransform3f GetTransformUE4ToBlastCoordinateSystem(class UFbxSkeletalMeshImportData* SkeletalMeshImportData);
 	BLASTEDITOR_API static FTransform3f GetTransformBlastToUE4CoordinateSystem(class UFbxSkeletalMeshImportData* SkeletalMeshImportData);
@@ -58,7 +58,7 @@ public:
 protected:
 
 	UPROPERTY()
-	class UBlastImportUI* ImportUI;
+	TObjectPtr<class UBlastImportUI> ImportUI;
 
 	/* Gets a name with suffix, and any "special" characters fixed. */
 	FName GetNameFromRoot(FName rootName, FString suffix);

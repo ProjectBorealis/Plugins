@@ -14,7 +14,7 @@ struct FBlastExtendedStructureComponent
 	GENERATED_BODY()
 
 	UPROPERTY(VisibleAnywhere, Category = "Blast")
-	UBlastMeshComponent* MeshComponent = nullptr;
+	TObjectPtr<UBlastMeshComponent> MeshComponent = nullptr;
 
 	UPROPERTY(VisibleAnywhere, Category = "Blast")
 	FGuid GUIDAtMerge;

@@ -21,7 +21,7 @@ public:
 
 	//This is shown by a special editor UI so it has no category
 	UPROPERTY(Instanced)
-	UFbxImportUI*					FBXImportUI;
+	TObjectPtr<UFbxImportUI>		FBXImportUI;
 
 	/** Open a modal dialog and return import options for this Blast asset we're importing. */
 	bool GetBlastImportOptions(const FString& FullPath);

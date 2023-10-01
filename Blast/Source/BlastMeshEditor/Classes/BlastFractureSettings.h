@@ -17,12 +17,12 @@ class UBlastMesh;
 
 namespace Nv
 {
-namespace Blast
-{
-class FractureTool;
-class VoronoiSitesGenerator;
-class Mesh;
-}
+	namespace Blast
+	{
+		class FractureTool;
+		class VoronoiSitesGenerator;
+		class Mesh;
+	}
 }
 
 USTRUCT()
@@ -93,28 +93,28 @@ struct FBlastFractureMaterial
 	 * The UV scale (geometric distance/unit texture distance) for interior materials.
 	 * Default = (100.0f,100.0f).
 	 */
-	UPROPERTY(EditAnywhere, Category=FractureMaterial)
+	UPROPERTY(EditAnywhere, Category = FractureMaterial)
 	FVector2f	UVScale;
 
 	/**
 	 * A UV origin offset for interior materials.
 	 * Default = (0.0f,0.0f).
 	 */
-	UPROPERTY(EditAnywhere, Category=FractureMaterial)
+	UPROPERTY(EditAnywhere, Category = FractureMaterial)
 	FVector2f	UVOffset;
 
 	/**
 	 * Object-space vector specifying surface tangent direction.  If this vector is (0.0f,0.0f,0.0f), then an arbitrary direction will be chosen.
 	 * Default = (0.0f,0.0f,0.0f).
 	 */
-	UPROPERTY(EditAnywhere, Category=FractureMaterial)
+	UPROPERTY(EditAnywhere, Category = FractureMaterial)
 	FVector3f	Tangent;
 
 	/**
 	 * Angle from tangent direction for the u coordinate axis.
 	 * Default = 0.0f.
 	 */
-	UPROPERTY(EditAnywhere, Category=FractureMaterial)
+	UPROPERTY(EditAnywhere, Category = FractureMaterial)
 	float		UAngle;
 
 	/**
@@ -122,7 +122,7 @@ struct FBlastFractureMaterial
 	 * If a negative index is given, a new element will be created for interior triangles.
 	 * Default = -1
 	 */
-	UPROPERTY(EditAnywhere, Category=FractureMaterial)
+	UPROPERTY(EditAnywhere, Category = FractureMaterial)
 	int32		InteriorElementIndex;
 
 	FBlastFractureMaterial()
@@ -273,7 +273,7 @@ class UBlastStaticMeshHolder : public UObject
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditAnywhere, Category = Import, Transient)
-	class UStaticMesh* StaticMesh = nullptr;
+	TObjectPtr<class UStaticMesh> StaticMesh = nullptr;
 
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& e) override;
 
@@ -375,7 +375,7 @@ UCLASS()
 class UBlastFractureSettingsRadial : public UBlastFractureSettingsVoronoi
 {
 	GENERATED_UCLASS_BODY()
-		
+
 	/** The center of generated pattern. */
 	UPROPERTY(EditAnywhere, Category = RadialFracture)
 	FBlastVector							Origin;
@@ -395,7 +395,7 @@ class UBlastFractureSettingsRadial : public UBlastFractureSettingsVoronoi
 	/** The number of radial steps. */
 	UPROPERTY(EditAnywhere, Category = RadialFracture, meta = (DefaultValue = "2", ClampMin = "1", UIMin = "1"))
 	int32									RadialSteps;
-		
+
 	/** The angle offset at each radial step. */
 	UPROPERTY(EditAnywhere, Category = RadialFracture, meta = (ClampMin = "0", UIMin = "0", ClampMax = "1", UIMax = "1"))
 	float									AngleOffset;
@@ -445,7 +445,7 @@ UCLASS()
 class UBlastFractureSettingsUniformSlicing : public UBlastFractureSettingsNoise
 {
 	GENERATED_UCLASS_BODY()
-		
+
 	/** The number of slices along X, Y, Z axis. */
 	UPROPERTY(EditAnywhere, Category = UniformSlicingFracture)
 	FIntVector								SlicesCount; //TODO Min/Max check
@@ -465,7 +465,7 @@ class UBlastFractureSettingsCutout : public UBlastFractureSettingsNoise
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditAnywhere, Category = CutoutFracture)
-	class UTexture2D*						Pattern;
+	TObjectPtr<class UTexture2D> Pattern;
 
 	/** The bitmap pattern transform. Note: Pattern is flate and scele to normal is not applied. */
 	//UPROPERTY(EditAnywhere, Category = CutoutFracture)
@@ -539,7 +539,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = General)
 	uint32									bReplaceFracturedChunk : 1;
 
-	/** If set fracture tool will produce new chunk for each unconnected convex 
+	/** If set fracture tool will produce new chunk for each unconnected convex
 		otherwise chunks which contains few unconnected convexes is possible.
 	*/
 	UPROPERTY(EditAnywhere, Category = General, meta = (DefaultValue = "1"))
@@ -560,7 +560,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = General, meta = (InlineEditConditionToggle))
 	uint32									bDefaultSupportDepth : 1;
 
-	/** Fractured chunks will be support chunks if its depth the same as DefaultSupportDepth or 
+	/** Fractured chunks will be support chunks if its depth the same as DefaultSupportDepth or
 		if it has no children and its depth is less then DefaultSupportDepth. */
 	UPROPERTY(EditAnywhere, Category = General, meta = (EditCondition = "bDefaultSupportDepth"))
 	int32									DefaultSupportDepth;
@@ -577,7 +577,7 @@ public:
 
 	/** The material for internal faces of fractured chunks. External materials will be inherited from root chunk. */
 	UPROPERTY(EditAnywhere, Category = General)
-	UMaterialInterface*						InteriorMaterial;
+	TObjectPtr<UMaterialInterface> InteriorMaterial;
 
 	/** The existing slot to apply to the interior material. If none, then a new slot is created"*/
 	UPROPERTY(EditAnywhere, Category = General)
@@ -585,28 +585,28 @@ public:
 
 	//These need to be tagged to be seen by the GC
 	UPROPERTY(Instanced)
-	UBlastFractureSettingsVoronoiUniform*	VoronoiUniformFracture;
-	
-	UPROPERTY(Instanced)
-	UBlastFractureSettingsVoronoiClustered*	VoronoiClusteredFracture;
-	
-	UPROPERTY(Instanced)
-	UBlastFractureSettingsRadial*			RadialFracture;
+	TObjectPtr<UBlastFractureSettingsVoronoiUniform>	VoronoiUniformFracture;
 
 	UPROPERTY(Instanced)
-	UBlastFractureSettingsInSphere*			InSphereFracture;
-	
-	UPROPERTY(Instanced)
-	UBlastFractureSettingsRemoveInSphere*	RemoveInSphere;
+	TObjectPtr<UBlastFractureSettingsVoronoiClustered>	VoronoiClusteredFracture;
 
 	UPROPERTY(Instanced)
-	UBlastFractureSettingsUniformSlicing*	UniformSlicingFracture;
+	TObjectPtr<UBlastFractureSettingsRadial>			RadialFracture;
 
 	UPROPERTY(Instanced)
-	UBlastFractureSettingsCutout*			CutoutFracture;
+	TObjectPtr<UBlastFractureSettingsInSphere>			InSphereFracture;
 
 	UPROPERTY(Instanced)
-	UBlastFractureSettingsCut*				CutFracture;
+	TObjectPtr<UBlastFractureSettingsRemoveInSphere>	RemoveInSphere;
+
+	UPROPERTY(Instanced)
+	TObjectPtr<UBlastFractureSettingsUniformSlicing>	UniformSlicingFracture;
+
+	UPROPERTY(Instanced)
+	TObjectPtr<UBlastFractureSettingsCutout>			CutoutFracture;
+
+	UPROPERTY(Instanced)
+	TObjectPtr<UBlastFractureSettingsCut>				CutFracture;
 
 	/** APEX references materials by name, but we'll bypass that mechanism and use of UE materials instead. */
 	//UPROPERTY(EditFixedSize, Category = Material)
@@ -688,7 +688,7 @@ public:
 
 	UPROPERTY(config, meta = (ClampMin = "2"))
 	int32									InSphereCellCount;
-	
+
 	UPROPERTY(config, meta = (ClampMin = "0.01"))
 	float									InSphereRadius;
 

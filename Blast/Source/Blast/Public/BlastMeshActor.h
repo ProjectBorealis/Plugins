@@ -25,5 +25,5 @@ public:
 
 protected:
 	UPROPERTY(Category = BlastMeshActor, VisibleAnywhere, BlueprintReadOnly)
-	UBlastMeshComponent*	BlastMeshComponent;
+	TObjectPtr<UBlastMeshComponent>	BlastMeshComponent;
 };

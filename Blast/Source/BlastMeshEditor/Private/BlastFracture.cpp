@@ -1156,17 +1156,16 @@ bool FBlastFracture::LoadFractureData(FFractureSessionPtr FractureSession, int32
 void FBlastFracture::LoadFractureToolData(TSharedPtr<FFractureSession> FS)
 {
 	FBlastFractureToolData* FTD = &FS->BlastMesh->FractureHistory.GetCurrentToolData();
-	uint32 ChunkCount = FS->FractureTool->getChunkCount();
+	int32 ChunkCount = FS->FractureTool->getChunkCount();
 	FTD->VerticesOffset.Reset(ChunkCount + 1);
 	FTD->EdgesOffset.Reset(ChunkCount + 1);
 	FTD->FacesOffset.Reset(ChunkCount + 1);
 	FTD->VerticesOffset.Push(0);
 	FTD->EdgesOffset.Push(0);
 	FTD->FacesOffset.Push(0);
-	for (uint32 AssetIndex = 0; AssetIndex < ChunkCount; AssetIndex++)
+	for (int32 AssetIndex = 0; AssetIndex < ChunkCount; AssetIndex++)
 	{
-		const uint32 ChunkIndex = FS->FractureTool->getChunkInfoIndex(FS->FractureData->chunkDescs[AssetIndex].userData);
-		auto& Info = FS->FractureTool->getChunkInfo(ChunkIndex);
+		auto& Info = FS->FractureTool->getChunkInfo(GetChunkToolIndexFromSessionIndex(FS, AssetIndex));
 		FTD->VerticesOffset.Push(FTD->VerticesOffset.Last() + Info.getMesh()->getVerticesCount());
 		FTD->EdgesOffset.Push(FTD->EdgesOffset.Last() + Info.getMesh()->getEdgesCount());
 		FTD->FacesOffset.Push(FTD->FacesOffset.Last() + Info.getMesh()->getFacetCount());
@@ -1176,11 +1175,9 @@ void FBlastFracture::LoadFractureToolData(TSharedPtr<FFractureSession> FS)
 	FTD->Faces.SetNumUninitialized(FTD->FacesOffset.Last());
 	FTD->ChunkFlags.SetNumZeroed(ChunkCount);
 
-	for (uint32 AssetIndex = 0; AssetIndex < ChunkCount; AssetIndex++)
+	for (int32 AssetIndex = 0; AssetIndex < ChunkCount; AssetIndex++)
 	{
-		const uint32 ChunkIndex = FS->FractureTool->getChunkInfoIndex(FS->FractureData->chunkDescs[AssetIndex].userData);
-		const Nv::Blast::ChunkInfo& Info = FS->FractureTool->getChunkInfo(ChunkIndex);
-		UE_LOG(LogTemp, Warning, TEXT("Meep man says %f and %f,%f,%f for chunk %u"), Info.getTmToWorld().s, Info.getTmToWorld().t.x, Info.getTmToWorld().t.y, Info.getTmToWorld().t.z, AssetIndex);
+		const Nv::Blast::ChunkInfo& Info = FS->FractureTool->getChunkInfo(GetChunkToolIndexFromSessionIndex(FS, AssetIndex));
 
 		Nv::Blast::Vertex* VertsForThisChunk = FTD->Vertices.GetData() + FTD->VerticesOffset[AssetIndex];
 		FMemory::Memcpy(VertsForThisChunk, Info.getMesh()->getVertices(), Info.getMesh()->getVerticesCount() * sizeof(Nv::Blast::Vertex));

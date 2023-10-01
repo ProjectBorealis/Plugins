@@ -53,5 +53,5 @@ private:
 	RadialDamageProgramWithForce DamageProgram;
 
 	UPROPERTY()
-	URadialForceComponent*	ForceComponent;
+	TObjectPtr<URadialForceComponent>	ForceComponent;
 };

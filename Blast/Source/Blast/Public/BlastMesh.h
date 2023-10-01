@@ -306,7 +306,7 @@ struct BLAST_API FBlastCookedChunkData
 #endif
 
 	UPROPERTY(Instanced)
-	class UBodySetup* CookedBodySetup;
+	TObjectPtr<class UBodySetup> CookedBodySetup;
 
 	FBlastCookedChunkData() : CookedBodySetup(nullptr) {}
 

@@ -507,7 +507,7 @@ public:
 		// TODO: TkAssetDesc BondFlags::BondJointed, addJointDesc
 
 		nasset->PhysicsAsset = NewObject<UPhysicsAsset>(nasset, *nasset->GetName().Append(TEXT("_PhysicsAsset")), RF_NoFlags);
-		nasset->Mesh = NewObject<USkeletalMesh>(nasset, *nasset->GetName().Append(TEXT("_SkelMesh")), RF_NoFlags);
+		nasset->Mesh = NewObject<USkeletalMesh>(nasset, *nasset->GetName().Append(TEXT("_SkelMesh")), RF_Public);
 		nasset->Skeleton = NewObject<USkeleton>(nasset, *nasset->GetName().Append(TEXT("_Skeleton")));
 		nasset->Mesh->SetSkeleton(nasset->Skeleton);
 
@@ -1417,7 +1417,7 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 
 	UBlastMeshExtendedSupport* BlastMesh = NewObject<UBlastMeshExtendedSupport>(ExtSupportActor->GetExtendedSupportMeshComponent());
 	BlastMesh->PhysicsAsset = NewObject<UPhysicsAsset>(BlastMesh, *BlastMesh->GetName().Append(TEXT("_PhysicsAsset")), RF_NoFlags);
-	BlastMesh->Mesh = NewObject<USkeletalMesh>(BlastMesh, *BlastMesh->GetName().Append(TEXT("_SkelMesh")), RF_NoFlags);
+	BlastMesh->Mesh = NewObject<USkeletalMesh>(BlastMesh, *BlastMesh->GetName().Append(TEXT("_SkelMesh")), RF_Public);
 	BlastMesh->Skeleton = NewObject<USkeleton>(BlastMesh, *BlastMesh->GetName().Append(TEXT("_Skeleton")));
 	BlastMesh->Mesh->SetSkeleton(BlastMesh->Skeleton);
 
