@@ -720,7 +720,7 @@ protected:
 
 	NvBlastExtDamageAccelerator* DamageAccelerator = nullptr;
 
-	EBlastDamageResult ApplyDamageOnActor(uint32 actorIndex, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot, bool bAssumeLocked);
+	EBlastDamageResult ApplyDamageOnActor(uint32 actorIndex, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot, struct FScopedSceneLock_Chaos* SceneLock = nullptr);
 	static EBlastDamageResult ApplyDamageProgramOverlapFiltered(UBlastMeshComponent* mesh, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot);
 
 	void ApplyFracture(uint32 actorIndex, const NvBlastFractureBuffers& fractureBuffers, FName DamageType);
@@ -753,7 +753,7 @@ protected:
 	void TickStressSolver();
 
 	void UpdateDebris();
-	void UpdateDebris(int32 AcotrIndex, const FTransform& ActorTransform);
+	void UpdateDebris(int32 AcotrIndex, const FTransform& ActorTransform, struct FScopedSceneLock_Chaos* SceneLock);
 
 #if WITH_EDITOR
 	void DrawDebugChunkCentroids();
@@ -773,7 +773,7 @@ protected:
 	void ShowRootChunks();
 	void InitBodyForActor(FActorData& ActorData, uint32 ActorIndex, const FTransform& ParentActorWorldTransform, FPhysScene* PhysScene, bool bIsFirstActor = false);
 
-	bool HandlePostDamage(NvBlastActor* actor, FName DamageType, const FBlastBaseDamageProgram* DamageProgram = nullptr, const FBlastBaseDamageProgram::FInput* Input = nullptr, bool bAssumeReadLocked = false);
+	bool HandlePostDamage(NvBlastActor* actor, FName DamageType, const FBlastBaseDamageProgram* DamageProgram = nullptr, const FBlastBaseDamageProgram::FInput* Input = nullptr, struct FScopedSceneLock_Chaos* SceneLock = nullptr);
 	void FillInitialComponentSpaceTransformsFromMesh();
 
 	void RebuildChunkVisibility();
@@ -824,9 +824,9 @@ public:
 	*/
 	void RenderPhysicsAsset(int32 ViewIndex, FMeshElementCollector& Collector, const FEngineShowFlags& EngineShowFlags, const FMatrix& ProxyLocalToWorld, const TArray<FTransform>* BoneSpaceBases) const;
 
-	void UpdateVisibleChunks(TArray<int32>&& VisibleChunks)
+	void UpdateVisibleChunks(TBitArray<>&& NewVisibleChunks)
 	{
-		VisibleChunkIndices = MoveTemp(VisibleChunks);
+		VisibleChunks = MoveTemp(NewVisibleChunks);
 	}
 
 #if WITH_EDITOR
@@ -841,7 +841,7 @@ public:
 
 private:
 	const UBlastMesh* BlastMeshForDebug;
-	TArray<int32> VisibleChunkIndices;
+	TBitArray<> VisibleChunks;
 #if WITH_EDITOR
 	TArray<FBatchedLine> DebugDrawLines;
 	TArray<FBatchedPoint> DebugDrawPoints;

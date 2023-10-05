@@ -39,7 +39,7 @@ TSharedRef<SWidget> SBlastVectorViewportToolBar::MakeTransformToolBar(const TSha
 	FToolBarBuilder ToolbarBuilder(CommandList, FMultiBoxCustomization::None, InExtenders);
 
 	// Use a custom style
-	FName ToolBarStyle = "ViewportMenu";
+	FName ToolBarStyle = "EditorViewportToolBar";
 	ToolbarBuilder.SetStyle(&FAppStyle::Get(), ToolBarStyle);
 	ToolbarBuilder.SetLabelVisibility(EVisibility::Collapsed);
 

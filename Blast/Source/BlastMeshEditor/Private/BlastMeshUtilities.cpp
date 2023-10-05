@@ -484,7 +484,7 @@ void PrepareLODData(TSharedPtr<FFractureSession> FractureSession,
 	TSharedPtr<Nv::Blast::AuthoringResult> FractureData = FractureSession->FractureData;
 	check(ChunkIndex < (int32)FractureData->chunkCount);
 	UFbxSkeletalMeshImportData* skelMeshImportData = Cast<UFbxSkeletalMeshImportData>(SkeletalMesh->GetAssetImportData());
-	auto Converter = UBlastMeshFactory::GetTransformBlastToUE4CoordinateSystem(skelMeshImportData);
+	FTransform3f Converter = UBlastMeshFactory::GetTransformBlastToUE4CoordinateSystem(skelMeshImportData);
 
 	TArray<FSkeletalMaterial>& NewMaterials = SkeletalMesh->GetMaterials();
 

@@ -2,7 +2,6 @@
 
 #include "TimerManager.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "PhysXPublic.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "NvBlast.h"
 #include "NvBlastTypes.h"
@@ -24,7 +23,8 @@
 #include "EngineUtils.h"
 #include "BlastExtendedSupport.h"
 #include "Rendering/SkeletalMeshRenderData.h"
-#include "Rendering/SkeletalMeshModel.h"
+#include "Physics/Experimental/ChaosScopedSceneLock.h"
+#include "Physics/Experimental/PhysScene_Chaos.h"
 
 #if BLAST_USE_PHYSX
 #else
@@ -780,7 +780,7 @@ FBoxSphereBounds UBlastMeshComponent::CalcBounds(const FTransform& LocalToWorld)
 		}
 		else
 		{
-			// SCOPED_SCENE_READ_LOCK(GetPXScene());
+			FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 			for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 			{
 				UBodySetup* BodySetup = ActorBodySetups[ActorIndex];
@@ -928,7 +928,7 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 	}
 	else
 	{
-		// SCENE_LOCK_READ(PScene);
+		FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 		for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 		{
 			FActorData& ActorData = BlastActors[ActorIndex];
@@ -941,7 +941,7 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 			FTransform BodyWT = BodyInst->GetUnrealWorldTransform_AssumesLocked();
 			BodyWT.SetScale3D(BodyInst->Scale3D);
 
-			UpdateDebris(ActorIndex, BodyWT);
+			UpdateDebris(ActorIndex, BodyWT, &Lock);
 
 			if (!BodyWT.Equals(ActorData.PreviousBodyWorldTransform))
 			{
@@ -959,7 +959,6 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 				}
 			}
 		}
-		// SCENE_UNLOCK_READ(PScene);
 	}
 
 	//We need to move the bones under any of the body bones that moved, technically we don't need to update these until SetupNewBlastActor since they are invisible, but just for sanity I think we should
@@ -970,7 +969,6 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 
 		//BoneSpaceTransforms are sorted so parents always go first
 		const auto& BoneSpaceTransforms = GetSkinnedAsset()->GetRefSkeleton().GetRefBonePose();
-		const int32 NumBones = BoneSpaceTransforms.Num();
 
 		// Build in 3 passes.
 		const FTransform* LocalTransformsData = BoneSpaceTransforms.GetData();
@@ -1163,10 +1161,17 @@ void UBlastMeshComponent::FillInitialComponentSpaceTransformsFromMesh()
 
 	const auto& BoneSpaceTransforms = GetSkinnedAsset()->GetRefSkeleton().GetRefBonePose();
 
+	// right now all this does is to convert to SpaceBases
+	check(GetSkinnedAsset()->GetRefSkeleton().GetNum() == BoneSpaceTransforms.Num());
+	check(GetSkinnedAsset()->GetRefSkeleton().GetNum() == GetNumComponentSpaceTransforms());
+	check(GetSkinnedAsset()->GetRefSkeleton().GetNum() == GetBoneVisibilityStates().Num());
+
+	const int32 NumBones = BoneSpaceTransforms.Num();
+
 #if DO_GUARD_SLOW
 	/** Keep track of which bones have been processed for fast look up */
 	TArray<uint8, TInlineAllocator<256>> BoneProcessed;
-	BoneProcessed.AddZeroed(BoneSpaceTransforms.Num());
+	BoneProcessed.AddZeroed(NumBones);
 #endif
 	// Build in 3 passes.
 	const FTransform* LocalTransformsData = BoneSpaceTransforms.GetData();
@@ -1197,7 +1202,7 @@ void UBlastMeshComponent::FillInitialComponentSpaceTransformsFromMesh()
 
 		checkSlow(GetEditableComponentSpaceTransforms()[BoneIndex].IsRotationNormalized());
 		checkSlow(!GetEditableComponentSpaceTransforms()[BoneIndex].ContainsNaN());
-	}
+}
 	bNeedToFlipSpaceBaseBuffers = true;
 }
 
@@ -1221,20 +1226,13 @@ void UBlastMeshComponent::RebuildChunkVisibility()
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// Send visible chunks to render thread for collision debug render 
+	//Need to check SceneProxy since we don't know when to set BlastProxy to null
+	if (BlastProxy && SceneProxy)
 	{
-		TArray<int32> VisibleChunks;
-		for (TConstSetBitIterator<> It(ChunkVisibility); It; ++It) //TConstSetBitIterator automatically skips unset bits
-		{
-			VisibleChunks.Push(It.GetIndex());
-		}
-		//Need to check SceneProxy since we don't know when to set BlastProxy to null
-		if (BlastProxy && SceneProxy)
-		{
-			ENQUEUE_RENDER_COMMAND(VisibleBonesForDebugDataCommand)([BlastProxy{ BlastProxy }, Chunks{ MoveTemp(VisibleChunks) }](FRHICommandList& RHICmdList) mutable
-				{
-					BlastProxy->UpdateVisibleChunks(MoveTemp(Chunks));
-				});
-		}
+		ENQUEUE_RENDER_COMMAND(VisibleBonesForDebugDataCommand)([BlastProxy{ BlastProxy }, Chunks{ ChunkVisibility }](FRHICommandList& RHICmdList) mutable
+			{
+				BlastProxy->UpdateVisibleChunks(MoveTemp(Chunks));
+			});
 	}
 #endif
 }
@@ -1360,30 +1358,22 @@ void UBlastMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransfor
 		return;
 	}
 
-	/*auto PXScene = GetPXScene();
-	bool bLocked = false;*/
+	TOptional<FScopedSceneLock_Chaos> Lock;
 	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 	{
 		FActorData& Actor = BlastActors[ActorIndex];
 		if (Actor.BodyInstance && Actor.bIsAttachedToComponent)
 		{
-			/*if (!bLocked)
+			if (!Lock)
 			{
 				//There might be none, so only lock if we need to
-				SCENE_LOCK_WRITE(PXScene);
-				bLocked = true;
-			}*/
+				Lock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Write);
+			}
 			//Actor transform pivots are all at component origin
 			Actor.BodyInstance->SetBodyTransform(GetComponentTransform(), Teleport);
 			Actor.BodyInstance->UpdateBodyScale(GetComponentTransform().GetScale3D());
 		}
 	}
-
-	/*if (bLocked)
-	{
-		SCENE_UNLOCK_WRITE(PXScene);
-		bLocked = false;
-	}*/
 }
 
 UBlastAsset* UBlastMeshComponent::GetBlastAsset(bool bAllowModifiedAsset) const
@@ -1665,11 +1655,10 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgram(const FBlastBaseDamag
 	EBlastDamageResult totalResult = EBlastDamageResult::None;
 	if (BoneName.IsNone())
 	{
-		//Do the lock once
-		// SCOPED_SCENE_READ_LOCK(GetPXScene());
+		FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 		for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 		{
-			EBlastDamageResult result = ApplyDamageOnActor(ActorIndex, DamageProgram, Origin, Rot, true);
+			EBlastDamageResult result = ApplyDamageOnActor(ActorIndex, DamageProgram, Origin, Rot, &Lock);
 			if (result > totalResult)
 			{
 				totalResult = result;
@@ -1681,7 +1670,7 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgram(const FBlastBaseDamag
 		const int32 ActorIndex = ActorNameToActorIndex(BoneName);
 		if (BlastActors.IsValidIndex(ActorIndex))
 		{
-			totalResult = ApplyDamageOnActor(ActorIndex, DamageProgram, Origin, Rot, false);
+			totalResult = ApplyDamageOnActor(ActorIndex, DamageProgram, Origin, Rot);
 		}
 	}
 
@@ -1753,7 +1742,7 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlapFiltered(UBlast
 			if (owner != nullptr && !owner->bIgnoreDamage)
 			{
 				uint32 actorIndex = OverlapResult.ItemIndex;
-				EBlastDamageResult result = owner->ApplyDamageOnActor(actorIndex, DamageProgram, Origin, Rot, false);
+				EBlastDamageResult result = owner->ApplyDamageOnActor(actorIndex, DamageProgram, Origin, Rot);
 				if (result > totalResult)
 				{
 					totalResult = result;
@@ -1765,7 +1754,7 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlapFiltered(UBlast
 	return totalResult;
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot, bool bAssumeReadLocked)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot, FScopedSceneLock_Chaos* SceneLock)
 {
 	//Should never happen for a sub-component
 	check(!OwningSupportStructure || OwningSupportStructureIndex == INDEX_NONE);
@@ -1792,9 +1781,19 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, co
 			FBodyInstance* BodyInst = GetActorBodyInstance(actorIndex);
 			if (BodyInst)
 			{
+				if (SceneLock)
+				{
+					SceneLock->Release();
+				}
+
+				FScopedSceneLock_Chaos WriteLock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Write);
 				BreakDownBlastActor(actorIndex);
+				WriteLock.Release();
+				if (SceneLock)
+				{
+					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
+				}
 				bNeedToFlipSpaceBaseBuffers = true;
-				bHasValidBoneTransform = false;
 				bAddedOrRemovedActorSinceLastRefresh = true;
 			}
 			return EBlastDamageResult::Crumbled;
@@ -1806,7 +1805,7 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, co
 	check(BodyInst);
 
 	//This is kind of confusing but it seems like Blast operates 100% in component space and not in actor space, but the original component space since it doesn't track transform changes
-	FTransform WT = bAssumeReadLocked ? BodyInst->GetUnrealWorldTransform_AssumesLocked() : BodyInst->GetUnrealWorldTransform();
+	FTransform WT = SceneLock ? BodyInst->GetUnrealWorldTransform_AssumesLocked() : BodyInst->GetUnrealWorldTransform();
 	WT.SetScale3D(BodyInst->Scale3D);
 	const FTransform invWT = WT.Inverse();
 
@@ -1830,7 +1829,7 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, co
 	{
 		DamageProgram.ExecutePostDamage(actorIndex, BodyInst, ProgramInput, *this);
 		BroadcastOnDamaged(ActorIndexToActorName(actorIndex), Origin, Rot.Rotator(), DamageProgram.DamageType);
-		if (HandlePostDamage(Actor, DamageProgram.DamageType, &DamageProgram, &ProgramInput, bAssumeReadLocked))
+		if (HandlePostDamage(Actor, DamageProgram.DamageType, &DamageProgram, &ProgramInput, SceneLock))
 		{
 			// If the damage program wants to do anything else after the split, let it do so here (physics impulse)
 			DamageProgram.ExecutePostSplit(ProgramInput, *this);
@@ -1952,7 +1951,7 @@ void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFracture
 	}
 }
 
-bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType, const FBlastBaseDamageProgram* DamageProgram, const FBlastBaseDamageProgram::FInput* Input, bool bAssumeReadLocked)
+bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType, const FBlastBaseDamageProgram* DamageProgram, const FBlastBaseDamageProgram::FInput* Input, FScopedSceneLock_Chaos* SceneLock)
 {
 	// At this point we can split off some new actors
 
@@ -1990,17 +1989,21 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 	if (bIsSplit)
 	{
 		FBodyInstance* ParentBodyInstance = BlastActors[parentActorIndex].BodyInstance;
-		FTransform ParentWorldTransform = bAssumeReadLocked ? ParentBodyInstance->GetUnrealWorldTransform_AssumesLocked() : ParentBodyInstance->GetUnrealWorldTransform();
+		FTransform ParentWorldTransform = SceneLock ? ParentBodyInstance->GetUnrealWorldTransform_AssumesLocked() : ParentBodyInstance->GetUnrealWorldTransform();
 		ParentWorldTransform.SetScale3D(ParentBodyInstance->Scale3D);
-		FVector ParentLinVel = bAssumeReadLocked ? ParentBodyInstance->GetUnrealWorldVelocity_AssumesLocked() : ParentBodyInstance->GetUnrealWorldVelocity();
-		FVector ParentAngVel = bAssumeReadLocked ? ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians_AssumesLocked() : ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians();
+		FVector ParentLinVel = SceneLock ? ParentBodyInstance->GetUnrealWorldVelocity_AssumesLocked() : ParentBodyInstance->GetUnrealWorldVelocity();
+		FVector ParentAngVel = SceneLock ? ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians_AssumesLocked() : ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians();
 		FVector ParentCOM = ParentBodyInstance->GetCOMPosition();
 
 		//Cannot have the read lock when doing BreakDownBlastActor since it can't upgrade to a write lock
-		if (bAssumeReadLocked)
+
+		if (SceneLock)
 		{
-			//SCENE_UNLOCK_READ(GetPXScene());
+			SceneLock->Release();
 		}
+
+		FScopedSceneLock_Chaos WriteLock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Write);
+
 		BreakDownBlastActor(parentActorIndex);
 		for (uint32 actorIdx = 0; actorIdx < newActorsCount; actorIdx++)
 		{
@@ -2011,9 +2014,12 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 			CreateInfo.ParentActorCOM = ParentCOM;
 			SetupNewBlastActor(newActorsBuffer[actorIdx], CreateInfo, DamageProgram, Input, DamageType);
 		}
-		if (bAssumeReadLocked)
+
+		WriteLock.Release();
+
+		if (SceneLock)
 		{
-			//SCENE_LOCK_READ(GetPXScene());
+			*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 		}
 
 		return true;
@@ -2052,7 +2058,7 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 	// Apply Damage with DamageComponent if any
 	if (DamageComponent && DamageComponent->bDamageOnHit)
 	{
-		ApplyDamageOnActor(ActorIndex, *DamageComponent->GetDamagePorgram(), Hit.ImpactPoint, FQuat::Identity, false);
+		ApplyDamageOnActor(ActorIndex, *DamageComponent->GetDamagePorgram(), Hit.ImpactPoint, FQuat::Identity);
 	}
 
 	// Impact damage
@@ -2067,7 +2073,7 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 		FBodyInstance* OtherBodyInst = OtherComp->GetBodyInstance(OtherBoneName);
 		if (BodyInst && OtherBodyInst && Actor && NvBlastActorCanFracture(Actor, Nv::Blast::logLL))
 		{
-			// SCOPED_SCENE_READ_LOCK(GetPXScene());
+			FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 
 			// Reduced mass 
 			const float Mass0 = BodyInst->GetBodyMass();
@@ -2125,14 +2131,14 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 						BlastShearDamageProgram AppliedDamageProgram(Damage, MinRadius, MaxRadius);
 						AppliedDamageProgram.ImpulseStrength = ImpactImpulse * UsedImpactProperties.PhysicalImpulseFactor;
 						AppliedDamageProgram.DamageType = DamageType;
-						ApplyDamageOnActor(ActorIndex, AppliedDamageProgram, Hit.ImpactPoint, NormalRot, true);
+						ApplyDamageOnActor(ActorIndex, AppliedDamageProgram, Hit.ImpactPoint, NormalRot, &Lock);
 					}
 					else
 					{
 						BlastRadialDamageProgram AppliedDamageProgram(Damage, MinRadius, MaxRadius);
 						AppliedDamageProgram.ImpulseStrength = ImpactImpulse * UsedImpactProperties.PhysicalImpulseFactor;
 						AppliedDamageProgram.DamageType = DamageType;
-						ApplyDamageOnActor(ActorIndex, AppliedDamageProgram, Hit.ImpactPoint, NormalRot, true);
+						ApplyDamageOnActor(ActorIndex, AppliedDamageProgram, Hit.ImpactPoint, NormalRot, &Lock);
 					}
 				}
 			}
@@ -2601,11 +2607,6 @@ void UBlastMeshComponent::RefreshDynamicChunkBodyInstanceFromBodyInstance()
 
 void UBlastMeshComponent::TickStressSolver()
 {
-	/*auto PScene = GetPXScene();
-	if (!PScene)
-	{
-		return;
-	}*/
 	FVector Gravity;
 #if BLAST_USE_PHYSX
 	Gravity = GetPXScene()->getGravity();
@@ -2614,7 +2615,7 @@ void UBlastMeshComponent::TickStressSolver()
 #endif
 
 	// Apply all relevant forces on actors in stress solver
-	// SCENE_LOCK_READ(PScene);
+	FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 	{
 		FActorData& ActorData = BlastActors[ActorIndex];
@@ -2641,7 +2642,7 @@ void UBlastMeshComponent::TickStressSolver()
 			StressSolver->addGravity(*actor, ToNvVector(LocalGravity));
 		}
 	}
-	// SCENE_UNLOCK_READ(PScene);
+	Lock.Release();
 
 	// Stress Solver update
 	const auto& UsedStressProperties = GetUsedStressProperties();
@@ -2738,6 +2739,7 @@ void UBlastMeshComponent::UpdateDebris()
 			{
 				if (!GetWorld()->GetTimerManager().IsTimerActive(BlastActor.TimerHandle))
 				{
+					FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Write);
 					BreakDownBlastActor(ActorIndex);
 				}
 			}
@@ -2745,8 +2747,10 @@ void UBlastMeshComponent::UpdateDebris()
 	}
 }
 
-void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& ActorTransform)
+void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& ActorTransform, FScopedSceneLock_Chaos* SceneLock)
 {
+	check(SceneLock);
+
 	const FBlastDebrisProperties& debrisProp = GetUsedDebrisProperties();
 	if (debrisProp.DebrisFilters.IsEmpty())
 	{
@@ -2798,11 +2802,11 @@ void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& Actor
 				}
 				if (lifetime < 1e-2) //destroy debris immediately if its lifetime less then 0.01 s
 				{
-					//PB (Omar): Original implementation had no read unlock here which is wrong as BreakDownBlastActor has a TermBody call that
-					//does a SCOPED_SCENE_WRITE_LOCK and this sequence is not allowed. 
-					// SCENE_UNLOCK_READ(GetPXScene());
+					SceneLock->Release();
+					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Write);
 					BreakDownBlastActor(ActorIndex);
-					// SCENE_LOCK_READ(GetPXScene());
+					SceneLock->Release();
+					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 					break;
 				}
 			}
@@ -3107,16 +3111,16 @@ void FBlastMeshSceneProxyBase::RenderPhysicsAsset(int32 ViewIndex, FMeshElementC
 
 		if (BoneSpaceBases && EngineShowFlags.Collision)
 		{
-			for (auto ChunkIndex : VisibleChunkIndices)
+			for (TConstSetBitIterator<> It(VisibleChunks); It; ++It)
 			{
-				if (ChunkIndexToBoneIndex.IsValidIndex(ChunkIndex))
+				if (ChunkIndexToBoneIndex.IsValidIndex(It.GetIndex()))
 				{
-					int32 BoneIndex = ChunkIndexToBoneIndex[ChunkIndex];
+					int32 BoneIndex = ChunkIndexToBoneIndex[It.GetIndex()];
 					if (BoneSpaceBases->IsValidIndex(BoneIndex))
 					{
 						FTransform BoneTransform = BlastMeshForDebug->GetComponentSpaceInitialBoneTransform(BoneIndex) * (*BoneSpaceBases)[BoneIndex] * LocalToWorldTransform;
-						CookedChunkData[ChunkIndex].CookedBodySetup->CreatePhysicsMeshes();
-						CookedChunkData[ChunkIndex].CookedBodySetup->AggGeom.GetAggGeom(BoneTransform, FColor::Orange, NULL, false, false, false, ViewIndex, Collector);
+						CookedChunkData[It.GetIndex()].CookedBodySetup->CreatePhysicsMeshes();
+						CookedChunkData[It.GetIndex()].CookedBodySetup->AggGeom.GetAggGeom(BoneTransform, FColor::Orange, nullptr, false, false, false, ViewIndex, Collector);
 					}
 				}
 			}

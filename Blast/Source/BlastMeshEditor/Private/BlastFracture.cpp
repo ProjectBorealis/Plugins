@@ -426,7 +426,7 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 		BuildSmoothingGroups(InSourceRawMesh); //Retrieve mesh just assign default smoothing group 1 for each face. So we need to generate it.
 
 		Nv::Blast::Mesh* Mesh = CreateAuthoringMeshFromRawMesh(InSourceRawMesh, UE4ToBlastTransform);
-		FractureSession->FractureTool->setSourceMeshes(&Mesh, 1, nullptr);
+		FractureSession->FractureTool->setChunkMesh(Mesh, -1);
 
 		LoadFracturedMesh(FractureSession, -1, InSourceStaticMesh);
 
@@ -468,14 +468,14 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 				uint32 fb = FTD.FacesOffset[ChunkIndex], fe = FTD.FacesOffset[ChunkIndex + 1];
 				Nv::Blast::Mesh* ChunkMesh = NvBlastExtAuthoringCreateMeshFromFacets(FTD.Vertices.GetData() + vb,
 					FTD.Edges.GetData() + eb, FTD.Faces.GetData() + fb, ve - vb, ee - eb, fe - fb);
-				if (ChunkIndex == 0)
+
+				int32 parentChunkId = InBlastMesh->GetChunkInfo(ChunkIndex).parentChunkIndex;
+				if (parentChunkId >= 0) // need to convert to chunk ID - not index!!
 				{
-					FractureSession->FractureTool->setSourceMeshes(&ChunkMesh, 1, nullptr);
+					parentChunkId = InBlastMesh->GetChunkInfo(parentChunkId).userData;
 				}
-				else
-				{
-					FractureSession->FractureTool->setChunkMesh(ChunkMesh, InBlastMesh->GetChunkInfo(ChunkIndex).parentChunkIndex);
-				}
+				FractureSession->FractureTool->setChunkMesh(ChunkMesh, parentChunkId, (int32)InBlastMesh->GetChunkInfo(ChunkIndex).userData);
+
 				FractureSession->FractureTool->setApproximateBonding(ChunkIndex, EnumHasAnyFlags(FTD.ChunkFlags[ChunkIndex], EBlastMeshChunkFlags::ApproximateBonding));
 			}
 		}
@@ -488,17 +488,16 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 				FBlastScopedProfiler SCMP("GetRenderMesh");
 				InBlastMesh->GetRenderMesh(0, RawMeshes);
 			}
-			for (int32 ChunkId = 0; ChunkId < RawMeshes.Num(); ChunkId++)
+			for (int32 ChunkIdx = 0; ChunkIdx < RawMeshes.Num(); ChunkIdx++)
 			{
-				Nv::Blast::Mesh* ChunkMesh = CreateAuthoringMeshFromRawMesh(RawMeshes[ChunkId], UE4ToBlastTransform);
-				if (ChunkId == 0)
+				Nv::Blast::Mesh* ChunkMesh = CreateAuthoringMeshFromRawMesh(RawMeshes[ChunkIdx], UE4ToBlastTransform);
+
+				int32 parentChunkId = InBlastMesh->GetChunkInfo(ChunkIdx).parentChunkIndex;
+				if (parentChunkId >= 0) // need to convert to chunk ID - not index!!
 				{
-					FractureSession->FractureTool->setSourceMeshes(&ChunkMesh, 1, nullptr);
+					parentChunkId = InBlastMesh->GetChunkInfo(parentChunkId).userData;
 				}
-				else
-				{
-					FractureSession->FractureTool->setChunkMesh(ChunkMesh, InBlastMesh->GetChunkInfo(ChunkId).parentChunkIndex);
-				}
+				FractureSession->FractureTool->setChunkMesh(ChunkMesh, parentChunkId, (int32)InBlastMesh->GetChunkInfo(ChunkIdx).userData);
 			}
 		}
 		if (ForceLoadFracturedMesh)
@@ -1163,9 +1162,13 @@ void FBlastFracture::LoadFractureToolData(TSharedPtr<FFractureSession> FS)
 	FTD->VerticesOffset.Push(0);
 	FTD->EdgesOffset.Push(0);
 	FTD->FacesOffset.Push(0);
+
+	TArray<int32> ChunkInfoIndices;
+	ChunkInfoIndices.SetNum(ChunkCount);
 	for (int32 AssetIndex = 0; AssetIndex < ChunkCount; AssetIndex++)
 	{
-		auto& Info = FS->FractureTool->getChunkInfo(GetChunkToolIndexFromSessionIndex(FS, AssetIndex));
+		ChunkInfoIndices[AssetIndex] = FS->FractureTool->getChunkInfoIndex(FS->FractureData->chunkDescs[AssetIndex].userData);
+		const Nv::Blast::ChunkInfo& Info = FS->FractureTool->getChunkInfo(ChunkInfoIndices[AssetIndex]);
 		FTD->VerticesOffset.Push(FTD->VerticesOffset.Last() + Info.getMesh()->getVerticesCount());
 		FTD->EdgesOffset.Push(FTD->EdgesOffset.Last() + Info.getMesh()->getEdgesCount());
 		FTD->FacesOffset.Push(FTD->FacesOffset.Last() + Info.getMesh()->getFacetCount());
@@ -1177,7 +1180,7 @@ void FBlastFracture::LoadFractureToolData(TSharedPtr<FFractureSession> FS)
 
 	for (int32 AssetIndex = 0; AssetIndex < ChunkCount; AssetIndex++)
 	{
-		const Nv::Blast::ChunkInfo& Info = FS->FractureTool->getChunkInfo(GetChunkToolIndexFromSessionIndex(FS, AssetIndex));
+		const Nv::Blast::ChunkInfo& Info = FS->FractureTool->getChunkInfo(ChunkInfoIndices[AssetIndex]);
 
 		Nv::Blast::Vertex* VertsForThisChunk = FTD->Vertices.GetData() + FTD->VerticesOffset[AssetIndex];
 		FMemory::Memcpy(VertsForThisChunk, Info.getMesh()->getVertices(), Info.getMesh()->getVerticesCount() * sizeof(Nv::Blast::Vertex));

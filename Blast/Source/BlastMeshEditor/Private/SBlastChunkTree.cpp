@@ -80,7 +80,7 @@ TSharedRef< SWidget > SBlastChunkTreeItem::GenerateWidgetForColumn(const FName& 
 		TableRowContent =
 			SAssignNew(VisibilityButton, SButton)
 			.ContentPadding(0)
-			.ButtonStyle(FAppStyle::Get(), "ToggleButton")
+			.ButtonStyle(FAppStyle::Get(), "NoBorder")
 			.IsEnabled(this, &SBlastChunkTreeItem::IsVisibilityEnabled)
 			.OnClicked(this, &SBlastChunkTreeItem::OnToggleVisibility)
 			.ToolTipText(LOCTEXT("VisibilityButtonToolTip", "Toggle Chunk Visibility"))

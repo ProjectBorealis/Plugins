@@ -5,11 +5,11 @@
 #include "Components/BillboardComponent.h"
 #include "Engine/Texture2D.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "PhysXPublic.h"
 #include "PhysicsPublic.h"
-#include "PhysicsEngine/PhysicsAsset.h"
 #include "ShowFlags.h"
 #include "SceneManagement.h"
+#include "Physics/Experimental/ChaosScopedSceneLock.h"
+#include "Physics/Experimental/PhysScene_Chaos.h"
 
 UBlastExtendedSupportMeshComponent::UBlastExtendedSupportMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: UBlastMeshComponent(ObjectInitializer)
@@ -76,7 +76,7 @@ bool UBlastExtendedSupportMeshComponent::PopulateComponentBoneTransforms(TArray<
 
 	UBlastMesh* ComponentBlastMesh = Component.MeshComponent->GetBlastMesh();
 
-	// SCENE_LOCK_READ(PScene);
+	FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 	for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 	{
 		FActorData& ActorData = BlastActors[ActorIndex];
@@ -113,7 +113,6 @@ bool UBlastExtendedSupportMeshComponent::PopulateComponentBoneTransforms(TArray<
 			}
 		}
 	}
-	// SCENE_UNLOCK_READ(PScene);
 
 	return bAnyBodiesChanged;
 }
@@ -123,7 +122,7 @@ FBox UBlastExtendedSupportMeshComponent::GetWorldBoundsOfComponentChunks(int32 C
 	FBox NewBox(ForceInit);
 	if (SavedComponents.IsValidIndex(ComponentIndex))
 	{
-		// SCOPED_SCENE_READ_LOCK(GetPXScene());
+		FScopedSceneLock_Chaos Lock(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
 		for (int32 ActorIndex = BlastActorsBeginLive; ActorIndex < BlastActorsEndLive; ActorIndex++)
 		{
 			UBodySetup* BodySetup = ActorBodySetups[ActorIndex];
@@ -144,7 +143,7 @@ FBox UBlastExtendedSupportMeshComponent::GetWorldBoundsOfComponentChunks(int32 C
 						break;
 					}
 				}
-				
+
 			}
 		}
 	}
@@ -302,11 +301,11 @@ void UBlastExtendedSupportMeshComponent::SendRenderDynamicData_Concurrent()
 		}
 
 		ENQUEUE_RENDER_COMMAND(DebugRenderData)([BlastProxy{ static_cast<FBlastMeshSceneProxyNoRender*>(BlastProxy) }, ProxyLocalToWorld{ GetComponentTransform().ToMatrixWithScale() }, MeshComponentSpaceTransforms{ GetComponentSpaceTransforms() }, SelectedComponentProxies{ MoveTemp(SelectedComponentProxies) }](FRHICommandList& RHICmdList) mutable
-		{
-			BlastProxy->ProxyLocalToWorld = ProxyLocalToWorld;
-			BlastProxy->MeshComponentSpaceTransforms = MoveTemp(MeshComponentSpaceTransforms);
-			BlastProxy->SelectedComponentProxies = SelectedComponentProxies;
-		});
+			{
+				BlastProxy->ProxyLocalToWorld = ProxyLocalToWorld;
+				BlastProxy->MeshComponentSpaceTransforms = MoveTemp(MeshComponentSpaceTransforms);
+				BlastProxy->SelectedComponentProxies = SelectedComponentProxies;
+			});
 	}
 #endif
 }
@@ -324,12 +323,12 @@ bool UBlastExtendedSupportMeshComponent::ShouldUpdateTransform(bool bLODHasChang
 	return Super::ShouldUpdateTransform(bLODHasChanged) && GetUsedDebrisProperties().DebrisFilters.Num() > 0;
 }
 
-void UBlastExtendedSupportMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+void UBlastExtendedSupportMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 #if WITH_EDITOR
 	if (IsSelected() || IsOwnerSelected() || WasSelectedLastFrame)
-	{ 
+	{
 		MarkRenderDynamicDataDirty();
 	}
 	WasSelectedLastFrame = IsSelected() || IsOwnerSelected();
