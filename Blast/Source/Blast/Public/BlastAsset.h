@@ -3,8 +3,6 @@
 #include "UObject/Object.h"
 #include "Serialization/BulkData.h"
 
-#include "NvBlastExtAuthoringTypes.h"
-
 #include "BlastAsset.generated.h"
 
 struct NvBlastAsset;
@@ -26,16 +24,38 @@ enum class EBlastMeshChunkFlags : uint8
 };
 ENUM_CLASS_FLAGS(EBlastMeshChunkFlags);
 
+struct FBlastEdge
+{
+    uint32 S;
+    uint32 E;
+};
+
+struct FBlastVertex
+{
+    FVector3f P;      // Position
+    FVector3f N;      // Normal
+    FVector2f UV[1];  // UV-coordinates array, currently supported only one UV coordinate.
+};
+
+struct FBlastFacet
+{
+    int32 FirstEdgeNumber;
+    uint32 EdgesCount;
+    int64 UserData;
+    int32 MaterialId;
+    int32 SmoothingGroup;
+};
+
 USTRUCT()
 struct FBlastFractureToolData
 {
 	GENERATED_USTRUCT_BODY()
 
-	TArray<Nv::Blast::Vertex> Vertices;
+	TArray<FBlastVertex> Vertices;
 
-	TArray<Nv::Blast::Edge> Edges;
+	TArray<FBlastEdge> Edges;
 
-	TArray<Nv::Blast::Facet> Faces;
+	TArray<FBlastFacet> Faces;
 
 	TArray<uint32> VerticesOffset;
 

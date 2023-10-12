@@ -23,12 +23,12 @@
 #include "EngineUtils.h"
 #include "BlastExtendedSupport.h"
 #include "Rendering/SkeletalMeshRenderData.h"
-#include "Physics/Experimental/ChaosScopedSceneLock.h"
-#include "Physics/Experimental/PhysScene_Chaos.h"
+
 
 #if BLAST_USE_PHYSX
 #else
 #include "Chaos/ChaosScene.h"
+#include "Physics/Experimental/ChaosScopedSceneLock.h"
 #include "Physics/Experimental/PhysScene_Chaos.h"
 #include "PBDRigidsSolver.h"
 #endif
@@ -62,7 +62,6 @@ UBlastMeshComponent::UBlastMeshComponent(const FObjectInitializer& ObjectInitial
 	DebrisCount(0),
 	bAddedOrRemovedActorSinceLastRefresh(false),
 	bChunkVisibilityChanged(false),
-	bNeedsMotionClear(false),
 	bHasBeenFractured(false),
 	BlastProxy(nullptr)
 {
@@ -325,6 +324,7 @@ void UBlastMeshComponent::InitBlastFamily()
 	SetupNewBlastActor(Actor, FBlastActorCreateInfo(GetComponentTransform()), nullptr, nullptr, FName(), true);
 
 	bAddedOrRemovedActorSinceLastRefresh = true;
+	bHasValidBoneTransform = false;
 
 	UpdateFractureBufferSize();
 }
@@ -1009,7 +1009,7 @@ void UBlastMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* Tic
 
 	bool bBodiesMoved = SyncChunksAndBodies();
 
-	if (bBodiesMoved || bAddedOrRemovedActorSinceLastRefresh)
+	if (bBodiesMoved || !bHasValidBoneTransform || bAddedOrRemovedActorSinceLastRefresh)
 	{
 		/*
 		 * Rebuild chunk visibility only if it changed, otherwise we can push crap data into the bone visibility buffer (because RebuildChunkVisibility sets bBoneVisibilityDirty=true)
@@ -1020,6 +1020,11 @@ void UBlastMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* Tic
 		if (bChunkVisibilityChanged && BlastMesh)
 		{
 			RebuildChunkVisibility();
+			// Clean motion vector only if we're using per bone motion blur
+			if (bPerBoneMotionBlur)
+			{
+				ClearMotionVector();
+			}
 		}
 
 		// Flip bone buffer and send 'post anim' notification
@@ -1202,7 +1207,7 @@ void UBlastMeshComponent::FillInitialComponentSpaceTransformsFromMesh()
 
 		checkSlow(GetEditableComponentSpaceTransforms()[BoneIndex].IsRotationNormalized());
 		checkSlow(!GetEditableComponentSpaceTransforms()[BoneIndex].ContainsNaN());
-}
+	}
 	bNeedToFlipSpaceBaseBuffers = true;
 }
 
@@ -1219,8 +1224,7 @@ void UBlastMeshComponent::RebuildChunkVisibility()
 			EditableBoneVisibilityStates[BoneIndex] = BVS_Visible;
 		}
 	}
-	// Clean motion vector only if we're using per bone motion blur
-	bNeedsMotionClear = bNeedsMotionClear || (bPerBoneMotionBlur && !bChunkVisibilityChanged);
+
 	bBoneVisibilityDirty = true;
 	bChunkVisibilityChanged = false;
 
@@ -1242,9 +1246,7 @@ bool UBlastMeshComponent::AllocateTransformData()
 	// Allocate transforms if not present.
 	if (USkinnedMeshComponent::AllocateTransformData())
 	{
-		//Later we only update the dynamic bones so make sure we fill both buffers
 		FillInitialComponentSpaceTransformsFromMesh();
-		FlipEditableSpaceBases(); // this already copies buffer data correctly, so no need to fill both buffers explicitly as the above comment suggests
 		FinalizeBoneTransform();
 		return true;
 	}
@@ -1310,6 +1312,7 @@ void UBlastMeshComponent::OnRegister()
 
 	bChunkVisibilityChanged = true;
 	bAddedOrRemovedActorSinceLastRefresh = true;
+	bHasValidBoneTransform = false;
 	MarkRenderDynamicDataDirty();
 }
 
@@ -1376,6 +1379,152 @@ void UBlastMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransfor
 	}
 }
 
+void UBlastMeshComponent::ForEachBody(TFunctionRef<void(FBodyInstance*)> Worker)
+{
+	for (int32 Idx = BlastActorsBeginLive; Idx < BlastActorsEndLive; Idx++)
+	{
+		if (BlastActors[Idx].BodyInstance)
+		{
+			Worker(BlastActors[Idx].BodyInstance);
+		}
+	}
+}
+
+void UBlastMeshComponent::ForEachBody(TFunctionRef<void(const FBodyInstance*)> Worker) const
+{
+	for (int32 Idx = BlastActorsBeginLive; Idx < BlastActorsEndLive; Idx++)
+	{
+		if (BlastActors[Idx].BodyInstance)
+		{
+			Worker(BlastActors[Idx].BodyInstance);
+		}
+	}
+}
+
+void UBlastMeshComponent::ForEachBodyEx(TFunctionRef<void(FBodyInstance*, bool&)> Worker)
+{
+	bool bDone = false;
+	for (int32 Idx = BlastActorsBeginLive; Idx < BlastActorsEndLive; Idx++)
+	{
+		if (BlastActors[Idx].BodyInstance)
+		{
+			Worker(BlastActors[Idx].BodyInstance, bDone);
+		}
+		if (bDone)
+		{
+			break;
+		}
+	}
+}
+
+void UBlastMeshComponent::ForEachBodyEx(TFunctionRef<void(const FBodyInstance*, bool&)> Worker) const
+{
+	bool bDone = false;
+	for (int32 Idx = BlastActorsBeginLive; Idx < BlastActorsEndLive; Idx++)
+	{
+		if (BlastActors[Idx].BodyInstance)
+		{
+			Worker(BlastActors[Idx].BodyInstance, bDone);
+		}
+		if (bDone)
+		{
+			break;
+		}
+	}
+}
+
+bool UBlastMeshComponent::OverlapComponent(const FVector& Pos, const FQuat& Rot,
+	const FCollisionShape& CollisionShape) const
+{
+	bool bSuccess = false;
+	ForEachBodyEx(
+		[&](const FBodyInstance* Body, bool& bDone)
+		{
+			if (Body->OverlapTest(Pos, Rot, CollisionShape))
+			{
+				bDone = true;
+				bSuccess = true;
+			}
+		});
+
+	return bSuccess;
+}
+
+bool UBlastMeshComponent::UpdateOverlapsImpl(const TOverlapArrayView* PendingOverlaps, bool bDoNotifies, const TOverlapArrayView* OverlapsAtEndLocation)
+{
+	return UPrimitiveComponent::UpdateOverlapsImpl(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
+}
+
+bool UBlastMeshComponent::ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Quat, const struct FCollisionQueryParams& Params)
+{
+	// we do not support skinned mesh vs skinned mesh overlap test
+	if (PrimComp->IsA<USkinnedMeshComponent>())
+	{
+		UE_LOG(LogCollision, Warning, TEXT("ComponentOverlapComponent : (%s) Does not support skinnedmesh with Physics Asset"), *PrimComp->GetPathName());
+		return false;
+	}
+
+	TArray<FBodyInstance*> Bodies;
+	Bodies.Reserve(BlastActors.Num());
+	ForEachBody(
+		[&Bodies](FBodyInstance* Body)
+		{
+			Bodies.Add(Body);
+		});
+
+	if (const FBodyInstance* Body = PrimComp->GetBodyInstance())
+	{
+		return Body->OverlapTestForBodies(Pos, Quat, Bodies);
+	}
+
+	return false;
+}
+
+bool UBlastMeshComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const UWorld* World, const FVector& Pos, const FQuat& Quat, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+{
+	OutOverlaps.Reset();
+
+	const FTransform WorldToComponent(GetComponentTransform().Inverse());
+	const FCollisionResponseParams ResponseParams(GetCollisionResponseToChannels());
+
+	FComponentQueryParams ParamsWithSelf = Params;
+	ParamsWithSelf.AddIgnoredComponent(this);
+
+	bool bHaveBlockingHit = false;
+	ForEachBody(
+		[&](const FBodyInstance* Body)
+		{
+			checkSlow(Body);
+			if (Body->OverlapMulti(OutOverlaps, World, &WorldToComponent, Pos, Quat, TestChannel, ParamsWithSelf, ResponseParams, ObjectQueryParams))
+			{
+				bHaveBlockingHit = true;
+			}
+		});
+
+	return bHaveBlockingHit;
+}
+
+bool UBlastMeshComponent::SweepComponent(FHitResult& OutHit, const FVector Start, const FVector End, const FQuat& ShapeWorldRotation, const FCollisionShape& CollisionShape, bool bTraceComplex)
+{
+	bool bHaveHit = false;
+
+	FHitResult Hit;
+	ForEachBody([&](FBodyInstance* Body)
+		{
+			checkSlow(Body);
+			if (Body->Sweep(Hit, Start, End, ShapeWorldRotation, CollisionShape, bTraceComplex))
+			{
+				if (!bHaveHit || Hit.Time < OutHit.Time)
+				{
+					OutHit = Hit;
+				}
+				bHaveHit = true;
+			}
+		});
+
+	return bHaveHit;
+}
+
 UBlastAsset* UBlastMeshComponent::GetBlastAsset(bool bAllowModifiedAsset) const
 {
 	if (!BlastMesh || !BlastMesh->IsValidBlastMesh())
@@ -1413,6 +1562,7 @@ void UBlastMeshComponent::CreateRenderState_Concurrent(FRegisterComponentContext
 
 		//Force a refresh
 		bAddedOrRemovedActorSinceLastRefresh = true;
+		bHasValidBoneTransform = false;
 	}
 }
 
@@ -1441,13 +1591,6 @@ void UBlastMeshComponent::SendRenderDynamicData_Concurrent()
 			});
 	}
 #endif
-
-	if (bNeedsMotionClear)
-	{
-		// Clear motion on the next frame after chunk visiblity is rebuilt
-		ClearMotionVector();
-		bNeedsMotionClear = false;
-	}
 
 	Super::SendRenderDynamicData_Concurrent();
 }
@@ -2193,10 +2336,10 @@ void UBlastMeshComponent::Serialize(FArchive& Ar)
 	//We can't mark the property transient since it comes from the base class so we need to fake it out
 	if (Ar.IsSaving())
 	{
-		SkeletalMesh = nullptr;
+		SetSkinnedAsset(nullptr);
 	}
 	Super::Serialize(Ar);
-	SkeletalMesh = BlastMesh ? BlastMesh->Mesh : nullptr;
+	SetSkinnedAsset(BlastMesh ? BlastMesh->Mesh : nullptr);
 }
 
 void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastActorCreateInfo& CreateInfo, const FBlastBaseDamageProgram* DamageProgram, const FBlastBaseDamageProgram::FInput* Input, FName DamageType, bool bIsFirstActor)

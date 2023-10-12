@@ -16,7 +16,6 @@
 #include "NvBlastExtAuthoringFractureTool.h"
 #include "NvBlast.h"
 #include "NvBlastGlobals.h"
-#include "NvBounds3.h"
 
 #include "Misc/ScopedSlowTask.h"
 #include "Factories/FbxSkeletalMeshImportData.h"
@@ -887,7 +886,7 @@ bool CreatePhysicsAsset(TSharedPtr<Nv::Blast::AuthoringResult> FractureData, UBl
 	FTransform3f Converter = UBlastMeshFactory::GetTransformBlastToUE4CoordinateSystem(SkelMeshImportData);
 	for (uint32 ci = 0; ci < FractureData->chunkCount; ci++)
 	{
-		TArray<FBlastCollisionHull>& chunkHulls = hulls.Add(*(UBlastMesh::ChunkPrefix + FString::FromInt(ci)));
+		TArray<FBlastCollisionHull>& chunkHulls = hulls.Add(FName(*(UBlastMesh::ChunkPrefix + FString::FromInt(ci))));
 		chunkHulls.SetNum(FractureData->collisionHullOffset[ci + 1] - FractureData->collisionHullOffset[ci]);
 
 		for (uint32 hi = FractureData->collisionHullOffset[ci]; hi < FractureData->collisionHullOffset[ci + 1]; hi++)
@@ -1182,11 +1181,12 @@ void FBlastFracture::LoadFractureToolData(TSharedPtr<FFractureSession> FS)
 	{
 		const Nv::Blast::ChunkInfo& Info = FS->FractureTool->getChunkInfo(ChunkInfoIndices[AssetIndex]);
 
-		Nv::Blast::Vertex* VertsForThisChunk = FTD->Vertices.GetData() + FTD->VerticesOffset[AssetIndex];
+		FBlastVertex* VertsForThisChunk = FTD->Vertices.GetData() + FTD->VerticesOffset[AssetIndex];
 		FMemory::Memcpy(VertsForThisChunk, Info.getMesh()->getVertices(), Info.getMesh()->getVerticesCount() * sizeof(Nv::Blast::Vertex));
 		for (uint32 v = 0; v < Info.getMesh()->getVerticesCount(); v++)
 		{
-			VertsForThisChunk[v].p = Info.getTmToWorld().transformPos(VertsForThisChunk[v].p);
+			NvcVec3& PosNvc = *reinterpret_cast<NvcVec3*>(&VertsForThisChunk[v].P);
+			PosNvc = Info.getTmToWorld().transformPos(PosNvc);
 		}
 		FMemory::Memcpy(FTD->Edges.GetData() + FTD->EdgesOffset[AssetIndex],
 			Info.getMesh()->getEdges(), Info.getMesh()->getEdgesCount() * sizeof(Nv::Blast::Edge));

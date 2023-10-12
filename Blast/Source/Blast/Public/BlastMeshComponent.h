@@ -1,9 +1,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/LineBatchComponent.h"
-#include "SkeletalMeshTypes.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "ComponentInstanceDataCache.h"
 #include "SkeletalMeshSceneProxy.h"
@@ -110,20 +110,18 @@ struct FChunkDamageEvent
 };
 
 // Delagates/Events signatures
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnDamagedSignature, UBlastMeshComponent*, Component, FName, ActorName, FVector, DamageOrigin, FRotator, DamageRot, FName, DamageType);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlastMeshComponentOnActorCreatedSignature, UBlastMeshComponent*, Component, FName, ActorName);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlastMeshComponentOnActorDestroyedSignature, UBlastMeshComponent*, Component, FName, ActorName);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnActorCreatedFromDamageSignature, UBlastMeshComponent*, Component, FName, ActorName, FVector, DamageOrigin, FRotator, DamageRot, FName, DamageType);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnBondsDamagedSignature, UBlastMeshComponent*, Component, FName, ActorName, bool, bIsSplit, FName, DamageType, const TArray<FBondDamageEvent>&, Events);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnChunksDamagedSignature, UBlastMeshComponent*, Component, FName, ActorName, bool, bIsSplit, FName, DamageType, const TArray<FChunkDamageEvent>&, Events);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnDamagedSignature, class UBlastMeshComponent*, Component, FName, ActorName, FVector, DamageOrigin, FRotator, DamageRot, FName, DamageType);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlastMeshComponentOnActorCreatedSignature, class UBlastMeshComponent*, Component, FName, ActorName);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FBlastMeshComponentOnActorDestroyedSignature, class UBlastMeshComponent*, Component, FName, ActorName);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnActorCreatedFromDamageSignature, class UBlastMeshComponent*, Component, FName, ActorName, FVector, DamageOrigin, FRotator, DamageRot, FName, DamageType);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnBondsDamagedSignature, class UBlastMeshComponent*, Component, FName, ActorName, bool, bIsSplit, FName, DamageType, const TArray<FBondDamageEvent>&, Events);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams(FBlastMeshComponentOnChunksDamagedSignature, class UBlastMeshComponent*, Component, FName, ActorName, bool, bIsSplit, FName, DamageType, const TArray<FChunkDamageEvent>&, Events);
 
 //BlastMeshComponent is used to create an instance of an BlastMesh asset.
 UCLASS(ClassGroup = Blast, editinlinenew, hidecategories = (Object, Mesh), meta = (BlueprintSpawnableComponent))
 class BLAST_API UBlastMeshComponent : public USkinnedMeshComponent
 {
-	GENERATED_BODY()
-public:
-	UBlastMeshComponent(const FObjectInitializer& ObjectInitializer);
+	GENERATED_UCLASS_BODY()
 protected:
 	UPROPERTY(EditAnywhere, Category = "BlastMesh", meta = (DisplayThumbnail = "true"))
 	TObjectPtr<UBlastMesh> BlastMesh;
@@ -322,6 +320,11 @@ public:
 	virtual void BroadcastOnChunksDamaged(FName ActorName, bool bIsSplit, FName DamageType, const TArray<FChunkDamageEvent>& Events);
 	virtual bool OnBondsDamagedBound() const { return OnBondsDamaged.IsBound(); }
 	virtual bool OnChunksDamagedBound() const { return OnChunksDamaged.IsBound(); }
+
+	void ForEachBody(TFunctionRef<void(FBodyInstance*)> Worker);
+	void ForEachBody(TFunctionRef<void(const FBodyInstance*)> Worker) const;
+	void ForEachBodyEx(TFunctionRef<void(FBodyInstance*, bool&)> Worker);
+	void ForEachBodyEx(TFunctionRef<void(const FBodyInstance*, bool&)> Worker) const;
 
 	/**
 	* Return fractured BlastMeshComponent to its original state.
@@ -690,6 +693,12 @@ protected:
 
 	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport = ETeleportType::None) override;
 
+	virtual bool OverlapComponent(const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape) const override;
+	virtual bool UpdateOverlapsImpl(const TOverlapArrayView* PendingOverlaps, bool bDoNotifies, const TOverlapArrayView* OverlapsAtEndLocation) override;
+	virtual bool ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* InWorld, const FVector& Pos, const FQuat& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const override;
+	virtual bool ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Quat, const FCollisionQueryParams& Params) override;
+	virtual bool SweepComponent(FHitResult& OutHit, const FVector Start, const FVector End, const FQuat& ShapRotation, const FCollisionShape& CollisionShape, bool bTraceComplex = false) override;
+
 	// A map from the actors internal index to an array of visible chunk indices belonging to the actor in that slot. NOTE: These are Blast chunk indices and so must go through indirection
 	struct FActorChunkData
 	{
@@ -807,7 +816,6 @@ protected:
 
 	bool						bAddedOrRemovedActorSinceLastRefresh;
 	bool						bChunkVisibilityChanged;
-	bool						bNeedsMotionClear;
 	bool						bHasBeenFractured;
 
 	class FBlastMeshSceneProxyBase* BlastProxy;

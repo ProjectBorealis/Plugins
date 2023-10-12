@@ -183,12 +183,6 @@ void FBlastMeshEditor::InitBlastMeshEditor( const EToolkitMode::Type Mode, const
 		FTabManager::NewPrimaryArea() ->SetOrientation(Orient_Vertical)
 		->Split
 		(
-			FTabManager::NewStack()
-			->SetSizeCoefficient(0.1f)
-			->AddTab(GetToolbarTabId(), ETabState::OpenedTab) ->SetHideTabWell(true)
-		)
-		->Split
-		(
 			FTabManager::NewSplitter() ->SetOrientation(Orient_Horizontal) ->SetSizeCoefficient(0.9f)
 			->Split
 			(

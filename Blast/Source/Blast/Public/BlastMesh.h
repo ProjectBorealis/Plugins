@@ -331,10 +331,8 @@ private:
 UCLASS()
 class BLAST_API UBlastMesh : public UBlastAsset
 {
-	GENERATED_BODY()
+	GENERATED_UCLASS_BODY()
 public:
-	UBlastMesh(const FObjectInitializer& ObjectInitializer);
-
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(Category = ImportSettings, VisibleAnywhere, Instanced)
 	TObjectPtr<class UBlastAssetImportData> AssetImportData;

@@ -2,6 +2,7 @@
 #include "NvBlastTypes.h"
 #include "NvBlastExtSerialization.h"
 #include "NvBlastExtLlSerialization.h"
+#include "NvBlastExtAuthoringTypes.h"
 #include "NvBlast.h"
 #include "NvBlastGlobals.h"
 
@@ -9,7 +10,7 @@
 #include "Serialization/CustomVersion.h"
 #include "Containers/Queue.h"
 
-UBlastAsset::UBlastAsset(const FObjectInitializer& ObjectInitializer):
+UBlastAsset::UBlastAsset(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)
 {
 	RawAssetData.SetBulkDataFlags(BULKDATA_SerializeCompressed);
@@ -38,10 +39,10 @@ uint64 UBlastAsset::SerializeBlastAsset(void*& buffer, const NvBlastAsset* asset
 void UBlastAsset::CopyFromLoadedAsset(const NvBlastAsset* AssetToCopy, const FGuid& NewAssetGUID)
 {
 	// Serialize modified asset into buffer and put it into the new UBlastAsset
-	void *Buffer;
+	void* Buffer;
 
 	TSharedPtr<NvBlastAsset>& LoadedAsset = FractureHistory.GetCurrentLoadedAsset();
-	
+
 	uint32 BufferSize = SerializeBlastAsset(Buffer, AssetToCopy);
 	if (BufferSize)
 	{
@@ -52,9 +53,9 @@ void UBlastAsset::CopyFromLoadedAsset(const NvBlastAsset* AssetToCopy, const FGu
 
 		//We can't lock the raw asset until we save so we can't call DeserializeRawAsset
 		LoadedAsset = TSharedPtr<NvBlastAsset>(DeserializeBlastAsset(Buffer, BufferSize), [=](NvBlastAsset* asset)
-		{
-			NVBLAST_FREE((void*)asset);
-		});
+			{
+				NVBLAST_FREE((void*)asset);
+			});
 
 		NVBLAST_FREE(Buffer);
 	}
@@ -90,9 +91,9 @@ void UBlastAsset::DeserializeRawAsset()
 		{
 #if WITH_EDITOR
 			LoadedAsset = TSharedPtr<NvBlastAsset>(DeserializeBlastAsset(DataPtr, BulkDataSize), [=](NvBlastAsset* asset)
-			{
-				NVBLAST_FREE((void*)asset);
-			});
+				{
+					NVBLAST_FREE((void*)asset);
+				});
 #else
 			Asset = DeserializeBlastAsset(DataPtr, BulkDataSize);
 #endif
@@ -265,7 +266,7 @@ void UBlastAsset::SetChunkStatic(uint32 ChunkIndex, bool IsStatic)
 	if (IsStatic)
 	{
 		// Mark this chunk and all parent chunks till the root as static
-		for(uint32 index = ChunkIndex; index != UINT32_MAX; index = chunks[index].parentChunkIndex)
+		for (uint32 index = ChunkIndex; index != UINT32_MAX; index = chunks[index].parentChunkIndex)
 		{
 			ChunksFlags[index] |= EBlastAssetChunkFlags::Static;
 		}
@@ -298,7 +299,7 @@ void UBlastAsset::PostLoad()
 //The value of this is not important, it's just used to tag our version code
 static FGuid BlastAssetDataFormatGUID(0x648A6305, 0x343D4537, 0x98F6EF84, 0xE044E371);
 
-enum EBlastAssetDataFormatVersion 
+enum EBlastAssetDataFormatVersion
 {
 	EBlastAssetDataFormatVersion_Initial = 1,
 	EBlastAssetDataFormatVersion_AddedAssetGUID,
@@ -309,7 +310,7 @@ FCustomVersionRegistration GRegisterUBlastAssetDataFormat(BlastAssetDataFormatGU
 void UBlastAsset::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
-	
+
 	//Not used for anything not crashing when reading old files, but be future proof
 	Ar.UsingCustomVersion(BlastAssetDataFormatGUID);
 

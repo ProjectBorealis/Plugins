@@ -30,7 +30,6 @@ namespace UnrealBuildTool.Rules
 
             PrivateDependencyModuleNames.AddRange(
                 new string[] {
-                    "Blast",
                     "Core",
                     "CoreUObject",
                     "AssetTools",
@@ -42,7 +41,6 @@ namespace UnrealBuildTool.Rules
                     "Slate",
                     "ContentBrowser",
                     "Projects",
-                    "Slate",
                     "SlateCore",
                     "MainFrame",
                     "InputCore",
