@@ -1952,10 +1952,10 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, co
 	FQuat WorldRotation = Rot; // without this line (quat * quat) crashes for some reason
 
 	FBlastBaseDamageProgram::FInput ProgramInput;
-	ProgramInput.worldOrigin = Origin;
-	ProgramInput.worldRot = WorldRotation;
-	ProgramInput.localOrigin = invWT.TransformPosition(Origin);
-	ProgramInput.localRot = invWT.GetRotation() * WorldRotation;
+	ProgramInput.worldOrigin = FVector3f(Origin);
+	ProgramInput.worldRot = FQuat4f(WorldRotation);
+	ProgramInput.localOrigin = FVector3f(invWT.TransformPosition(Origin));
+	ProgramInput.localRot = FQuat4f(invWT.GetRotation() * WorldRotation);
 	ProgramInput.material = &GetUsedBlastMaterial();
 
 	if (StressSolver)
@@ -2417,7 +2417,7 @@ void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastAc
 
 	if (!DamageType.IsNone())
 	{
-		BroadcastOnActorCreatedFromDamage(ActorIndexToActorName(actorIndex), Input ? Input->worldOrigin : FVector::ZeroVector, Input ? Input->worldRot.Rotator() : FRotator::ZeroRotator, DamageType);
+		BroadcastOnActorCreatedFromDamage(ActorIndexToActorName(actorIndex), Input ? FVector(Input->worldOrigin) : FVector::ZeroVector, Input ? FQuat(Input->worldRot).Rotator() : FRotator::ZeroRotator, DamageType);
 	}
 
 	BroadcastOnActorCreated(ActorIndexToActorName(actorIndex));
@@ -2841,7 +2841,7 @@ void UBlastMeshComponent::TickStressSolver()
 
 							virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
 							{
-								actorBody->AddRadialImpulseToBody(input.worldOrigin, Radius, ImpulseStrength, 0, true);
+								actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), Radius, ImpulseStrength, 0, true);
 							}
 						};
 
@@ -2852,7 +2852,7 @@ void UBlastMeshComponent::TickStressSolver()
 							ImpulseProgram.Radius = ActorData.BodyInstance->GetBodyBounds().GetSize().GetMax();
 							ImpulseProgram.ImpulseStrength = StressProperties.SplitImpulseStrength;
 							FBlastBaseDamageProgram::FInput ProgramInput;
-							ProgramInput.worldOrigin = ActorData.BodyInstance->GetCOMPosition();
+							ProgramInput.worldOrigin = FVector3f(ActorData.BodyInstance->GetCOMPosition());
 							HandlePostDamage(actor, StressDamageType, &ImpulseProgram, &ProgramInput);
 						}
 						else
