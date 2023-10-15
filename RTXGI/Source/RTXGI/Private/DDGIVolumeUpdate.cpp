@@ -56,6 +56,20 @@ static TAutoConsoleVariable<float> CVarDDGIIrradianceScalar(
 	ECVF_RenderThreadSafe);
 #endif
 
+#if WITH_EDITOR
+static TAutoConsoleVariable<bool> CVarDDGIStaticInEditor(
+	TEXT("r.RTXGI.DDGI.StaticInEditor"),
+	true,
+	TEXT("If true, will not update DDGI volumes in editor views\n"),
+	ECVF_RenderThreadSafe);
+#endif
+
+static TAutoConsoleVariable<bool> CVarDDGIForceRealtime(
+	TEXT("r.RTXGI.DDGI.ForceRealtime"),
+	false,
+	TEXT("If true, will force DDGI volumes as realtime.\n"),
+	ECVF_RenderThreadSafe);
+
 #if RHI_RAYTRACING
 
 static FMatrix44f ComputeRandomRotation()
@@ -156,7 +170,7 @@ class FRayTracingRTXGIProbeUpdateRGS : public FGlobalShader
 
 		// Set to 1 to be able to visualize this in the editor by typing "vis DDGIVolumeUpdateDebug" and later "vis none" to make it go away.
 		// Set to 0 to disable and deadstrip everything related
-		OutEnvironment.SetDefine(TEXT("DDGIVolumeUpdateDebug"), 0);
+		OutEnvironment.SetDefine(TEXT("DDGIVolumeUpdateDebug"), WITH_EDITOR);
 
 #if ENGINE_MAJOR_VERSION < 5
 		OutEnvironment.SetDefine(TEXT("UE4_COMPAT"), 1);
@@ -303,7 +317,7 @@ class FDDGIIrradianceBlend : public FGlobalShader
 
 		// Set to 1 to be able to visualize this in the editor by typing "vis DDGIIrradianceBlendDebug" and later "vis none" to make it go away.
 		// Set to 0 to disable and deadstrip everything related
-		OutEnvironment.SetDefine(TEXT("DDGIIrradianceBlendDebug"), 0);
+		OutEnvironment.SetDefine(TEXT("DDGIIrradianceBlendDebug"), WITH_EDITOR);
 
 		// needed for a typed UAV load. This already assumes we are raytracing, so should be fine.
 		OutEnvironment.CompilerFlags.Add(CFLAG_AllowTypedUAVLoads);
@@ -362,7 +376,7 @@ class FDDGIDistanceBlend : public FGlobalShader
 
 		// Set to 1 to be able to visualize this in the editor by typing "vis DDGIDistanceBlendDebug" and later "vis none" to make it go away.
 		// Set to 0 to disable and deadstrip everything related
-		OutEnvironment.SetDefine(TEXT("DDGIDistanceBlendDebug"), 0);
+		OutEnvironment.SetDefine(TEXT("DDGIDistanceBlendDebug"), WITH_EDITOR);
 
 		// needed for a typed UAV load. This already assumes we are raytracing, so should be fine.
 		OutEnvironment.CompilerFlags.Add(CFLAG_AllowTypedUAVLoads);
@@ -570,7 +584,12 @@ namespace DDGIVolumeUpdate
 		AnyRayTracingPassEnabledHandle = ARTPEDelegate.AddStatic(
 			[](bool& anyEnabled)
 			{
-				anyEnabled |= true;
+				const bool bCanEverRun = CVarDDGIForceRealtime.GetValueOnRenderThread()
+#if WITH_EDITOR
+				|| !CVarDDGIStaticInEditor.GetValueOnRenderThread()
+#endif
+				;
+				anyEnabled |= bCanEverRun;
 			}
 		);
 #endif // RHI_RAYTRACING
@@ -619,7 +638,12 @@ namespace DDGIVolumeUpdate
 			if (proxy->OwningScene != &Scene) continue;
 
 			// Don't update static runtime volumes during gameplay
-			if (View.bIsGameView && proxy->ComponentData.RuntimeStatic) continue;
+			const bool bIsValidForStatic = (View.bIsGameView && !CVarDDGIForceRealtime.GetValueOnRenderThread())
+#if WITH_EDITOR
+				|| CVarDDGIStaticInEditor.GetValueOnRenderThread()
+#endif
+				;
+			if (bIsValidForStatic && proxy->ComponentData.RuntimeStatic) continue;
 
 			// Don't update the volume if it is disabled
 			if (!proxy->ComponentData.EnableVolume) continue;

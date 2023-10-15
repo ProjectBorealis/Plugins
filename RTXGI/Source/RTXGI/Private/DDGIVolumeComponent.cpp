@@ -989,9 +989,12 @@ void UDDGIVolumeComponent::Serialize(FArchive& Ar)
 			{
 				FDDGITexturePixels Irradiance, Distance, Offsets, States;
 
+				auto CVarDDGIStaticInEditor = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RTXGI.DDGI.StaticInEditor"));
+
 				// When we are *not* cooking and ray tracing is available, copy the DDGIVolume probe texture resources
 				// to CPU memory otherwise, write out the DDGIVolume texture resources acquired at load time
-				if (!Ar.IsCooking() && IsRayTracingEnabled() && proxy)
+				// Also disable copying when we are static in editor
+				if (!Ar.IsCooking() && IsRayTracingEnabled() && proxy && (!CVarDDGIStaticInEditor || !CVarDDGIStaticInEditor->GetBool()))
 				{
 					// Copy textures to CPU accessible texture resources
 					ENQUEUE_RENDER_COMMAND(DDGISaveTexStep1)(
@@ -1352,16 +1355,30 @@ void UDDGIVolumeComponent::DestroyRenderState_Concurrent()
 	{
 		FDDGITextureLoadContext& ComponentLoadContext = LoadContext;
 
+		bool bStatic = RuntimeStatic;
+#if WITH_EDITOR
+		if (bStatic)
+		{
+			auto CVarDDGIStaticInEditor = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RTXGI.DDGI.StaticInEditor"));
+			bStatic = CVarDDGIStaticInEditor && CVarDDGIStaticInEditor->GetBool();
+		}
+#endif
+
 		FDDGIVolumeSceneProxy* DDGIProxy = SceneProxy;
 		ENQUEUE_RENDER_COMMAND(DeleteProxy)(
-			[DDGIProxy, &ComponentLoadContext](FRHICommandListImmediate& RHICmdList)
+			[DDGIProxy, &ComponentLoadContext, bStatic](FRHICommandListImmediate& RHICmdList)
 			{
 				// If the component has textures pending load, nothing to do here. Those are the most authoritative.
 				if (!ComponentLoadContext.ReadyForLoad)
 				{
+					// If static, just reset the ready for load state
+					if (bStatic)
+					{
+						ComponentLoadContext.ReadyForLoad = true;
+					}
 					// If the proxy has textures pending load which haven't been serviced yet, the component should take those
 					// in case it creates another proxy.
-					if (DDGIProxy->TextureLoadContext.ReadyForLoad)
+					else if (DDGIProxy->TextureLoadContext.ReadyForLoad)
 					{
 						ComponentLoadContext = DDGIProxy->TextureLoadContext;
 					}
