@@ -15,6 +15,7 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "SceneView.h"
 #include "RenderGraph.h"
+#include "RenderGraphResources.h"
 
 #if WITH_RTXGI
 #include "RayGenShaderUtils.h"
@@ -169,8 +170,13 @@ class FRayTracingRTXGIProbeUpdateRGS : public FGlobalShader
 		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
+	static ERayTracingPayloadType GetRayTracingPayloadType(const int32 PermutationId)
+	{
+		return ERayTracingPayloadType::RayTracingMaterial;
+	}
+
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER_SRV(RaytracingAccelerationStructure, TLAS)
+		SHADER_PARAMETER_RDG_BUFFER_SRV(RaytracingAccelerationStructure, TLAS)
 
 		SHADER_PARAMETER(uint32, FrameRandomSeed)
 
@@ -195,14 +201,8 @@ class FRayTracingRTXGIProbeUpdateRGS : public FGlobalShader
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float4>, DebugOutput)  // Per unreal RDG presentation, this is deadstripped if the shader doesn't write to it
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<uint>, DDGIProbeScrollSpace)
 
-		// assorted things needed by material resolves, even though some don't make sense outside of screenspace
-#if ENGINE_MAJOR_VERSION < 5
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SSProfilesTexture)
-#else
-		SHADER_PARAMETER_TEXTURE(Texture2D, SSProfilesTexture)
-#endif
 		SHADER_PARAMETER_STRUCT_REF(FViewUniformShaderParameters, ViewUniformBuffer)
-		SHADER_PARAMETER_STRUCT_REF(FRaytracingLightDataPacked, LightDataPacked)
+		SHADER_PARAMETER_RDG_UNIFORM_BUFFER(FRaytracingLightDataPacked, LightDataPacked)
 	END_SHADER_PARAMETER_STRUCT()
 };
 
@@ -239,8 +239,13 @@ class FRayTracingRTXGIProbeViewRGS : public FGlobalShader
 		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
 
+	static ERayTracingPayloadType GetRayTracingPayloadType(const int32 PermutationId)
+	{
+		return ERayTracingPayloadType::RayTracingMaterial;
+	}
+
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER_SRV(RaytracingAccelerationStructure, TLAS)
+		SHADER_PARAMETER_RDG_BUFFER_SRV(RaytracingAccelerationStructure, TLAS)
 
 		SHADER_PARAMETER(uint32, FrameRandomSeed)
 
@@ -257,14 +262,8 @@ class FRayTracingRTXGIProbeViewRGS : public FGlobalShader
 
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float4>, RadianceOutput)
 
-		// assorted things needed by material resolves, even though some don't make sense outside of screenspace
-#if ENGINE_MAJOR_VERSION < 5
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SSProfilesTexture)
-#else
-		SHADER_PARAMETER_TEXTURE(Texture2D, SSProfilesTexture)
-#endif
 		SHADER_PARAMETER_STRUCT_REF(FViewUniformShaderParameters, ViewUniformBuffer)
-		SHADER_PARAMETER_STRUCT_REF(FRaytracingLightDataPacked, LightDataPacked)
+		SHADER_PARAMETER_RDG_UNIFORM_BUFFER(FRaytracingLightDataPacked, LightDataPacked)
 	END_SHADER_PARAMETER_STRUCT()
 };
 
@@ -835,12 +834,7 @@ namespace DDGIVolumeUpdate
 		PassParameters->CameraPos = static_cast<FVector3f>(View.ViewMatrices.GetViewOrigin());
 		PassParameters->CameraMatrix = static_cast<FMatrix44f>(View.ViewMatrices.GetViewMatrix().Inverse());
 
-#if ENGINE_MAJOR_VERSION < 5
-		PassParameters->TLAS = View.RayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
-		check(PassParameters->TLAS);
-#else
-		PassParameters->TLAS = Scene.RayTracingScene.GetShaderResourceViewChecked();
-#endif
+		PassParameters->TLAS = Scene.RayTracingScene.GetLayerView(ERayTracingSceneLayer::Base);
 		PassParameters->RadianceOutput = ProbeVisUAV;
 		PassParameters->FrameRandomSeed = GFrameNumber;
 
@@ -858,13 +852,8 @@ namespace DDGIVolumeUpdate
 			PassParameters->Sky_TextureSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 		}
 
-#if ENGINE_MAJOR_VERSION < 5
-		PassParameters->SSProfilesTexture = GraphBuilder.RegisterExternalTexture(View.RayTracingSubSurfaceProfileTexture);
-#else
-		PassParameters->SSProfilesTexture = View.RayTracingSubSurfaceProfileTexture;
-#endif
 		PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;
-		PassParameters->LightDataPacked = View.RayTracingLightData.UniformBuffer;
+		PassParameters->LightDataPacked = View.RayTracingLightDataUniformBuffer;
 
 		FIntPoint DispatchSize(c_probeVisWidth, c_probeVisHeight);
 
@@ -928,12 +917,7 @@ namespace DDGIVolumeUpdate
 		FRayTracingRTXGIProbeUpdateRGS::FParameters* PassParameters = GraphBuilder.AllocParameters<FRayTracingRTXGIProbeUpdateRGS::FParameters>();
 		*PassParameters = DefaultPassParameters;
 
-#if ENGINE_MAJOR_VERSION < 5
-		PassParameters->TLAS = View.RayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
-		check(PassParameters->TLAS);
-#else
-		PassParameters->TLAS = Scene.RayTracingScene.GetShaderResourceViewChecked();
-#endif
+		PassParameters->TLAS = Scene.RayTracingScene.GetLayerView(ERayTracingSceneLayer::Base);
 		PassParameters->RadianceOutput = ProbesRadianceUAV;
 		PassParameters->FrameRandomSeed = GFrameNumber;
 		
@@ -1005,13 +989,8 @@ namespace DDGIVolumeUpdate
 		);
 		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(DDGIDebugOutputDesc, TEXT("DDGIVolumeUpdateDebug")));
 
-#if ENGINE_MAJOR_VERSION < 5
-		PassParameters->SSProfilesTexture = GraphBuilder.RegisterExternalTexture(View.RayTracingSubSurfaceProfileTexture);
-#else
-		PassParameters->SSProfilesTexture = View.RayTracingSubSurfaceProfileTexture;
-#endif
 		PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;
-		PassParameters->LightDataPacked = View.RayTracingLightData.UniformBuffer;
+		PassParameters->LightDataPacked = View.RayTracingLightDataUniformBuffer;
 
 		FIntPoint DispatchSize = ProbesRadianceTex->Desc.Extent;
 

@@ -17,6 +17,7 @@
 
 // UE Public Interfaces
 #include "ConvexVolume.h"
+#include "DataDrivenShaderPlatformInfo.h"
 #include "RenderGraphBuilder.h"
 #include "ShaderParameterStruct.h"
 #include "ShaderParameterUtils.h"
@@ -764,7 +765,7 @@ void FDDGIVolumeSceneProxy::RenderDiffuseIndirectLight_RenderThread(
 	SET_FLOAT_STAT(SAMPLES_PER_MILLI, samplesPerMilli);
 
 	//GPU Timing code from UnrealEdMisc.cpp
-	uint32 GPUCycles = RHIGetGPUFrameCycles();
+	uint32 GPUCycles = GraphBuilder.RHICmdList.GetGPUFrameCycles();
 	double RawGPUFrameTime = FPlatformTime::ToMilliseconds(GPUCycles);
 
 	float totalGpuTime = RawGPUFrameTime;
@@ -840,20 +841,11 @@ static FDDGITexturePixels GetTexturePixelsStep1_RenderThread(FRHICommandListImme
 	ret.Desc.PixelFormat = (int32)textureGPU->GetFormat();
 
 	// Create the texture
-	FRHIResourceCreateInfo createInfo(TEXT("DDGIGetTexturePixelsSave"));
-	ret.Texture = RHICreateTexture2D(
-		textureGPU->GetTexture2D()->GetSizeX(),
-		textureGPU->GetTexture2D()->GetSizeY(),
-		textureGPU->GetFormat(),
-		1,
-		1,
-#if ENGINE_MAJOR_VERSION < 5
-		TexCreate_ShaderResource | TexCreate_Transient,
-#else
-		TexCreate_ShaderResource,
-#endif
-		ERHIAccess::CopyDest,
-		createInfo);
+	FRHITextureCreateDesc CreateInfo = FRHITextureCreateDesc::Create2D(TEXT("DDGIGetTexturePixelsSave"), ret.Desc.Width,ret.Desc.Height, textureGPU->GetFormat());
+	CreateInfo.AddFlags(TexCreate_ShaderResource);
+
+	CreateInfo.InitialState = ERHIAccess::CopyDest;
+	ret.Texture = RHICmdList.CreateTexture(CreateInfo);
 
 	// Transition the GPU texture to a copy source
 	RHICmdList.Transition(FRHITransitionInfo(textureGPU, ERHIAccess::SRVMask, ERHIAccess::CopySrc));
@@ -874,13 +866,13 @@ static void GetTexturePixelsStep2_RenderThread(FRHICommandListImmediate& RHICmdL
 	if (!texturePixels.Texture) return;
 
 	// Get a pointer to the CPU memory
-	uint8* mappedTextureMemory = (uint8*)RHILockTexture2D(texturePixels.Texture, 0, RLM_ReadOnly, texturePixels.Desc.Stride, false);
+	uint8* mappedTextureMemory = (uint8*)RHICmdList.LockTexture2D(texturePixels.Texture, 0, RLM_ReadOnly, texturePixels.Desc.Stride, false);
 
 	// Copy the texture data to CPU memory
 	texturePixels.Pixels.AddZeroed(texturePixels.Desc.Height * texturePixels.Desc.Stride);
 	FMemory::Memcpy(&texturePixels.Pixels[0], mappedTextureMemory, texturePixels.Desc.Height * texturePixels.Desc.Stride);
 
-	RHIUnlockTexture2D(texturePixels.Texture, 0, false);
+	RHICmdList.UnlockTexture2D(texturePixels.Texture, 0, false);
 }
 
 static void SaveFDDGITexturePixels(FArchive& Ar, FDDGITexturePixels& texturePixels, bool bSaveFormat)
@@ -916,29 +908,19 @@ static void LoadFDDGITexturePixels(FArchive& Ar, FDDGITexturePixels& texturePixe
 	// Early out if no data was loaded
 	if (texturePixels.Desc.Width == 0 || texturePixels.Desc.Height == 0 || texturePixels.Desc.Stride == 0) return;
 
-	// Create the texture resource
-	FRHIResourceCreateInfo createInfo(TEXT("DDGITextureLoad"));
-	texturePixels.Texture = RHICreateTexture2D(
-		texturePixels.Desc.Width,
-		texturePixels.Desc.Height,
-		expectedPixelFormat,
-		1,
-		1,
-#if ENGINE_MAJOR_VERSION < 5
-		TexCreate_ShaderResource | TexCreate_Transient,
-#else
-		TexCreate_ShaderResource,
-#endif
-		createInfo);
-
 	// Copy the texture's data to the staging buffer
 	ENQUEUE_RENDER_COMMAND(DDGILoadTex)(
-		[&texturePixels](FRHICommandListImmediate& RHICmdList)
+		[&texturePixels, expectedPixelFormat](FRHICommandListImmediate& RHICmdList)
 		{
+			// Create the texture resource
+			FRHITextureCreateDesc CreateInfo = FRHITextureCreateDesc::Create2D(TEXT("DDGITextureLoad"), texturePixels.Desc.Width, texturePixels.Desc.Height, expectedPixelFormat);
+			CreateInfo.AddFlags(TexCreate_ShaderResource);
+			texturePixels.Texture = RHICmdList.CreateTexture(CreateInfo);
+
 			if (texturePixels.Pixels.Num() == texturePixels.Desc.Height * texturePixels.Desc.Stride)
 			{
 				uint32 destStride;
-				uint8* mappedTextureMemory = (uint8*)RHILockTexture2D(texturePixels.Texture, 0, RLM_WriteOnly, destStride, false);
+				uint8* mappedTextureMemory = (uint8*)RHICmdList.LockTexture2D(texturePixels.Texture, 0, RLM_WriteOnly, destStride, false);
 				if (texturePixels.Desc.Stride == destStride)
 				{
 					// Loaded data has the same stride as expected by the runtime
@@ -959,7 +941,7 @@ static void LoadFDDGITexturePixels(FArchive& Ar, FDDGITexturePixels& texturePixe
 						SourceBuffer += texturePixels.Desc.Stride;
 					}
 				}
-				RHIUnlockTexture2D(texturePixels.Texture, 0, false);
+				RHICmdList.UnlockTexture2D(texturePixels.Texture, 0, false);
 			}
 
 			// Only clear the texels when in a game.

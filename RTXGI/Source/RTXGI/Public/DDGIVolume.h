@@ -25,11 +25,11 @@ class RTXGI_API ADDGIVolume : public AActor
 
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "GI", meta = (AllowPrivateAccess = "true"));
-	UDDGIVolumeComponent* DDGIVolumeComponent;
+	TObjectPtr<UDDGIVolumeComponent> DDGIVolumeComponent;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(Transient);
-	UBoxComponent* BoxComponent = nullptr;
+	TObjectPtr<UBoxComponent> BoxComponent;
 #endif // WITH_EDITORONLY_DATA
 
 #if WITH_EDITOR

@@ -56,8 +56,8 @@ bool FLatentGPUTimerDDGI::Tick(FRHICommandListImmediate& RHICmdList)
 			// Block on the GPU until we have the timestamp query results, if necessary
 			// Stat disabled since we buffer 2 frames minimum, it won't actually block
 			//SCOPE_CYCLE_COUNTER(STAT_TranslucencyTimestampQuery_Wait);
-			bStartSuccess = RHICmdList.GetRenderQueryResult(StartQueries[QueryIndex].GetQuery(), StartMicroseconds, true);
-			bEndSuccess = RHICmdList.GetRenderQueryResult(EndQueries[QueryIndex].GetQuery(), EndMicroseconds, true);
+			bStartSuccess = RHIGetRenderQueryResult(StartQueries[QueryIndex].GetQuery(), StartMicroseconds, true);
+			bEndSuccess = RHIGetRenderQueryResult(EndQueries[QueryIndex].GetQuery(), EndMicroseconds, true);
 		}
 
 		TotalTime -= TimeSamples[SampleIndex];
