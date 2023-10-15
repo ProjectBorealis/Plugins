@@ -42,7 +42,7 @@ enum class EFractureScriptParseResult : uint8
 
 struct FFractureSession
 {
-	UBlastMesh* BlastMesh = nullptr;
+	TObjectPtr<UBlastMesh> BlastMesh;
 	TSharedPtr<Nv::Blast::AuthoringResult> FractureData;
 	TSharedPtr<Nv::Blast::FractureTool> FractureTool;
 	TArray<uint32> FractureIdMap;

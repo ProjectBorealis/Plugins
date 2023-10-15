@@ -93,7 +93,7 @@ struct BlastRadialDamageProgram final : public FBlastBaseDamageProgram
 			// Do not increase impulse a lot during randomization
 			const float FinalImpulseStrength = bRandomizeImpulse ? FMath::RandRange(ImpulseStrength - ImpulseStrength / ImpulseRandomizationDivider,
 				ImpulseStrength + ImpulseStrength / (ImpulseRandomizationDivider * 2.f)) : ImpulseStrength;
-			actorBody->AddRadialImpulseToBody(input.worldOrigin, MaxRadius, FinalImpulseStrength, 0, bImpulseVelChange);
+			actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), MaxRadius, FinalImpulseStrength, 0, bImpulseVelChange);
 		}
 	}
 };
@@ -102,6 +102,18 @@ struct BlastRadialDamageProgram final : public FBlastBaseDamageProgram
 ///////////////////////////////////////////////////////////////////////////////
 //  Capsule Damage
 ///////////////////////////////////////////////////////////////////////////////
+
+FVector3f ClosestPointOnLine(const FVector3f& LineStart, const FVector3f& LineEnd, const FVector3f& Point)
+{
+	// Solve to find alpha along line that is closest point
+	// Weisstein, Eric W. "Point-Line Distance--3-Dimensional." From MathWorld--A Switchram Web Resource. http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html 
+	const float A = (LineStart - Point) | (LineEnd - LineStart);
+	const float B = (LineEnd - LineStart).SizeSquared();
+	// This should be robust to B == 0 (resulting in NaN) because clamp should return 1.
+	const float T = FMath::Clamp<float>(-A/B, 0.f, 1.f);
+
+	return LineStart + (T * (LineEnd - LineStart));
+}
 
 /**
 Capsule Falloff Damage Program
@@ -141,11 +153,10 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 
 	virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
 	{
-		FVector CapsuleDir = FVector(0, 0, 1);
-		CapsuleDir = input.localRot.RotateVector(CapsuleDir);
+		FVector3f CapsuleDir = input.localRot.RotateVector(FVector3f::UpVector);
 
-		FVector pointA = input.localOrigin + CapsuleDir * HalfHeight;
-		FVector pointB = input.localOrigin - CapsuleDir * HalfHeight;
+		FVector3f pointA = input.localOrigin + CapsuleDir * HalfHeight;
+		FVector3f pointB = input.localOrigin - CapsuleDir * HalfHeight;
 
 		const float normalizedDamage = input.material->GetNormalizedDamage(Damage);
 		if (normalizedDamage == 0.f)
@@ -184,16 +195,15 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 	{
 		if (ImpulseStrength > 0.f && actorBody->IsInstanceSimulatingPhysics())
 		{
-			FVector CapsuleDir = FVector(0, 0, 1);
-			CapsuleDir = input.worldRot.RotateVector(CapsuleDir);
+			FVector3f CapsuleDir = input.worldRot.RotateVector(FVector3f::UpVector);
 
-			FVector pointA = input.worldOrigin + CapsuleDir * HalfHeight;
-			FVector pointB = input.worldOrigin - CapsuleDir * HalfHeight;
+			FVector3f pointA = input.worldOrigin + CapsuleDir * HalfHeight;
+			FVector3f pointB = input.worldOrigin - CapsuleDir * HalfHeight;
 
-			FVector ActorCom = actorBody->GetCOMPosition();
-			FVector CapsulePoint = FMath::ClosestPointOnLine(pointA, pointB, ActorCom);
+			FVector3f ActorCom = FVector3f(actorBody->GetCOMPosition());
+			FVector3f CapsulePoint = ClosestPointOnLine(pointA, pointB, ActorCom);
 
-			actorBody->AddRadialImpulseToBody(CapsulePoint, (ActorCom - CapsulePoint).SizeSquared(), ImpulseStrength, 0, bImpulseVelChange);
+			actorBody->AddRadialImpulseToBody(FVector(CapsulePoint), (ActorCom - CapsulePoint).SizeSquared(), ImpulseStrength, 0, bImpulseVelChange);
 		}
 	}
 };
@@ -241,7 +251,7 @@ struct BlastShearDamageProgram final : public FBlastBaseDamageProgram
 			return false;
 		}
 
-		FVector LocalNormal = input.localRot.GetForwardVector();
+		FVector3f LocalNormal = input.localRot.GetForwardVector();
 
 		NvBlastExtShearDamageDesc damage[] = {
 			{
@@ -274,7 +284,7 @@ struct BlastShearDamageProgram final : public FBlastBaseDamageProgram
 	{
 		if (ImpulseStrength > 0.f && actorBody->IsInstanceSimulatingPhysics())
 		{
-			actorBody->AddRadialImpulseToBody(input.worldOrigin, MaxRadius, ImpulseStrength, 0, bImpulseVelChange);
+			actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), MaxRadius, ImpulseStrength, 0, bImpulseVelChange);
 		}
 	}
 };

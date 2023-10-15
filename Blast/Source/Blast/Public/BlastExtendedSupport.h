@@ -47,7 +47,7 @@ protected:
 	float bondGenerationDistance;
 
 	UPROPERTY(VisibleAnywhere, Category = "Blast")
-	UBlastExtendedSupportMeshComponent* ExtendedSupportMesh;
+	TObjectPtr<UBlastExtendedSupportMeshComponent> ExtendedSupportMesh;
 public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Blast")

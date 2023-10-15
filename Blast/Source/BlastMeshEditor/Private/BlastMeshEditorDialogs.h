@@ -32,7 +32,7 @@ public:
 
 	TSharedPtr<SButton> LoadButton;
 	TSharedPtr<IDetailsView> MeshView;
-	class UBlastStaticMeshHolder* StaticMeshHolder;
+	TObjectPtr<class UBlastStaticMeshHolder> StaticMeshHolder;
 	bool IsLoad = false;
 };
 
@@ -58,7 +58,7 @@ public:
 	void CloseContainingWindow();
 
 	TSharedPtr<IDetailsView> PropertyView;
-	class UBlastFixChunkHierarchyProperties* Properties;
+	TObjectPtr<class UBlastFixChunkHierarchyProperties> Properties;
 	bool IsFix = false;
 };
 
@@ -129,7 +129,7 @@ public:
 	void CloseContainingWindow();
 
 	TSharedPtr<IDetailsView> PropertyView;
-	class UBlastRebuildCollisionMeshProperties* Properties;
+	TObjectPtr<class UBlastRebuildCollisionMeshProperties> Properties;
 	bool IsRebuild = false;
 };
 

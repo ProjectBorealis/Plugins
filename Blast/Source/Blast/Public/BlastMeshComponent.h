@@ -848,7 +848,7 @@ public:
 #endif
 
 private:
-	const UBlastMesh* BlastMeshForDebug;
+	TObjectPtr<const UBlastMesh> BlastMeshForDebug;
 	TBitArray<> VisibleChunks;
 #if WITH_EDITOR
 	TArray<FBatchedLine> DebugDrawLines;

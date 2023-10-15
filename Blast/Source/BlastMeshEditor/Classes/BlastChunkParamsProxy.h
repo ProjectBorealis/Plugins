@@ -17,7 +17,7 @@ class UBlastChunkParamsProxy : public UObject
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY()
-	UBlastMesh* BlastMesh;
+	TObjectPtr<UBlastMesh> BlastMesh;
 
 	UPROPERTY(VisibleAnywhere, Category = Chunks)
 	int32 ChunkIndex;

@@ -45,11 +45,11 @@ public:
 	*/
 	struct FInput
 	{
-		FVector						worldOrigin;
-		FQuat						worldRot;
+		FVector3f					worldOrigin;
+		FQuat4f						worldRot;
 
-		FVector						localOrigin;
-		FQuat						localRot;
+		FVector3f					localOrigin;
+		FQuat4f						localRot;
 
 		const FBlastMaterial*		material;
 	};
