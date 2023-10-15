@@ -301,10 +301,7 @@ void UBlastMeshComponent::InitBlastFamily()
 	ActorDesc.initialBondHealths = nullptr;
 	ActorDesc.initialSupportChunkHealths = nullptr;
 
-	// TODO: Disable DamageAccelerator for now
-#if 0
 	DamageAccelerator = NvBlastExtDamageAcceleratorCreate(LLBlastAsset, 3);
-#endif
 
 #if WITH_EDITOR
 	BlastMesh->RebuildCookedBodySetupsIfRequired();
