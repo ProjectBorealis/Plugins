@@ -144,13 +144,13 @@ public:
 
 private:
     /** The FMOD Audio component corresponding to this source. */
-    UFMODAudioComponent* FMODAudioComponent;
+    TObjectPtr<UFMODAudioComponent> FMODAudioComponent;
 
     /** The DSP effect we want to communicate with. */
     FMOD::DSP* DSP;
 
     /** The Steam Audio Source component corresponding to this source. */
-    USteamAudioSourceComponent* SourceComponent;
+    TObjectPtr<USteamAudioSourceComponent> SourceComponent;
 
     /** The handle of the Steam Audio Source, obtained via iplFMODAddSource. */
     int Handle;
