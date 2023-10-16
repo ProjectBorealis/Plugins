@@ -408,7 +408,11 @@ public:
 						NewUEHull.Points[P] = cTransform.TransformPosition(FromNvVector(OrigVerts[P]));
 					}
 #else
+#if ENGINE_MINOR_VERSION < 4
+					const Chaos::FConvex* chaosMesh = C.GetChaosConvexMesh().Get();
+#else
 					const Chaos::FConvex* chaosMesh = C.GetChaosConvexMesh().GetReference();
+#endif
 					NewHull.Polygons.SetNum(chaosMesh->NumPlanes());
 					NewUEHull.PolygonData.SetNum(chaosMesh->NumPlanes());
 					NewHull.Points.SetNumUninitialized(chaosMesh->NumVertices());
@@ -1279,7 +1283,11 @@ bool FBlastEditorModule::BuildExtendedSupport(ABlastExtendedSupportStructure* Ex
 					NewUEHull.Points[P] = Component.TransformAtMerge.TransformPosition(FromNvVector(OrigVerts[P]));
 				}
 #else
-				const Chaos::FConvex* chaosMesh = C.GetChaosConvexMesh().GetReference();
+#if ENGINE_MINOR_VERSION < 4
+					const Chaos::FConvex* chaosMesh = C.GetChaosConvexMesh().Get();
+#else
+					const Chaos::FConvex* chaosMesh = C.GetChaosConvexMesh().GetReference();
+#endif
 				NewHull.Polygons.SetNum(chaosMesh->NumPlanes());
 				NewUEHull.PolygonData.SetNum(chaosMesh->NumPlanes());
 				NewHull.Points.SetNumUninitialized(chaosMesh->NumVertices());

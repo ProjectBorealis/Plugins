@@ -845,7 +845,7 @@ static FDDGITexturePixels GetTexturePixelsStep1_RenderThread(FRHICommandListImme
 	CreateInfo.AddFlags(TexCreate_ShaderResource);
 
 	CreateInfo.InitialState = ERHIAccess::CopyDest;
-	ret.Texture = RHICmdList.CreateTexture(CreateInfo);
+	ret.Texture = RHICreateTexture(CreateInfo);
 
 	// Transition the GPU texture to a copy source
 	RHICmdList.Transition(FRHITransitionInfo(textureGPU, ERHIAccess::SRVMask, ERHIAccess::CopySrc));
@@ -915,7 +915,7 @@ static void LoadFDDGITexturePixels(FArchive& Ar, FDDGITexturePixels& texturePixe
 			// Create the texture resource
 			FRHITextureCreateDesc CreateInfo = FRHITextureCreateDesc::Create2D(TEXT("DDGITextureLoad"), texturePixels.Desc.Width, texturePixels.Desc.Height, expectedPixelFormat);
 			CreateInfo.AddFlags(TexCreate_ShaderResource);
-			texturePixels.Texture = RHICmdList.CreateTexture(CreateInfo);
+			texturePixels.Texture = RHICreateTexture(CreateInfo);
 
 			if (texturePixels.Pixels.Num() == texturePixels.Desc.Height * texturePixels.Desc.Stride)
 			{

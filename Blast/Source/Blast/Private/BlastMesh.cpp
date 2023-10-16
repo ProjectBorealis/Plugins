@@ -530,7 +530,7 @@ void FBlastCookedChunkData::UpdateAfterShapesAdded(UBodySetup* NewBodySetup, Con
 #if BLAST_USE_PHYSX
 		New.SetConvexMesh(ConvexMeshes[C]);
 #else
-		New.SetConvexMeshObject(Chaos::FConvexPtr(ConvexMeshes[C]));
+		New.SetChaosConvexMesh(TSharedPtr<Chaos::FConvex>(ConvexMeshes[C]));
 #endif
 	}
 
