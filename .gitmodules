@@ -35,3 +35,6 @@
 [submodule "FillDDCForPIE"]
 	path = FillDDCForPIE
 	url = https://github.com/ProjectBorealis/FillDDCForPIE.git
+[submodule "ALS-Community"]
+	path = ALS-Community
+	url = https://github.com/dyanikoglu/ALS-Community.git
