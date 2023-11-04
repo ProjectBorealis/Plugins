@@ -3057,8 +3057,8 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 		RestSpaceToWorldSpace.SetScale3D(ActorData.BodyInstance->Scale3D);
 
 		TArray<uint32> Nodes;
-		Nodes.Reserve(nodeCount);
-		nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), static_cast<uint32>(Nodes.Max()), actor, Nv::Blast::logLL);
+		Nodes.SetNum(nodeCount);
+		nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), nodeCount, actor, Nv::Blast::logLL);
 
 		const float* bondHealths = NvBlastActorGetBondHealths(actor, Nv::Blast::logLL);
 

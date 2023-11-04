@@ -26,6 +26,11 @@ NvcVec3 ToNvVector(const FVector3f& Vec)
 	return { Vec.X, Vec.Y, Vec.Z };
 }
 
+NvcVec2 ToNvVector(const FVector2f& Vec)
+{
+	return { Vec.X, Vec.Y };
+}
+
 void ToNvPlane4(const FPlane& Plane, float OutPlane[4])
 {
 	OutPlane[0] =  static_cast<float>(Plane.X);

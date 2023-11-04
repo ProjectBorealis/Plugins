@@ -90,7 +90,7 @@ void UBlastAsset::DeserializeRawAsset()
 		if (DataPtr)
 		{
 #if WITH_EDITOR
-			LoadedAsset = TSharedPtr<NvBlastAsset>(DeserializeBlastAsset(DataPtr, BulkDataSize), [=](NvBlastAsset* asset)
+			LoadedAsset = TSharedPtr<NvBlastAsset>(DeserializeBlastAsset(DataPtr, BulkDataSize), [](NvBlastAsset* asset)
 				{
 					NVBLAST_FREE((void*)asset);
 				});
@@ -140,7 +140,7 @@ void UBlastAsset::Update()
 		const NvBlastChunk* chunks = NvBlastAssetGetChunks(GetLoadedAsset(), Nv::Blast::logLL);
 		for (uint32 i = 0; i < chunkCount; i++)
 		{
-			if (chunks[i].parentChunkIndex == 0xFFFFFFFF)
+			if (chunks[i].parentChunkIndex == UINT32_MAX)
 			{
 				RootChunks.Add(i);
 			}
@@ -148,7 +148,7 @@ void UBlastAsset::Update()
 
 		auto& graph = NvBlastAssetGetSupportGraph(GetLoadedAsset(), Nv::Blast::logLL);
 		SupportChunks.Reset(graph.nodeCount);
-		for (uint32_t i = 0; i < graph.nodeCount; i++)
+		for (uint32 i = 0; i < graph.nodeCount; i++)
 		{
 			SupportChunks.Add(graph.chunkIndices[i]);
 		}

@@ -45,7 +45,6 @@ struct FFractureSession
 	TObjectPtr<UBlastMesh> BlastMesh;
 	TSharedPtr<Nv::Blast::AuthoringResult> FractureData;
 	TSharedPtr<Nv::Blast::FractureTool> FractureTool;
-	TArray<uint32> FractureIdMap;
 	TMap<int32, int32> ChunkToBoneIndex;
 	TMap<int32, int32> ChunkToBoneIndexPrev;
 
@@ -94,7 +93,7 @@ public:
 
 	void FinishFractureSession(FFractureSessionPtr FractureSession);
 
-	void GetVoronoiSites(TSharedPtr<FFractureSession> FractureSession, int32 ChunkId, TArray<FVector3f>& Sites);
+	void GetVoronoiSites(TSharedPtr<FFractureSession> FractureSession, int32 ChunkAssetIdx, TArray<FVector3f>& Sites);
 
 	bool CanUndo(UBlastFractureSettings* Settings) const;
 

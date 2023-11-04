@@ -1,6 +1,8 @@
 // Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #include "SBlastMeshEditorViewport.h"
+
+#include "BlastFracture.h"
 #include "SBlastMeshEditorViewportToolBar.h"
 #include "BlastMesh.h"
 #include "BlastImportUI.h"
@@ -9,6 +11,7 @@
 #include "ViewportBlastMeshComponent.h"
 #include "BlastMeshEditorModule.h"
 #include "BlastFractureSettings.h"
+#include "BlastGlobals.h"
 
 #include "EditorModes.h"
 #include "ComponentReregisterContext.h"
@@ -24,6 +27,8 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SSpinBox.h"
 #include "EditorStyleSet.h"
+#include "NvBlastExtAuthoringFractureTool.h"
+#include "NvBlastExtAuthoringTypes.h"
 #include "SceneView.h"
 #include "PreviewScene.h"
 #include "Materials/Material.h"
@@ -295,6 +300,24 @@ void FBlastMeshEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDraw
 		const TSet<int32>& SelectedChunkIndices = BME->GetSelectedChunkIndices();
 		auto& ChunkModels = BME->GetChunkEditorModels();
 
+		/*auto FSe = BME->GetFractureSettings()->FractureSession;
+		if (FSe && FSe->FractureData)
+		{
+			for (uint32 Idx = 0; Idx < FSe->FractureData->chunkCount; Idx++)
+			{
+				uint32 chunkId = FSe->FractureData->chunkDescs[Idx].userData;
+				FVector Displacement = ExplodeAmount * Comp->ChunkDisplacements[Idx];
+				const FColor MeshColor = FColor::MakeRandomSeededColor(Comp->GetUniqueID() + Idx);
+				for(uint32 TriIdx = FSe->FractureData->geometryOffset[Idx]; TriIdx < FSe->FractureData->geometryOffset[Idx + 1]; TriIdx++)
+				{
+					Nv::Blast::Triangle& tri = FSe->FractureData->geometry[TriIdx];
+					PDI->DrawLine(FromNvVector(tri.a.p) + Displacement,FromNvVector(tri.b.p) + Displacement,MeshColor, SDPG_Foreground);
+					PDI->DrawLine(FromNvVector(tri.b.p) + Displacement,FromNvVector(tri.c.p) + Displacement,MeshColor, SDPG_Foreground);
+					PDI->DrawLine(FromNvVector(tri.c.p) + Displacement,FromNvVector(tri.a.p) + Displacement,MeshColor, SDPG_Foreground);
+				}
+			}
+		}*/
+
 		for (int32 i = 0; i < ChunkModels.Num(); ++i)
 		{
 			int32 ChunkIndex = ChunkModels[i]->ChunkIndex;
@@ -313,16 +336,13 @@ void FBlastMeshEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDraw
 
 				if (bShowVoronoiSites)
 				{
-					TSharedPtr<TArray<FVector3f>> Sites = ChunkModels[ChunkIndex]->VoronoiSites;
-					if (Sites.IsValid())
+					const TArray<FVector3f>& Sites = ChunkModels[ChunkIndex]->VoronoiSites;
+					int32 BoneIndex = Comp->GetBlastMesh()->ChunkIndexToBoneIndex[ChunkIndex];
+					FTransform tr = Comp->GetBlastMesh()->GetComponentSpaceInitialBoneTransform(BoneIndex).Inverse();
+					FVector Displacement = ExplodeAmount * Comp->ChunkDisplacements[ChunkIndex];
+					for (const FVector3f& Site : Sites)
 					{
-						int32 BoneIndex = Comp->GetBlastMesh()->ChunkIndexToBoneIndex[ChunkIndex];
-						FTransform tr = Comp->GetBlastMesh()->GetComponentSpaceInitialBoneTransform(BoneIndex).Inverse();
-						FVector Displacement = ExplodeAmount * Comp->ChunkDisplacements[ChunkIndex];
-						for (const FVector3f& Site : *Sites)
-						{
-							DrawWireStar(PDI, tr.TransformPosition(FVector(Site) + Displacement), 3, Green, 0);
-						}
+						DrawWireStar(PDI, tr.TransformPosition(FVector(Site) + Displacement), 3, Green, SDPG_Foreground);
 					}
 				}
 			}

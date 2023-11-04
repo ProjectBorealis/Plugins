@@ -49,6 +49,7 @@ namespace UnrealBuildTool.Rules
                 "MeshMergeUtilities",
                 "RawMesh",
                 "MeshUtilitiesCommon",
+                "MeshDescription",
                 "StaticMeshDescription",
                 "MeshDescriptionOperations",
                 "RHI",

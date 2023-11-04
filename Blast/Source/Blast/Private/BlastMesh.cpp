@@ -81,40 +81,6 @@ void UBlastMesh::PostLoad()
 
 #if WITH_EDITOR
 	// Make sure the order corresponds to that in the asset
-	const NvBlastAsset* Asset = FractureHistory.GetCurrentLoadedAsset().Get();
-	const uint32_t AssetChunkCount = NvBlastAssetGetChunkCount(Asset, Nv::Blast::logLL);
-	ChunkIndexMap.Empty();
-	const int32 ChunkCount = FractureToolData.VerticesOffset.Num() - 1;
-	if (AssetChunkCount == ChunkCount)
-	{
-		bool InvalidIndex = false;
-		const NvBlastChunk* AssetChunks = NvBlastAssetGetChunks(Asset, Nv::Blast::logLL);
-		for (int32 I = 0; I < ChunkCount; I++)
-		{
-			if (AssetChunks[I].userData >= (uint32_t)ChunkCount)
-			{
-				InvalidIndex = true;
-				break;
-			}
-		}
-
-		if (!InvalidIndex)
-		{
-			ChunkIndexMap.SetNum(ChunkCount);
-			bool Ordered = true;
-			for (int32 I = 0; I < ChunkCount; I++)
-			{
-				ChunkIndexMap[I] = AssetChunks[I].userData;
-				Ordered = Ordered && (ChunkIndexMap[I] == I);
-			}
-
-			if (Ordered)
-			{
-				ChunkIndexMap.Empty();
-			}
-		}
-	}
-
 	RebuildCookedBodySetupsIfRequired();
 
 	if (Mesh)
@@ -357,6 +323,7 @@ void UBlastMesh::GetRenderMesh(int32 LODIndex, TArray<FRawMesh>& RawMeshes)
 				{
 					const int32 VertexIndexForWedge = IndexBuffer.Get(SkelMeshSection.BaseIndex + TriIndex * 3 + WedgeIndex);
 					const FSoftSkinVertex& SkinnedVertex = MeshVerts[VertexIndexForWedge];
+					
 					int32* ChunkVertexIndex = SkelToChunkMeshVertIdMap.Find(VertexIndexForWedge);
 					if (ChunkVertexIndex == nullptr)
 					{

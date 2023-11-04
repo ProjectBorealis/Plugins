@@ -624,9 +624,8 @@ void FBlastMeshEditor::RefreshTool()
 			+ TEXT(", depth: ") + FString::FormatAsNumber(BlastMesh->GetChunkDepth(ChunkIndex));
 		FBlastChunkEditorModelPtr Model(new FBlastChunkEditorModel(FName(*ChunkName), false, ChunkIndex,
 			BlastMesh->IsSupportChunk(ChunkIndex), BlastMesh->IsChunkStatic(ChunkIndex)));
-		Model->VoronoiSites = MakeShared<TArray<FVector3f>>();
-		Fracturer->GetVoronoiSites(FractureSettings->FractureSession, Model->ChunkIndex, *Model->VoronoiSites);
-		Model->bBold = Model->VoronoiSites->Num() > 0;
+		Fracturer->GetVoronoiSites(FractureSettings->FractureSession, ChunkIndex, Model->VoronoiSites);
+		Model->bBold = !Model->VoronoiSites.IsEmpty();
 		ChunkEditorModels.Add(Model);
 	}
 
@@ -707,8 +706,8 @@ void FBlastMeshEditor::UpdateChunkSelection()
 
 		Proxy->BlastMesh = GetBlastMesh();
 		Proxy->ChunkIndex = ChunkIndex;
-		Proxy->ChunkCentroid = FromNvVector(Proxy->BlastMesh->GetChunkInfo(Proxy->ChunkIndex).centroid);
 		const NvBlastChunk& ChunkInfo = Proxy->BlastMesh->GetChunkInfo(Proxy->ChunkIndex);
+		Proxy->ChunkCentroid = FromNvVector(ChunkInfo.centroid);
 		Proxy->ChunkVolume = ChunkInfo.volume;
 		//Proxy->BlastMeshEditorPtr = this;
 

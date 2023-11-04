@@ -377,9 +377,6 @@ public:
 	/* Can this BlastMesh be used with it's current data? That means it needs a valid Asset, a Mesh that matches and a physics asset. */
 	bool				IsValidBlastMesh();
 
-	/* If not empty, the chunks have been saved out-of-order and should be unscrambled with this map before processing. */
-	TArray<int32>		ChunkIndexMap;
-
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif

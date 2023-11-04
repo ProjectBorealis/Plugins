@@ -1,9 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BlastBaseDamageProgram.h"
 
 #include "NvBlastExtDamageShaders.h"
+
+#include "BlastMeshComponent.h"
+#include "BlastBaseDamageProgram.h"
 #include "BlastMaterial.h"
 
 
@@ -22,7 +24,9 @@ Radial Damage Program with falloff
 */
 struct BlastRadialDamageProgram final : public FBlastBaseDamageProgram
 {
-	BlastRadialDamageProgram(float damage, float minRadius, float maxRadius, float impulseStrength = 0.0f, bool bVelChange = false, bool bRandomizeImpulse = false, float ImpulseRandomizationDivider = 2.f):
+	BlastRadialDamageProgram(float damage, float minRadius, float maxRadius, float impulseStrength = 0.0f,
+	                         bool bVelChange = false, bool bRandomizeImpulse = false,
+	                         float ImpulseRandomizationDivider = 2.f):
 		Damage(damage),
 		MinRadius(minRadius),
 		MaxRadius(maxRadius),
@@ -54,7 +58,8 @@ struct BlastRadialDamageProgram final : public FBlastBaseDamageProgram
 	// Use this divider to min/max impulse randomization
 	float ImpulseRandomizationDivider;
 
-	virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
+	virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input,
+	                     UBlastMeshComponent& owner) const override
 	{
 		const float normalizedDamage = input.material->GetNormalizedDamage(Damage);
 		if (normalizedDamage == 0.f)
@@ -64,7 +69,7 @@ struct BlastRadialDamageProgram final : public FBlastBaseDamageProgram
 
 		NvBlastExtRadialDamageDesc damage[] = {
 			{
-				normalizedDamage,{ input.localOrigin.X, input.localOrigin.Y, input.localOrigin.Z }, MinRadius, MaxRadius
+				normalizedDamage, {input.localOrigin.X, input.localOrigin.Y, input.localOrigin.Z}, MinRadius, MaxRadius
 			}
 		};
 
@@ -80,20 +85,26 @@ struct BlastRadialDamageProgram final : public FBlastBaseDamageProgram
 		return owner.ExecuteBlastDamageProgram(actorIndex, program, programParams, DamageType);
 	}
 
-	virtual FCollisionShape GetCollisionShape() const  override
+	virtual FCollisionShape GetCollisionShape() const override
 	{
 		return FCollisionShape::MakeSphere(MaxRadius);
 	}
 
 
-	virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
+	virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input,
+	                                     UBlastMeshComponent& owner) const override
 	{
 		if (ImpulseStrength > 0.f && actorBody->IsInstanceSimulatingPhysics())
 		{
 			// Do not increase impulse a lot during randomization
-			const float FinalImpulseStrength = bRandomizeImpulse ? FMath::RandRange(ImpulseStrength - ImpulseStrength / ImpulseRandomizationDivider,
-				ImpulseStrength + ImpulseStrength / (ImpulseRandomizationDivider * 2.f)) : ImpulseStrength;
-			actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), MaxRadius, FinalImpulseStrength, 0, bImpulseVelChange);
+			const float FinalImpulseStrength = bRandomizeImpulse
+				                                   ? FMath::RandRange(
+					                                   ImpulseStrength - ImpulseStrength / ImpulseRandomizationDivider,
+					                                   ImpulseStrength + ImpulseStrength / (ImpulseRandomizationDivider
+						                                   * 2.f))
+				                                   : ImpulseStrength;
+			actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), MaxRadius, FinalImpulseStrength, 0,
+			                                  bImpulseVelChange);
 		}
 	}
 };
@@ -110,7 +121,7 @@ FVector3f ClosestPointOnLine(const FVector3f& LineStart, const FVector3f& LineEn
 	const float A = (LineStart - Point) | (LineEnd - LineStart);
 	const float B = (LineEnd - LineStart).SizeSquared();
 	// This should be robust to B == 0 (resulting in NaN) because clamp should return 1.
-	const float T = FMath::Clamp<float>(-A/B, 0.f, 1.f);
+	const float T = FMath::Clamp<float>(-A / B, 0.f, 1.f);
 
 	return LineStart + (T * (LineEnd - LineStart));
 }
@@ -122,7 +133,8 @@ Can be used for laser/cutting-like narrow capsules (kind of a swords) for exampl
 */
 struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 {
-	BlastCapsuleDamageProgram(float damage, float halfHeight, float minRadius, float maxRadius, float impulseStrength = 0.0f, bool bVelChange = false) :
+	BlastCapsuleDamageProgram(float damage, float halfHeight, float minRadius, float maxRadius,
+	                          float impulseStrength = 0.0f, bool bVelChange = false) :
 		Damage(damage),
 		HalfHeight(halfHeight),
 		MinRadius(minRadius),
@@ -151,7 +163,8 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 	bool bImpulseVelChange;
 
 
-	virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
+	virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input,
+	                     UBlastMeshComponent& owner) const override
 	{
 		FVector3f CapsuleDir = input.localRot.RotateVector(FVector3f::UpVector);
 
@@ -167,9 +180,9 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 		NvBlastExtCapsuleRadialDamageDesc damage[] = {
 			{
 				normalizedDamage,
-				{ pointA.X, pointA.Y, pointA.Z },
-				{ pointB.X, pointB.Y, pointB.Z },
-				MinRadius, 
+				{pointA.X, pointA.Y, pointA.Z},
+				{pointB.X, pointB.Y, pointB.Z},
+				MinRadius,
 				MaxRadius
 			}
 		};
@@ -177,7 +190,7 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 		NvBlastExtProgramParams programParams(damage, input.material);
 
 		programParams.accelerator = owner.GetAccelerator();
-		
+
 		NvBlastDamageProgram program = {
 			NvBlastExtCapsuleFalloffGraphShader,
 			NvBlastExtCapsuleFalloffSubgraphShader
@@ -191,7 +204,8 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 		return FCollisionShape::MakeCapsule(MaxRadius, HalfHeight);
 	}
 
-	virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
+	virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input,
+	                                     UBlastMeshComponent& owner) const override
 	{
 		if (ImpulseStrength > 0.f && actorBody->IsInstanceSimulatingPhysics())
 		{
@@ -203,7 +217,8 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 			FVector3f ActorCom = FVector3f(actorBody->GetCOMPosition());
 			FVector3f CapsulePoint = ClosestPointOnLine(pointA, pointB, ActorCom);
 
-			actorBody->AddRadialImpulseToBody(FVector(CapsulePoint), (ActorCom - CapsulePoint).SizeSquared(), ImpulseStrength, 0, bImpulseVelChange);
+			actorBody->AddRadialImpulseToBody(FVector(CapsulePoint), (ActorCom - CapsulePoint).SizeSquared(),
+			                                  ImpulseStrength, 0, bImpulseVelChange);
 		}
 	}
 };
@@ -218,7 +233,8 @@ Shear Damage Program
 */
 struct BlastShearDamageProgram final : public FBlastBaseDamageProgram
 {
-	BlastShearDamageProgram(float damage, float minRadius, float maxRadius, float impulseStrength = 0.0f, bool bVelChange = false) :
+	BlastShearDamageProgram(float damage, float minRadius, float maxRadius, float impulseStrength = 0.0f,
+	                        bool bVelChange = false) :
 		Damage(damage),
 		MinRadius(minRadius),
 		MaxRadius(maxRadius),
@@ -243,7 +259,8 @@ struct BlastShearDamageProgram final : public FBlastBaseDamageProgram
 	bool bImpulseVelChange;
 
 
-	virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
+	virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input,
+	                     UBlastMeshComponent& owner) const override
 	{
 		const float normalizedDamage = input.material->GetNormalizedDamage(Damage);
 		if (normalizedDamage == 0.f)
@@ -256,8 +273,8 @@ struct BlastShearDamageProgram final : public FBlastBaseDamageProgram
 		NvBlastExtShearDamageDesc damage[] = {
 			{
 				normalizedDamage,
-				{ LocalNormal.X, LocalNormal.Y, LocalNormal.Z },
-				{ input.localOrigin.X, input.localOrigin.Y, input.localOrigin.Z },
+				{LocalNormal.X, LocalNormal.Y, LocalNormal.Z},
+				{input.localOrigin.X, input.localOrigin.Y, input.localOrigin.Z},
 				MinRadius,
 				MaxRadius
 			}
@@ -275,16 +292,18 @@ struct BlastShearDamageProgram final : public FBlastBaseDamageProgram
 		return owner.ExecuteBlastDamageProgram(actorIndex, program, programParams, DamageType);
 	}
 
-	virtual FCollisionShape GetCollisionShape() const  override
+	virtual FCollisionShape GetCollisionShape() const override
 	{
 		return FCollisionShape::MakeSphere(MaxRadius);
 	}
 
-	virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
+	virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input,
+	                                     UBlastMeshComponent& owner) const override
 	{
 		if (ImpulseStrength > 0.f && actorBody->IsInstanceSimulatingPhysics())
 		{
-			actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), MaxRadius, ImpulseStrength, 0, bImpulseVelChange);
+			actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), MaxRadius, ImpulseStrength, 0,
+			                                  bImpulseVelChange);
 		}
 	}
 };

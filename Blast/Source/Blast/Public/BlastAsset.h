@@ -46,24 +46,21 @@ struct FBlastFacet
     int32 SmoothingGroup;
 };
 
+struct FBlastChunkMesh
+{
+	TArray<FBlastVertex> Vertices;
+	TArray<FBlastEdge> Edges;
+	TArray<FBlastFacet> Faces;
+	EBlastMeshChunkFlags ChunkFlag = EBlastMeshChunkFlags::None;
+};
+
 USTRUCT()
 struct FBlastFractureToolData
 {
 	GENERATED_USTRUCT_BODY()
 
-	TArray<FBlastVertex> Vertices;
-
-	TArray<FBlastEdge> Edges;
-
-	TArray<FBlastFacet> Faces;
-
-	TArray<uint32> VerticesOffset;
-
-	TArray<uint32> EdgesOffset;
-
-	TArray<uint32> FacesOffset;
-
-	TArray<EBlastMeshChunkFlags> ChunkFlags;
+	// Chunks by asset index
+	TArray<FBlastChunkMesh> ChunkMeshes;
 };
 
 #if WITH_EDITOR
