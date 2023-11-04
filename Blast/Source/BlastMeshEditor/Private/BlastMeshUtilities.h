@@ -29,10 +29,6 @@ void BuildSmoothingGroups(FRawMesh& RawMesh);
 
 Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const FTransform3f& UE4ToBlastTransform);
 
-Nv::Blast::Mesh* CreateAuthoringMeshFromMeshDescription(const FMeshDescription& SourceMeshDescription,
-                                                        const TMap<FName, int32>& MaterialMap,
-                                                        const FTransform3f& UE4ToBlastTransform);
-
 Nv::Blast::Mesh* CreateAuthoringMeshFromRenderData(const FStaticMeshRenderData& RenderData,
                                                    const TMap<FName, int32>& MaterialMap,
                                                    const FTransform3f& UE4ToBlastTransform);

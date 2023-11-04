@@ -335,15 +335,7 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 				                                              UE4ToBlastTransform);
 		}
 
-		const FBox Bounds(FromNvVector(Mesh->getBoundingBox().minimum), FromNvVector(Mesh->getBoundingBox().maximum));
-		UE_LOG(LogTemp, Warning, TEXT("Chunk: -1\tTranslation: %s\t Scale: %f"), *Bounds.GetCenter().ToString(),
-		       Bounds.GetExtent().GetMax());
-		const int32 chunkID = FractureSession->FractureTool->setChunkMesh(Mesh, -1);
-
-		const auto chunkTransform = FractureSession->FractureTool->getChunkInfo(
-			FractureSession->FractureTool->getChunkInfoIndex(chunkID)).getTmToWorld();
-		UE_LOG(LogTemp, Warning, TEXT("POST Chunk: %d\tTranslation: %s\t Scale: %f"), chunkID,
-		       *FromNvVector(chunkTransform.t).ToString(), chunkTransform.s);
+		FractureSession->FractureTool->setChunkMesh(Mesh, -1);
 
 		LoadFracturedMesh(FractureSession, -1, InSourceStaticMesh);
 
@@ -374,18 +366,7 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 					parentChunkId = InBlastMesh->GetChunkInfo(parentChunkId).userData;
 				}
 
-				const FBox Bounds(FromNvVector(ChunkMesh->getBoundingBox().minimum),
-				                  FromNvVector(ChunkMesh->getBoundingBox().maximum));
-				UE_LOG(LogTemp, Warning, TEXT("Chunk: %d\tTranslation: %s\t Scale: %f"), chunkID,
-				       *Bounds.GetCenter().ToString(),
-				       Bounds.GetExtent().GetMax());
-				chunkID = FractureSession->FractureTool->setChunkMesh(
-					ChunkMesh, parentChunkId, chunkID);
-
-				const auto chunkTransform = FractureSession->FractureTool->getChunkInfo(
-					FractureSession->FractureTool->getChunkInfoIndex(chunkID)).getTmToWorld();
-				UE_LOG(LogTemp, Warning, TEXT("POST Chunk: %d\tTranslation: %s\t Scale: %f"), chunkID,
-				       *FromNvVector(chunkTransform.t).ToString(), chunkTransform.s);
+				FractureSession->FractureTool->setChunkMesh(ChunkMesh, parentChunkId, chunkID);
 
 				FractureSession->FractureTool->setApproximateBonding(
 					ChunkIndex, EnumHasAnyFlags(Chunk.ChunkFlag, EBlastMeshChunkFlags::ApproximateBonding));
@@ -733,7 +714,8 @@ void FBlastFracture::Fracture(UBlastFractureSettings* Settings, TSet<int32>& Sel
 	}
 	if (FracturedChunks.Num())
 	{
-		FractureSession->FractureTool->finalizeFracturing();
+		// not necessary because it's already done in ProcessFracture
+		// FractureSession->FractureTool->finalizeFracturing();
 		int32 SupportLevel = Settings->bDefaultSupportDepth ? Settings->DefaultSupportDepth : -1;
 		Settings->FractureSession->IsMeshModified = true;
 		LoadFracturedMesh(Settings->FractureSession, SupportLevel, nullptr, InteriorMaterial);
@@ -982,8 +964,7 @@ bool FBlastFracture::LoadFractureData(FFractureSessionPtr FractureSession, int32
 	FCollisionBuilder CollisionBuilder;
 	Nv::Blast::BlastBondGenerator* BondGenerator = NvBlastExtAuthoringCreateBondGenerator(&CollisionBuilder);
 	Nv::Blast::ConvexDecompositionParams param;
-	param.maximumNumberOfHulls = 1;
-	param.voxelGridResolution = 0;
+	param.maximumNumberOfHulls = 1; // convex decomposition is slow AF, like 1 minute+, so we skip it
 	{
 		FBlastScopedProfiler EAPFP("NvBlastExtAuthoringProcessFracture");
 		FS->FractureData = TSharedPtr<Nv::Blast::AuthoringResult>(
@@ -1029,10 +1010,6 @@ void FBlastFracture::LoadFractureToolData(TSharedPtr<FFractureSession> FS)
 		const FTransform3f ChunkToWorld = FTransform3f(FQuat4f::Identity,
 		                                               FVector3f(FromNvVector(Info.getTmToWorld().t)),
 		                                               FVector3f(Info.getTmToWorld().s));
-
-		const auto chunkTransform = Info.getTmToWorld();
-		UE_LOG(LogTemp, Warning, TEXT("FRACTURE Chunk: %d\tTranslation: %s\t Scale: %f"), Info.chunkId,
-			   *FromNvVector(chunkTransform.t).ToString(), chunkTransform.s);
 
 		Chunk.Vertices.AddUninitialized(Info.getMesh()->getVerticesCount());
 		FMemory::Memcpy(Chunk.Vertices.GetData(), Info.getMesh()->getVertices(),
@@ -1405,12 +1382,12 @@ bool FBlastFracture::FractureCutout(TSharedPtr<FFractureSession> FractureSession
 
 bool FBlastFracture::FractureChunksFromIslands(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId)
 {
-	if (FractureChunkId != 0 || FractureSession->BlastMesh == nullptr)
+	if (!FractureSession->BlastMesh)
 	{
 		return false;
 	}
-	FractureSession->FractureTool->islandDetectionAndRemoving(0, true);
-	return true;
+
+	return FractureSession->FractureTool->islandDetectionAndRemoving(FractureChunkId, true) > 0;
 }
 
 bool FBlastFracture::FractureCut(TSharedPtr<FFractureSession> FractureSession, uint32 FractureChunkId, int32 RandomSeed,
