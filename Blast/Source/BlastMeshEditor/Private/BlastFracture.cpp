@@ -313,7 +313,15 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 		}
 
 		Nv::Blast::Mesh* Mesh = nullptr;
-		if (false)
+		/* Experimental
+		if (FStaticMeshRenderData* RenderData = InSourceStaticMesh->GetRenderData())
+		{
+			Mesh = CreateAuthoringMeshFromRenderData(*RenderData, MaterialMap,
+			                                         UE4ToBlastTransform);
+		}
+		*/
+
+		if (!Mesh)
 		{
 			FRawMesh InSourceRawMesh;
 			FStaticMeshOperations::ConvertToRawMesh(*InSourceStaticMesh->GetMeshDescription(0), InSourceRawMesh,
@@ -323,16 +331,6 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 			//Retrieve mesh just assign default smoothing group 1 for each face. So we need to generate it.
 
 			Mesh = CreateAuthoringMeshFromRawMesh(InSourceRawMesh, UE4ToBlastTransform);
-		}
-		else
-		{
-			if (FStaticMeshRenderData* RenderData = InSourceStaticMesh->GetRenderData())
-				Mesh = CreateAuthoringMeshFromRenderData(*RenderData, MaterialMap,
-				                                         UE4ToBlastTransform);
-
-			if (!Mesh)
-				Mesh = CreateAuthoringMeshFromMeshDescription(*InSourceStaticMesh->GetMeshDescription(0), MaterialMap,
-				                                              UE4ToBlastTransform);
 		}
 
 		FractureSession->FractureTool->setChunkMesh(Mesh, -1);
