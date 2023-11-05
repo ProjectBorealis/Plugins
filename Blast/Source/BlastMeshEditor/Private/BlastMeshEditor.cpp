@@ -426,33 +426,30 @@ void FBlastMeshEditor::BindCommands()
 		FIsActionChecked());
 }
 
+void FillCommandToolbar(FToolBarBuilder& ToolbarBuilder, TSharedRef<SWidget> PreviewBox, TSharedRef<SWidget> ExplodeBox/*, TSharedRef<SWidget> FractureScriptsWidget*/)
+{
+	ToolbarBuilder.BeginSection("Toolbar");
+	{
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Fracture);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Undo);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Redo);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Reset);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().FixChunkHierarchy);
+		//ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Refresh);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().ImportRootFromStaticMesh);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().FitUvCoordinates);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().ChunksFromIslands);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().RebuildCollisionMesh);
+		ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().ExportAssetToFile);
+
+		ToolbarBuilder.AddWidget(PreviewBox);
+		ToolbarBuilder.AddWidget(ExplodeBox);
+	}
+	ToolbarBuilder.EndSection();
+}
+
 void FBlastMeshEditor::ExtendToolbar()
 {
-	struct Local
-	{
-		static void FillToolbar(FToolBarBuilder& ToolbarBuilder, TSharedRef<SWidget> PreviewBox, TSharedRef<SWidget> ExplodeBox/*, TSharedRef<SWidget> FractureScriptsWidget*/)
-		{
-			ToolbarBuilder.BeginSection("Toolbar");
-			{
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Fracture);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Undo);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Redo);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Reset);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().FixChunkHierarchy);
-				//ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().Refresh);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().ImportRootFromStaticMesh);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().FitUvCoordinates);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().ChunksFromIslands);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().RebuildCollisionMesh);
-				ToolbarBuilder.AddToolBarButton(FBlastMeshEditorCommands::Get().ExportAssetToFile);
-
-				ToolbarBuilder.AddWidget(PreviewBox);
-				ToolbarBuilder.AddWidget(ExplodeBox);
-			}
-			ToolbarBuilder.EndSection();
-		}
-	};
-
 	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
 
 	TSharedRef<SWidget> PreviewBox = SNew(SHorizontalBox)
@@ -516,7 +513,7 @@ void FBlastMeshEditor::ExtendToolbar()
 		"Asset",
 		EExtensionHook::After,
 		GetToolkitCommands(),
-		FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar, PreviewBox, ExplodeBox /*, FractureScriptsWidget.ToSharedRef()*/)
+		FToolBarExtensionDelegate::CreateStatic(&FillCommandToolbar, PreviewBox, ExplodeBox /*, FractureScriptsWidget.ToSharedRef()*/)
 		);
 
 	AddToolbarExtender(ToolbarExtender);

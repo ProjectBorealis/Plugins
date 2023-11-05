@@ -2751,7 +2751,7 @@ void UBlastMeshComponent::TickStressSolver()
 #if BLAST_USE_PHYSX
 	Gravity = GetPXScene()->getGravity();
 #else
-	Gravity = static_cast<Chaos::FPBDRigidsSolver*>(GetWorld()->GetPhysicsScene()->GetSolver())->GetEvolution()->GetGravityForces().GetAcceleration(0);
+	Gravity = GetWorld()->GetPhysicsScene()->GetSolver()->GetEvolution()->GetGravityForces().GetAcceleration(0);
 #endif
 
 	// Apply all relevant forces on actors in stress solver

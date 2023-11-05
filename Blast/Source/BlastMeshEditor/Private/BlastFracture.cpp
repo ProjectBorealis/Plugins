@@ -133,10 +133,6 @@ class FCollisionBuilder : public Nv::Blast::ConvexMeshBuilder
 public:
 	FCollisionBuilder()
 	{
-#if BLAST_USE_PHYSX
-		mCooking = GetPhysXCookingModule()->GetPhysXCooking()->GetCooking();
-		mInsertionCallback = &GPhysXSDK->getPhysicsInsertionCallback();
-#endif
 	}
 
 	virtual ~FCollisionBuilder()
@@ -202,12 +198,6 @@ public:
 	void release() override
 	{
 	}
-
-private:
-#if BLAST_USE_PHYSX
-	physx::PxCooking* mCooking;
-	physx::PxPhysicsInsertionCallback* mInsertionCallback;
-#endif
 };
 
 

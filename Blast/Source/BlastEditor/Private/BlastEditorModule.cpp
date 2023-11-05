@@ -1,6 +1,5 @@
 #include "BlastEditorModule.h"
 
-#include "Interfaces/IPluginManager.h"
 #include "LevelEditor.h"
 #include "EditorBuildUtils.h"
 #include "DrawDebugHelpers.h"
@@ -11,7 +10,6 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
-#include "SkeletalMeshTypes.h"
 #include "Animation/Skeleton.h"
 #include "Engine/SkinnedAssetCommon.h"
 
@@ -44,8 +42,6 @@
 
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshModel.h"
-
-#include "PhysXPublic.h"
 
 IMPLEMENT_MODULE(FBlastEditorModule, BlastEditor);
 DEFINE_LOG_CATEGORY(LogBlastEditor);

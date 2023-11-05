@@ -2,7 +2,6 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "Animation/Skeleton.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "PhysXPublic.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "UObject/ObjectSaveContext.h"
@@ -10,7 +9,6 @@
 #include "Engine/SkinnedAssetCommon.h"
 #include "RawMesh.h"
 #include "RawIndexBuffer.h"
-#include "NvBlast.h"
 #include "NvBlastGlobals.h"
 #endif
 
@@ -22,7 +20,6 @@ UBlastMesh::UBlastMesh(const FObjectInitializer& ObjectInitializer) :
 	Skeleton(nullptr),
 	PhysicsAsset(nullptr)
 {
-
 }
 
 bool UBlastMesh::IsValidBlastMesh()
@@ -46,7 +43,8 @@ void UBlastMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	//This is used by the reimport code to find the AssetImportData
 	if (AssetImportData)
 	{
-		OutTags.Emplace(UObject::SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden);
+		OutTags.Emplace(UObject::SourceFileTagName(), AssetImportData->GetSourceData().ToJson(),
+		                FAssetRegistryTag::TT_Hidden);
 	}
 #endif
 
@@ -286,7 +284,8 @@ void UBlastMesh::GetRenderMesh(int32 LODIndex, TArray<FRawMesh>& RawMeshes)
 			// use the remapping of material indices for all LODs besides the base LOD 
 			if (LODIndex > 0 && SrcLODInfo->LODMaterialMap.IsValidIndex(SkelMeshSection.MaterialIndex))
 			{
-				MaterialIndex = FMath::Clamp<int32>(SrcLODInfo->LODMaterialMap[SkelMeshSection.MaterialIndex], 0, Mesh->GetMaterials().Num());
+				MaterialIndex = FMath::Clamp<int32>(SrcLODInfo->LODMaterialMap[SkelMeshSection.MaterialIndex], 0,
+				                                    Mesh->GetMaterials().Num());
 			}
 
 			// Build 'wedge' info
@@ -296,7 +295,8 @@ void UBlastMesh::GetRenderMesh(int32 LODIndex, TArray<FRawMesh>& RawMeshes)
 				int32 ChunkIndex = INDEX_NONE;
 				for (int32 WedgeIndex = 0; WedgeIndex < 3; WedgeIndex++)
 				{
-					const int32 VertexIndexForWedge = IndexBuffer.Get(SkelMeshSection.BaseIndex + TriIndex * 3 + WedgeIndex);
+					const int32 VertexIndexForWedge = IndexBuffer.Get(
+						SkelMeshSection.BaseIndex + TriIndex * 3 + WedgeIndex);
 					const FSoftSkinVertex& SkinnedVertex = MeshVerts[VertexIndexForWedge];
 
 					FBoneIndexType BoneIndex;
@@ -321,9 +321,10 @@ void UBlastMesh::GetRenderMesh(int32 LODIndex, TArray<FRawMesh>& RawMeshes)
 
 				for (int32 WedgeIndex = 0; WedgeIndex < 3; WedgeIndex++)
 				{
-					const int32 VertexIndexForWedge = IndexBuffer.Get(SkelMeshSection.BaseIndex + TriIndex * 3 + WedgeIndex);
+					const int32 VertexIndexForWedge = IndexBuffer.Get(
+						SkelMeshSection.BaseIndex + TriIndex * 3 + WedgeIndex);
 					const FSoftSkinVertex& SkinnedVertex = MeshVerts[VertexIndexForWedge];
-					
+
 					int32* ChunkVertexIndex = SkelToChunkMeshVertIdMap.Find(VertexIndexForWedge);
 					if (ChunkVertexIndex == nullptr)
 					{
@@ -477,7 +478,7 @@ void FBlastCookedChunkData::AppendToBodySetup(UBodySetup* NewBodySetup) const
 	NewBodySetup->AddCollisionFrom(CookedBodySetup);
 
 	UpdateAfterShapesAdded(NewBodySetup, ConvexMeshes);
-	}
+}
 
 void FBlastCookedChunkData::UpdateAfterShapesAdded(UBodySetup* NewBodySetup, ConvexMeshTempList& ConvexMeshes) const
 {
