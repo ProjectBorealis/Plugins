@@ -204,15 +204,6 @@ Nv::Blast::Mesh* CreateAuthoringMeshFromRawMesh(const FRawMesh& RawMesh, const F
 		mesh->setSmoothingGroup((int32*)FaceSmoothingMasks->GetData());
 	}
 
-	Nv::Blast::MeshCleaner* cleaner = NvBlastExtAuthoringCreateMeshCleaner();
-	Nv::Blast::Mesh* cleanedMesh = cleaner->cleanMesh(mesh);
-	cleaner->release();
-	if (cleanedMesh)
-	{
-		mesh->release();
-		return cleanedMesh;
-	}
-
 	return mesh;
 }
 
@@ -349,14 +340,14 @@ Nv::Blast::Mesh* CreateAuthoringMeshFromRenderData(const FStaticMeshRenderData& 
 	                                                                   Indices.GetData(), Indices.Num(),
 	                                                                   nullptr, 0);
 
-	Nv::Blast::MeshCleaner* cleaner = NvBlastExtAuthoringCreateMeshCleaner();
+	/*Nv::Blast::MeshCleaner* cleaner = NvBlastExtAuthoringCreateMeshCleaner();
 	Nv::Blast::Mesh* cleanedMesh = cleaner->cleanMesh(mesh);
 	cleaner->release();
 	if (cleanedMesh)
 	{
 		mesh->release();
 		return cleanedMesh;
-	}
+	}*/
 
 	return mesh;
 }

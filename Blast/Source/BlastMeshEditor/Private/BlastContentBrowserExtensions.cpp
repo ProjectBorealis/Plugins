@@ -16,6 +16,7 @@
 
 #include "BlastMesh.h"
 #include "BlastFracture.h"
+#include "BlastMeshEditorDialogs.h"
 
 #define LOCTEXT_NAMESPACE "Blast"
 
@@ -30,8 +31,13 @@ namespace
 		TArray<struct FAssetData> SelectedAssets;
 
 	public:
-		virtual void Execute() {}
-		virtual ~FContentBrowserSelectedAssetExtensionBase() {}
+		virtual void Execute()
+		{
+		}
+
+		virtual ~FContentBrowserSelectedAssetExtensionBase()
+		{
+		}
 	};
 
 
@@ -43,10 +49,13 @@ namespace
 
 		void CreateBlastMeshesFromStaticMeshes(TArray<UStaticMesh*>& Meshes)
 		{
-			FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>(
+				"AssetTools");
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(
+				"ContentBrowser");
 
-			FScopedSlowTask SlowTask(Meshes.Num(), LOCTEXT("CreateBlastMeshesFromStaticMeshes", "Creating Blast meshes"));
+			FScopedSlowTask SlowTask(Meshes.Num(),
+			                         LOCTEXT("CreateBlastMeshesFromStaticMeshes", "Creating Blast meshes"));
 			TArray<UObject*> ObjectsToSync;
 			for (UStaticMesh* StaticMesh : Meshes)
 			{
@@ -55,13 +64,23 @@ namespace
 				FString PackageName;
 
 				const FString DefaultSuffix = TEXT("_Blast");
-				AssetToolsModule.Get().CreateUniqueAssetName(StaticMesh->GetOutermost()->GetName(), DefaultSuffix, /*out*/ PackageName, /*out*/ Name);
+				AssetToolsModule.Get().CreateUniqueAssetName(StaticMesh->GetOutermost()->GetName(), DefaultSuffix,
+				                                             /*out*/ PackageName, /*out*/ Name);
 				const FString PackagePath = FPackageName::GetLongPackagePath(PackageName);
 
-				if (UBlastMesh* NewAsset = Cast<UBlastMesh>(AssetToolsModule.Get().CreateAsset(Name, PackagePath, UBlastMesh::StaticClass(), nullptr)))
+				const SSelectStaticMeshDialog::FLoadMeshResult Res = SSelectStaticMeshDialog::ShowWindow(StaticMesh);
+
+				if (!Res.Mesh)
+				{
+					continue;
+				}
+
+				if (UBlastMesh* NewAsset = Cast<UBlastMesh>(
+					AssetToolsModule.Get().CreateAsset(Name, PackagePath, UBlastMesh::StaticClass(), nullptr)))
 				{
 					auto BlastFracture = FBlastFracture::GetInstance();
-					BlastFracture->FinishFractureSession(BlastFracture->StartFractureSession(NewAsset, StaticMesh));
+					BlastFracture->FinishFractureSession(
+						BlastFracture->StartFractureSession(NewAsset, Res.Mesh, Res.bCleanMesh));
 					ObjectsToSync.Add(NewAsset);
 				}
 			}
@@ -91,25 +110,30 @@ namespace
 	class FBlastContentBrowserExtensions_Impl
 	{
 	public:
-		static void ExecuteSelectedContentFunctor(TSharedPtr<FContentBrowserSelectedAssetExtensionBase> SelectedAssetFunctor)
+		static void ExecuteSelectedContentFunctor(
+			TSharedPtr<FContentBrowserSelectedAssetExtensionBase> SelectedAssetFunctor)
 		{
 			SelectedAssetFunctor->Execute();
 		}
 
 		static void CreateStaticMeshActions(FMenuBuilder& MenuBuilder, TArray<FAssetData> SelectedAssets)
 		{
-			TSharedPtr<FCreateBlastMeshFromStaticMeshExtension> MeshCreatorFunctor = MakeShareable(new FCreateBlastMeshFromStaticMeshExtension());
+			TSharedPtr<FCreateBlastMeshFromStaticMeshExtension> MeshCreatorFunctor = MakeShareable(
+				new FCreateBlastMeshFromStaticMeshExtension());
 			MeshCreatorFunctor->SelectedAssets = SelectedAssets;
 
 			FUIAction Action_CreateBlastMeshFromStaticMesh(
-				FExecuteAction::CreateStatic(&FBlastContentBrowserExtensions_Impl::ExecuteSelectedContentFunctor, StaticCastSharedPtr<FContentBrowserSelectedAssetExtensionBase>(MeshCreatorFunctor)));
+				FExecuteAction::CreateStatic(&FBlastContentBrowserExtensions_Impl::ExecuteSelectedContentFunctor,
+				                             StaticCastSharedPtr<FContentBrowserSelectedAssetExtensionBase>(
+					                             MeshCreatorFunctor)));
 
 			//TODO add Blast styleset
 			const FName StyleSetName = FAppStyle::GetAppStyleSetName();
 
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("CB_Extension_StaticMesh_CreateBlastMesh", "Create Blast Mesh"),
-				LOCTEXT("CB_Extension_StaticMesh_CreateBlastMesh_Tooltip", "Create Blast meshes from selected static meshes"),
+				LOCTEXT("CB_Extension_StaticMesh_CreateBlastMesh_Tooltip",
+				        "Create Blast meshes from selected static meshes"),
 				FSlateIcon(StyleSetName, "ClassIcon.DestructibleComponent"),
 				Action_CreateBlastMeshFromStaticMesh,
 				NAME_None,
@@ -125,7 +149,8 @@ namespace
 			bool bAnyStaticMeshes = false;
 			for (const FAssetData& Asset : SelectedAssets)
 			{
-				bAnyStaticMeshes = bAnyStaticMeshes || (Asset.AssetClassPath == UStaticMesh::StaticClass()->GetClassPathName());
+				bAnyStaticMeshes = bAnyStaticMeshes || (Asset.AssetClassPath == UStaticMesh::StaticClass()->
+					GetClassPathName());
 			}
 
 			if (bAnyStaticMeshes)
@@ -134,7 +159,8 @@ namespace
 					"GetAssetActions",
 					EExtensionHook::After,
 					nullptr,
-					FMenuExtensionDelegate::CreateStatic(&FBlastContentBrowserExtensions_Impl::CreateStaticMeshActions, SelectedAssets));
+					FMenuExtensionDelegate::CreateStatic(&FBlastContentBrowserExtensions_Impl::CreateStaticMeshActions,
+					                                     SelectedAssets));
 			}
 
 			return Extender;
@@ -142,7 +168,8 @@ namespace
 
 		static TArray<FContentBrowserMenuExtender_SelectedAssets>& GetExtenderDelegates()
 		{
-			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(
+				TEXT("ContentBrowser"));
 			return ContentBrowserModule.GetAllAssetViewContextMenuExtenders();
 		}
 	};
@@ -150,17 +177,23 @@ namespace
 
 void FBlastContentBrowserExtensions::InstallHooks()
 {
-	ContentBrowserExtenderDelegate = FContentBrowserMenuExtender_SelectedAssets::CreateStatic(&FBlastContentBrowserExtensions_Impl::OnExtendContentBrowserAssetSelectionMenu);
+	ContentBrowserExtenderDelegate = FContentBrowserMenuExtender_SelectedAssets::CreateStatic(
+		&FBlastContentBrowserExtensions_Impl::OnExtendContentBrowserAssetSelectionMenu);
 
-	TArray<FContentBrowserMenuExtender_SelectedAssets>& CBMenuExtenderDelegates = FBlastContentBrowserExtensions_Impl::GetExtenderDelegates();
+	TArray<FContentBrowserMenuExtender_SelectedAssets>& CBMenuExtenderDelegates =
+		FBlastContentBrowserExtensions_Impl::GetExtenderDelegates();
 	CBMenuExtenderDelegates.Add(ContentBrowserExtenderDelegate);
 	ContentBrowserExtenderDelegateHandle = CBMenuExtenderDelegates.Last().GetHandle();
 }
 
 void FBlastContentBrowserExtensions::RemoveHooks()
 {
-	TArray<FContentBrowserMenuExtender_SelectedAssets>& CBMenuExtenderDelegates = FBlastContentBrowserExtensions_Impl::GetExtenderDelegates();
-	CBMenuExtenderDelegates.RemoveAll([](const FContentBrowserMenuExtender_SelectedAssets& Delegate){ return Delegate.GetHandle() == ContentBrowserExtenderDelegateHandle; });
+	TArray<FContentBrowserMenuExtender_SelectedAssets>& CBMenuExtenderDelegates =
+		FBlastContentBrowserExtensions_Impl::GetExtenderDelegates();
+	CBMenuExtenderDelegates.RemoveAll([](const FContentBrowserMenuExtender_SelectedAssets& Delegate)
+	{
+		return Delegate.GetHandle() == ContentBrowserExtenderDelegateHandle;
+	});
 }
 
 #undef LOCTEXT_NAMESPACE

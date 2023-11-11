@@ -13,9 +13,12 @@
 
 class SSelectStaticMeshDialog : public SCompoundWidget
 {
-
 public:
-	SLATE_BEGIN_ARGS(SSelectStaticMeshDialog) {}
+	SLATE_BEGIN_ARGS(SSelectStaticMeshDialog)
+		{
+		}
+
+		SLATE_ARGUMENT_DEFAULT(TObjectPtr<UStaticMesh>, Mesh){};
 	SLATE_END_ARGS()
 
 	// Constructs this widget with InArgs
@@ -26,14 +29,20 @@ public:
 	FReply CancelClicked();
 
 	// Show the dialog, returns true if successfully edited fracture script
-	static UStaticMesh* ShowWindow();
+	struct FLoadMeshResult
+	{
+		TObjectPtr<UStaticMesh> Mesh;
+		bool bCleanMesh = false;
+	};
+
+	static FLoadMeshResult ShowWindow(const TObjectPtr<UStaticMesh>& DefaultMesh = {});
 
 	void CloseContainingWindow();
 
 	TSharedPtr<SButton> LoadButton;
 	TSharedPtr<IDetailsView> MeshView;
 	TObjectPtr<class UBlastStaticMeshHolder> StaticMeshHolder;
-	bool IsLoad = false;
+	bool bLoadConfirmed = false;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -42,9 +51,11 @@ public:
 
 class SFixChunkHierarchyDialog : public SCompoundWidget
 {
-
 public:
-	SLATE_BEGIN_ARGS(SFixChunkHierarchyDialog) {}
+	SLATE_BEGIN_ARGS(SFixChunkHierarchyDialog)
+		{
+		}
+
 	SLATE_END_ARGS()
 
 	// Constructs this widget with InArgs
@@ -53,7 +64,8 @@ public:
 	FReply OnClicked(bool isFix);
 
 	// Show the dialog, returns true if successfully edited fracture script
-	static bool ShowWindow(TSharedPtr<class FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings, TSet<int32>& SelectedChunkIndices);
+	static bool ShowWindow(TSharedPtr<class FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings,
+	                       TSet<int32>& SelectedChunkIndices);
 
 	void CloseContainingWindow();
 
@@ -68,9 +80,11 @@ public:
 
 class SFitUvCoordinatesDialog : public SCompoundWidget
 {
-
 public:
-	SLATE_BEGIN_ARGS(SFitUvCoordinatesDialog) {}
+	SLATE_BEGIN_ARGS(SFitUvCoordinatesDialog)
+		{
+		}
+
 	SLATE_END_ARGS()
 
 	// Constructs this widget with InArgs
@@ -80,6 +94,7 @@ public:
 	{
 		mSquareSize = value;
 	}
+
 	inline TOptional<float> getSquareSize() const
 	{
 		return mSquareSize;
@@ -89,6 +104,7 @@ public:
 	{
 		isOnlySelectedToggle = vl;
 	}
+
 	inline ECheckBoxState getIsOnlySelectedToggle() const
 	{
 		return isOnlySelectedToggle;
@@ -97,14 +113,14 @@ public:
 	FReply OnClicked(bool isFix);
 
 	// Show the dialog, returns true if successfully edited fracture script
-	static bool ShowWindow(TSharedPtr<FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings, TSet<int32>& ChunkIndices);
+	static bool ShowWindow(TSharedPtr<FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings,
+	                       TSet<int32>& ChunkIndices);
 
 	void CloseContainingWindow();
 
 	bool shouldFix;
 	float mSquareSize;
 	ECheckBoxState isOnlySelectedToggle;
-
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -113,9 +129,11 @@ public:
 
 class SRebuildCollisionMeshDialog : public SCompoundWidget
 {
-
 public:
-	SLATE_BEGIN_ARGS(SRebuildCollisionMeshDialog) {}
+	SLATE_BEGIN_ARGS(SRebuildCollisionMeshDialog)
+		{
+		}
+
 	SLATE_END_ARGS()
 
 	// Constructs this widget with InArgs
@@ -124,7 +142,8 @@ public:
 	FReply OnClicked(bool InIsRebuild);
 
 	// Show the dialog, returns true if successfully edited fracture script
-	static bool ShowWindow(TSharedPtr<class FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings, TSet<int32>& ChunkIndices);
+	static bool ShowWindow(TSharedPtr<class FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings,
+	                       TSet<int32>& ChunkIndices);
 
 	void CloseContainingWindow();
 
@@ -140,9 +159,11 @@ public:
 
 class SExportAssetToFileDialog : public SCompoundWidget
 {
-
 public:
-	SLATE_BEGIN_ARGS(SExportAssetToFileDialog) {}
+	SLATE_BEGIN_ARGS(SExportAssetToFileDialog)
+		{
+		}
+
 	SLATE_END_ARGS()
 
 	// Constructs this widget with InArgs

@@ -273,7 +273,12 @@ class UBlastStaticMeshHolder : public UObject
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditAnywhere, Category = Import, Transient)
-	TObjectPtr<class UStaticMesh> StaticMesh = nullptr;
+	TObjectPtr<class UStaticMesh> StaticMesh;
+
+	// If true, will attempt to clean up the mesh to be better suited for Blast
+	// Avoid this setting for hollow meshes
+	UPROPERTY(EditAnywhere, Category = Import, Transient)
+	bool bCleanMesh = true;
 
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& e) override;
 

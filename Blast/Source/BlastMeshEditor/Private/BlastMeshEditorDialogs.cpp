@@ -9,14 +9,11 @@
 #include "HAL/PlatformFilemanager.h"
 
 #include "Framework/MultiBox/MultiBoxBuilder.h"
-#include "EditorReimportHandler.h"
 #include "Widgets/Layout/SUniformGridPanel.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "PropertyEditorModule.h"
-#include "EditorStyleSet.h"
 #include "Widgets/Images/SImage.h"
-#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Developer/DesktopPlatform/Public/IDesktopPlatform.h"
 #include "Developer/DesktopPlatform/Public/DesktopPlatformModule.h"
 #include "Engine/SkinnedAssetCommon.h"
@@ -39,46 +36,47 @@ void SSelectStaticMeshDialog::Construct(const FArguments& InArgs)
 	Args.bHideSelectionTip = true;
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 	StaticMeshHolder = NewObject<UBlastStaticMeshHolder>();
+	StaticMeshHolder->StaticMesh = InArgs._Mesh;
 	StaticMeshHolder->OnStaticMeshSelected.BindSP(this, &SSelectStaticMeshDialog::MeshSelected);
 	MeshView = PropertyModule.CreateDetailView(Args);
 	MeshView->SetObject(StaticMeshHolder);
 	ChildSlot
+	[
+		SNew(SBorder)
+		.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
 		[
-			SNew(SBorder)
-				.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
+			SNew(SVerticalBox)
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .AutoHeight()
+			[
+				MeshView->AsShared()
+			]
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .HAlign(HAlign_Right)
+			  .AutoHeight()
+			[
+				SNew(SUniformGridPanel)
+				.SlotPadding(2)
+				+ SUniformGridPanel::Slot(0, 0)
 				[
-					SNew(SVerticalBox)
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.AutoHeight()
-						[
-							MeshView->AsShared()
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.HAlign(HAlign_Right)
-						.AutoHeight()
-						[
-							SNew(SUniformGridPanel)
-								.SlotPadding(2)
-								+ SUniformGridPanel::Slot(0, 0)
-								[
-									SAssignNew(LoadButton, SButton)
+					SAssignNew(LoadButton, SButton)
 										.Text(FText::FromString("Load"))
 										.IsEnabled(false)
 										.OnClicked(this, &SSelectStaticMeshDialog::LoadClicked)
-								]
-								+ SUniformGridPanel::Slot(1, 0)
-								[
-									SNew(SButton)
+				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SButton)
 										.Text(FText::FromString("Cancel"))
 										.OnClicked(this, &SSelectStaticMeshDialog::CancelClicked)
-								]
-						]
 				]
-		];
+			]
+		]
+	];
 }
 
 void SSelectStaticMeshDialog::MeshSelected()
@@ -88,7 +86,7 @@ void SSelectStaticMeshDialog::MeshSelected()
 
 FReply SSelectStaticMeshDialog::LoadClicked()
 {
-	IsLoad = true;
+	bLoadConfirmed = true;
 	CloseContainingWindow();
 	return FReply::Handled();
 }
@@ -108,7 +106,7 @@ void SSelectStaticMeshDialog::CloseContainingWindow()
 	}
 }
 
-UStaticMesh* SSelectStaticMeshDialog::ShowWindow()
+SSelectStaticMeshDialog::FLoadMeshResult SSelectStaticMeshDialog::ShowWindow(const TObjectPtr<UStaticMesh>& DefaultMesh)
 {
 	const FText TitleText = NSLOCTEXT("BlastMeshEditor", "BlastMeshEditor_SelectStaticMesh", "Select static mesh");
 	// Create the window to pick the class
@@ -118,7 +116,7 @@ UStaticMesh* SSelectStaticMeshDialog::ShowWindow()
 		.AutoCenter(EAutoCenter::PreferredWorkArea)
 		.SupportsMinimize(false);
 
-	TSharedRef<SSelectStaticMeshDialog> SelectStaticMeshDialog = SNew(SSelectStaticMeshDialog);
+	TSharedRef<SSelectStaticMeshDialog> SelectStaticMeshDialog = SNew(SSelectStaticMeshDialog).Mesh(DefaultMesh);
 	SelectStaticMeshWindow->SetContent(SelectStaticMeshDialog);
 	TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
 	if (RootWindow.IsValid())
@@ -130,7 +128,14 @@ UStaticMesh* SSelectStaticMeshDialog::ShowWindow()
 		//assert here?
 	}
 
-	return SelectStaticMeshDialog->IsLoad ? SelectStaticMeshDialog->StaticMeshHolder->StaticMesh : nullptr;
+	FLoadMeshResult Ret;
+	if (SelectStaticMeshDialog->bLoadConfirmed)
+	{
+		Ret.bCleanMesh = SelectStaticMeshDialog->StaticMeshHolder->bCleanMesh;
+		Ret.Mesh = SelectStaticMeshDialog->StaticMeshHolder->StaticMesh;
+	}
+
+	return Ret;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -148,41 +153,41 @@ void SFixChunkHierarchyDialog::Construct(const FArguments& InArgs)
 	PropertyView = PropertyModule.CreateDetailView(Args);
 	PropertyView->SetObject(Properties);
 	ChildSlot
+	[
+		SNew(SBorder)
+		.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
 		[
-			SNew(SBorder)
-				.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
+			SNew(SVerticalBox)
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .AutoHeight()
+			[
+				PropertyView->AsShared()
+			]
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .HAlign(HAlign_Right)
+			  .AutoHeight()
+			[
+				SNew(SUniformGridPanel)
+				.SlotPadding(2)
+				+ SUniformGridPanel::Slot(0, 0)
 				[
-					SNew(SVerticalBox)
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.AutoHeight()
-						[
-							PropertyView->AsShared()
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.HAlign(HAlign_Right)
-						.AutoHeight()
-						[
-							SNew(SUniformGridPanel)
-								.SlotPadding(2)
-								+ SUniformGridPanel::Slot(0, 0)
-								[
-									SNew(SButton)
+					SNew(SButton)
 										.Text(FText::FromString("Fix"))
 										.OnClicked(this, &SFixChunkHierarchyDialog::OnClicked, true)
-								]
-								+ SUniformGridPanel::Slot(1, 0)
-								[
-									SNew(SButton)
+				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SButton)
 										.Text(FText::FromString("Cancel"))
 										.OnClicked(this, &SFixChunkHierarchyDialog::OnClicked, false)
-								]
-						]
 				]
-		];
+			]
+		]
+	];
 }
 
 FReply SFixChunkHierarchyDialog::OnClicked(bool isFix)
@@ -201,7 +206,8 @@ void SFixChunkHierarchyDialog::CloseContainingWindow()
 	}
 }
 
-bool SFixChunkHierarchyDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings, TSet<int32>& SelectedChunkIndices)
+bool SFixChunkHierarchyDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer,
+                                          UBlastFractureSettings* FractureSettings, TSet<int32>& SelectedChunkIndices)
 {
 	const FText TitleText = NSLOCTEXT("BlastMeshEditor", "BlastMeshEditor_FixChunkHierarchy", "Fix chunk hierarchy");
 	// Create the window to pick the class
@@ -224,20 +230,25 @@ bool SFixChunkHierarchyDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 	}
 	if (FixChunkHierarchyDialog->IsFix)
 	{
-		Fracturer->BuildChunkHierarchy(FractureSettings, SelectedChunkIndices, FixChunkHierarchyDialog->Properties->Threshold,
-			FixChunkHierarchyDialog->Properties->TargetedClusterSize, FixChunkHierarchyDialog->Properties->RemoveMergedOriginalChunks);
+		Fracturer->BuildChunkHierarchy(FractureSettings, SelectedChunkIndices,
+		                               FixChunkHierarchyDialog->Properties->Threshold,
+		                               FixChunkHierarchyDialog->Properties->TargetedClusterSize,
+		                               FixChunkHierarchyDialog->Properties->RemoveMergedOriginalChunks);
 	}
 	return FixChunkHierarchyDialog->IsFix;
 }
 
-bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings)
+bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer,
+                                          UBlastFractureSettings* FractureSettings)
 {
 	IDesktopPlatform* platform = FDesktopPlatformModule::Get();
 	if (platform)
 	{
 		const FText TitleText = NSLOCTEXT("BlastMeshEditor", "BlastMeshEditor_ExportAsset", "Export asset to a file");
 		TArray<FString> path;
-		if (platform->SaveFileDialog(FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr), TitleText.ToString(), TEXT(""), TEXT("asset.obj"), "Wavefront OBJ|*.obj|Autodesk FBX|*.fbx", 0, path))
+		if (platform->SaveFileDialog(FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr),
+		                             TitleText.ToString(), TEXT(""), TEXT("asset.obj"),
+		                             "Wavefront OBJ|*.obj|Autodesk FBX|*.fbx", 0, path))
 		{
 			int32 dotPs1;
 			int32 dotPs2;
@@ -260,7 +271,10 @@ bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 			{
 				int32 elemCount = bmesh->Mesh->GetMaterials()[i].MaterialSlotName.ToString().Len();
 				char* data = new char[elemCount + 1];
-				FMemory::Memcpy(data, TCHAR_TO_UTF8(bmesh->Mesh->GetMaterials()[i].MaterialSlotName.ToString().GetCharArray().GetData()), elemCount);
+				FMemory::Memcpy(
+					data, TCHAR_TO_UTF8(
+						bmesh->Mesh->GetMaterials()[i].MaterialSlotName.ToString().GetCharArray().GetData()),
+					elemCount);
 				data[elemCount] = 0; // set terminating character
 				matNames.Add(data);
 			}
@@ -272,16 +286,19 @@ bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 
 			if (extension == TEXT(".fbx"))
 			{
-
 				Nv::Blast::IMeshFileWriter* writer = NvBlastExtExporterCreateFbxFileWriter();
-				writer->appendMesh(*FractureSettings->FractureSession->FractureData.Get(), TCHAR_TO_UTF8(assetName.GetCharArray().GetData()));
-				writer->saveToFile(TCHAR_TO_UTF8(name.GetCharArray().GetData()), TCHAR_TO_UTF8(folderPath.GetCharArray().GetData()));
+				writer->appendMesh(*FractureSettings->FractureSession->FractureData.Get(),
+				                   TCHAR_TO_UTF8(assetName.GetCharArray().GetData()));
+				writer->saveToFile(
+					TCHAR_TO_UTF8(name.GetCharArray().GetData()), TCHAR_TO_UTF8(folderPath.GetCharArray().GetData()));
 			}
 			if (extension == TEXT(".obj"))
 			{
 				Nv::Blast::IMeshFileWriter* writer = NvBlastExtExporterCreateObjFileWriter();
-				writer->appendMesh(*FractureSettings->FractureSession->FractureData.Get(), TCHAR_TO_UTF8(assetName.GetCharArray().GetData()));
-				writer->saveToFile(TCHAR_TO_UTF8(name.GetCharArray().GetData()), TCHAR_TO_UTF8(folderPath.GetCharArray().GetData()));
+				writer->appendMesh(*FractureSettings->FractureSession->FractureData.Get(),
+				                   TCHAR_TO_UTF8(assetName.GetCharArray().GetData()));
+				writer->saveToFile(
+					TCHAR_TO_UTF8(name.GetCharArray().GetData()), TCHAR_TO_UTF8(folderPath.GetCharArray().GetData()));
 			}
 
 
@@ -290,11 +307,14 @@ bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 				FString jsonFile = folderPath;
 				jsonFile.Append("/").Append(name).Append(".json");
 				const Nv::Blast::AuthoringResult* Auth = FractureSettings->FractureSession->FractureData.Get();
-				writer->writeCollision(TCHAR_TO_UTF8(jsonFile.GetCharArray().GetData()), Auth->chunkCount, Auth->collisionHullOffset, Auth->collisionHull);
+				writer->writeCollision(
+					TCHAR_TO_UTF8(jsonFile.GetCharArray().GetData()), Auth->chunkCount, Auth->collisionHullOffset,
+					Auth->collisionHull);
 			}
 
 
-			UBlastMeshFactory::TransformBlastAssetFromUE4ToBlastCoordinateSystem(FractureSettings->FractureSession->FractureData->asset, nullptr);
+			UBlastMeshFactory::TransformBlastAssetFromUE4ToBlastCoordinateSystem(
+				FractureSettings->FractureSession->FractureData->asset, nullptr);
 
 
 			for (int32_t i = 0; i < matNames.Num(); ++i)
@@ -305,7 +325,8 @@ bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 			void* buffer;
 			Nv::Blast::ExtSerialization* serializer = NvBlastExtSerializationCreate();
 			serializer->setSerializationEncoding(Nv::Blast::ExtSerialization::EncodingID::CapnProtoBinary);
-			uint64_t bsize = serializer->serializeIntoBuffer(buffer, FractureSettings->FractureSession->FractureData->asset, Nv::Blast::LlObjectTypeID::Asset);
+			uint64_t bsize = serializer->serializeIntoBuffer(
+				buffer, FractureSettings->FractureSession->FractureData->asset, Nv::Blast::LlObjectTypeID::Asset);
 			if (bsize)
 			{
 				IPlatformFile& platformFile = FPlatformFileManager::Get().GetPlatformFile();
@@ -316,7 +337,8 @@ bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 				}
 				delete file;
 			}
-			UBlastMeshFactory::TransformBlastAssetToUE4CoordinateSystem(FractureSettings->FractureSession->FractureData->asset, nullptr);
+			UBlastMeshFactory::TransformBlastAssetToUE4CoordinateSystem(
+				FractureSettings->FractureSession->FractureData->asset, nullptr);
 			NVBLAST_FREE(buffer);
 			buffer = nullptr;
 			serializer->release();
@@ -324,8 +346,6 @@ bool SExportAssetToFileDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, 
 	}
 	return false;
 }
-
-
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -337,67 +357,72 @@ void SFitUvCoordinatesDialog::Construct(const FArguments& InArgs)
 	mSquareSize = 1.f;
 	isOnlySelectedToggle = ECheckBoxState::Unchecked;
 	ChildSlot
+	[
+		SNew(SBorder)
+		.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
 		[
-			SNew(SBorder)
-				.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
+			SNew(SVerticalBox)
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .AutoHeight()
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .HAlign(HAlign_Left)
+			  .AutoHeight()
+			[
+				SNew(SUniformGridPanel)
+				.SlotPadding(2)
+				+ SUniformGridPanel::Slot(0, 0)
 				[
-					SNew(SVerticalBox)
+					SNew(STextBlock).Text(FText::FromString("Square size")).Font(
+						FAppStyle::GetFontStyle(TEXT("MenuItem.Font")))
+				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SNumericEntryBox<float>).MinValue(0).OnValueChanged(
+						this, &SFitUvCoordinatesDialog::OnSquareSizeChanged).Value(
+						this, &SFitUvCoordinatesDialog::getSquareSize)
+				]
+			]
 
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.AutoHeight()
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .HAlign(HAlign_Left)
+			  .AutoHeight()
+			[
+				SNew(SCheckBox).OnCheckStateChanged(this, &SFitUvCoordinatesDialog::OnIsSelectedToggleChanged).
+				                IsChecked(this, &SFitUvCoordinatesDialog::getIsOnlySelectedToggle).ToolTipText(
+					                NSLOCTEXT("BlastMeshEditor", "UVFITTOOL_ONLYSELC", "Fit only selected chunks"))
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("BlastMeshEditor", "OnlySelLabel", "Fit UV for only selected chunks."))
+				]
+			]
 
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.HAlign(HAlign_Left)
-						.AutoHeight()
-						[
-							SNew(SUniformGridPanel)
-								.SlotPadding(2)
-								+ SUniformGridPanel::Slot(0, 0)
-								[
-									SNew(STextBlock).Text(FText::FromString("Square size")).Font(FAppStyle::GetFontStyle(TEXT("MenuItem.Font")))
-								]
-								+ SUniformGridPanel::Slot(1, 0)
-								[
-									SNew(SNumericEntryBox<float>).MinValue(0).OnValueChanged(this, &SFitUvCoordinatesDialog::OnSquareSizeChanged).Value(this, &SFitUvCoordinatesDialog::getSquareSize)
-								]
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.HAlign(HAlign_Left)
-						.AutoHeight()
-						[
-							SNew(SCheckBox).OnCheckStateChanged(this, &SFitUvCoordinatesDialog::OnIsSelectedToggleChanged).IsChecked(this, &SFitUvCoordinatesDialog::getIsOnlySelectedToggle).ToolTipText(NSLOCTEXT("BlastMeshEditor", "UVFITTOOL_ONLYSELC", "Fit only selected chunks"))
-								[
-									SNew(STextBlock)
-										.Text(NSLOCTEXT("BlastMeshEditor", "OnlySelLabel", "Fit UV for only selected chunks."))
-								]
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.HAlign(HAlign_Right)
-						.AutoHeight()
-						[
-							SNew(SUniformGridPanel)
-								.SlotPadding(2)
-								+ SUniformGridPanel::Slot(0, 0)
-								[
-									SNew(SButton)
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .HAlign(HAlign_Right)
+			  .AutoHeight()
+			[
+				SNew(SUniformGridPanel)
+				.SlotPadding(2)
+				+ SUniformGridPanel::Slot(0, 0)
+				[
+					SNew(SButton)
 										.Text(FText::FromString("Fit UV"))
 										.OnClicked(this, &SFitUvCoordinatesDialog::OnClicked, true)
-								]
-								+ SUniformGridPanel::Slot(1, 0)
-								[
-									SNew(SButton)
+				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SButton)
 										.Text(FText::FromString("Cancel"))
 										.OnClicked(this, &SFitUvCoordinatesDialog::OnClicked, false)
-								]
-						]
 				]
-		];
+			]
+		]
+	];
 }
 
 FReply SFitUvCoordinatesDialog::OnClicked(bool isFix)
@@ -416,7 +441,8 @@ void SFitUvCoordinatesDialog::CloseContainingWindow()
 	}
 }
 
-bool SFitUvCoordinatesDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings, TSet<int32>& ChunkIndices)
+bool SFitUvCoordinatesDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings,
+                                         TSet<int32>& ChunkIndices)
 {
 	const FText TitleText = NSLOCTEXT("FitUVDialog", "FitUVDialog", "Fit UV");
 	// Create the window to pick the class
@@ -440,7 +466,8 @@ bool SFitUvCoordinatesDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, U
 
 	if (FitUVDialog->shouldFix)
 	{
-		Fracturer->FitUvs(FractureSettings, FitUVDialog->mSquareSize, FitUVDialog->isOnlySelectedToggle == ECheckBoxState::Checked, ChunkIndices);
+		Fracturer->FitUvs(FractureSettings, FitUVDialog->mSquareSize,
+		                  FitUVDialog->isOnlySelectedToggle == ECheckBoxState::Checked, ChunkIndices);
 	}
 
 	return true;
@@ -461,41 +488,41 @@ void SRebuildCollisionMeshDialog::Construct(const FArguments& InArgs)
 	PropertyView = PropertyModule.CreateDetailView(Args);
 	PropertyView->SetObject(Properties);
 	ChildSlot
+	[
+		SNew(SBorder)
+		.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
 		[
-			SNew(SBorder)
-				.Padding(FMargin(0.0f, 3.0f, 1.0f, 0.0f))
+			SNew(SVerticalBox)
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .AutoHeight()
+			[
+				PropertyView->AsShared()
+			]
+
+			+ SVerticalBox::Slot()
+			  .Padding(2.0f)
+			  .HAlign(HAlign_Right)
+			  .AutoHeight()
+			[
+				SNew(SUniformGridPanel)
+				.SlotPadding(2)
+				+ SUniformGridPanel::Slot(0, 0)
 				[
-					SNew(SVerticalBox)
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.AutoHeight()
-						[
-							PropertyView->AsShared()
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(2.0f)
-						.HAlign(HAlign_Right)
-						.AutoHeight()
-						[
-							SNew(SUniformGridPanel)
-								.SlotPadding(2)
-								+ SUniformGridPanel::Slot(0, 0)
-								[
-									SNew(SButton)
+					SNew(SButton)
 										.Text(FText::FromString("Build"))
 										.OnClicked(this, &SRebuildCollisionMeshDialog::OnClicked, true)
-								]
-								+ SUniformGridPanel::Slot(1, 0)
-								[
-									SNew(SButton)
+				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SButton)
 										.Text(FText::FromString("Cancel"))
 										.OnClicked(this, &SRebuildCollisionMeshDialog::OnClicked, false)
-								]
-						]
 				]
-		];
+			]
+		]
+	];
 }
 
 FReply SRebuildCollisionMeshDialog::OnClicked(bool InIsRebuild)
@@ -514,9 +541,11 @@ void SRebuildCollisionMeshDialog::CloseContainingWindow()
 	}
 }
 
-bool SRebuildCollisionMeshDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer, UBlastFractureSettings* FractureSettings, TSet<int32>& ChunkIndices)
+bool SRebuildCollisionMeshDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracturer,
+                                             UBlastFractureSettings* FractureSettings, TSet<int32>& ChunkIndices)
 {
-	const FText TitleText = NSLOCTEXT("BlastMeshEditor", "BlastMeshEditor_RebuildCollisionMesh", "Rebuild collision mesh");
+	const FText TitleText = NSLOCTEXT("BlastMeshEditor", "BlastMeshEditor_RebuildCollisionMesh",
+	                                  "Rebuild collision mesh");
 	// Create the window to pick the class
 	TSharedRef<SWindow> RebuildCollisionMeshWindow = SNew(SWindow)
 		.Title(TitleText)
@@ -538,9 +567,11 @@ bool SRebuildCollisionMeshDialog::ShowWindow(TSharedPtr<FBlastFracture> Fracture
 	if (RebuildCollisionMeshDialog->IsRebuild)
 	{
 		Fracturer->RebuildCollisionMesh(FractureSettings, RebuildCollisionMeshDialog->Properties->MaximumNumberOfHulls,
-			RebuildCollisionMeshDialog->Properties->VoxelGridResolution,
-			RebuildCollisionMeshDialog->Properties->Concavity,
-			RebuildCollisionMeshDialog->Properties->IsOnlyForSelectedChunks ? ChunkIndices : TSet<int32>());
+		                                RebuildCollisionMeshDialog->Properties->VoxelGridResolution,
+		                                RebuildCollisionMeshDialog->Properties->Concavity,
+		                                RebuildCollisionMeshDialog->Properties->IsOnlyForSelectedChunks
+			                                ? ChunkIndices
+			                                : TSet<int32>());
 	}
 	return RebuildCollisionMeshDialog->IsRebuild;
 }

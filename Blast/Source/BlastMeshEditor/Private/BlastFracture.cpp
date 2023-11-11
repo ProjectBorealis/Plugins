@@ -29,6 +29,7 @@
 #include "RawMesh.h"
 #include "Engine/Texture2D.h"
 #include "MeshDescriptionOperations.h"
+#include "NvBlastExtAuthoringMeshCleaner.h"
 
 #include "Chaos/Core.h"
 #include "Chaos/Convex.h"
@@ -269,7 +270,7 @@ UBlastFractureSettings* FBlastFracture::CreateFractureSettings(class FBlastMeshE
 }
 
 TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* InBlastMesh,
-                                                                  UStaticMesh* InSourceStaticMesh,
+                                                                  UStaticMesh* InSourceStaticMesh, bool bCleanMesh,
                                                                   UBlastFractureSettings* Settings,
                                                                   bool ForceLoadFracturedMesh)
 {
@@ -321,6 +322,18 @@ TSharedPtr<FFractureSession> FBlastFracture::StartFractureSession(UBlastMesh* In
 			//Retrieve mesh just assign default smoothing group 1 for each face. So we need to generate it.
 
 			Mesh = CreateAuthoringMeshFromRawMesh(InSourceRawMesh, UE4ToBlastTransform);
+		}
+
+		if (Mesh && bCleanMesh)
+		{
+			Nv::Blast::MeshCleaner* NvMeshCleaner = NvBlastExtAuthoringCreateMeshCleaner();
+			Nv::Blast::Mesh* CleanedMesh = NvMeshCleaner->cleanMesh(Mesh);
+			NvMeshCleaner->release();
+			if (CleanedMesh)
+			{
+				Mesh->release();
+				Mesh = CleanedMesh;
+			}
 		}
 
 		FractureSession->FractureTool->setChunkMesh(Mesh, -1);
@@ -490,7 +503,7 @@ void FBlastFracture::Undo(UBlastFractureSettings* Settings)
 
 	FinishFractureSession(Settings->FractureSession);
 	BlastMesh->FractureHistory.Undo();
-	Settings->FractureSession = StartFractureSession(BlastMesh, nullptr, Settings, true);
+	Settings->FractureSession = StartFractureSession(BlastMesh, nullptr, false, Settings, true);
 }
 
 bool FBlastFracture::CanRedo(UBlastFractureSettings* Settings) const
@@ -513,7 +526,7 @@ void FBlastFracture::Redo(UBlastFractureSettings* Settings)
 
 	FinishFractureSession(Settings->FractureSession);
 	BlastMesh->FractureHistory.Redo();
-	Settings->FractureSession = StartFractureSession(BlastMesh, nullptr, Settings, true);
+	Settings->FractureSession = StartFractureSession(BlastMesh, nullptr, false, Settings, true);
 }
 
 void FBlastFracture::Fracture(UBlastFractureSettings* Settings, TSet<int32>& SelectedChunkIndices,
