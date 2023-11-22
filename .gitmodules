@@ -6,21 +6,9 @@
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
 	branch = master
-[submodule "GenericGraph"]
-	path = GenericGraph
-	url = https://github.com/ProjectBorealis/GenericGraph.git
-	branch = master
-[submodule "FactionsExtension"]
-	path = FactionsExtension
-	url = https://github.com/ProjectBorealis/FactionsExtension.git
-	branch = master
 [submodule "DiscordGameSDK"]
 	path = DiscordGameSDK
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
-	branch = master
-[submodule "SplineSnappingTool"]
-	path = SplineSnappingTool
-	url = https://github.com/ProjectBorealis/UE4-SplineSnappingToolPlugin.git
 	branch = master
 [submodule "SplashSettings"]
 	path = SplashSettings
