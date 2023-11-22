@@ -38,3 +38,11 @@
 [submodule "ALS-Community"]
 	path = ALS-Community
 	url = https://github.com/dyanikoglu/ALS-Community.git
+[submodule "AsyncLoadingScreen"]
+	path = AsyncLoadingScreen
+	url = https://github.com/truong-bui/AsyncLoadingScreen.git
+	branch = master
+[submodule "UEGitPlugin"]
+	path = UEGitPlugin
+	url = https://github.com/ProjectBorealis/UEGitPlugin.git
+	branch = release

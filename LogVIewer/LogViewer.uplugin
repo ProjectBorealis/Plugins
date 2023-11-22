@@ -1,0 +1,23 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.239",
+	"FriendlyName": "LogViewer",
+	"Description": "Convenient version of OutputLog able to open standalone files with better categories filtering and tabs support.",
+	"Category": "Editor",
+	"CreatedBy": "Dmitrii Labadin",
+	"CreatedByURL": "https://www.linkedin.com/in/labadin/",
+	"DocsURL": "",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/4853cdc0a6a54d7b9c0712cbe72f6b68",
+	"SupportURL": "",
+	"EngineVersion": "5.3.0",
+	"CanContainContent": false,
+	"Installed": true,
+	"Modules": [
+		{
+			"Name": "LogViewer",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
