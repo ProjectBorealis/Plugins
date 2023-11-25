@@ -6,21 +6,9 @@
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
 	branch = master
-[submodule "GenericGraph"]
-	path = GenericGraph
-	url = https://github.com/ProjectBorealis/GenericGraph.git
-	branch = master
-[submodule "FactionsExtension"]
-	path = FactionsExtension
-	url = https://github.com/ProjectBorealis/FactionsExtension.git
-	branch = master
 [submodule "DiscordGameSDK"]
 	path = DiscordGameSDK
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
-	branch = master
-[submodule "SplineSnappingTool"]
-	path = SplineSnappingTool
-	url = https://github.com/ProjectBorealis/UE4-SplineSnappingToolPlugin.git
 	branch = master
 [submodule "SplashSettings"]
 	path = SplashSettings
@@ -28,19 +16,23 @@
 	branch = main
 [submodule "IAUS"]
 	path = IAUS
-	url = https://github.com/ProjectBorealis/IAUS
+	url = https://github.com/ProjectBorealis/IAUS.git
+	branch = main
 [submodule "EditorScriptingTools"]
 	path = EditorScriptingTools
 	url = https://github.com/ProjectBorealis/UE4-EditorScriptingToolsPlugin.git
+	branch = main
 [submodule "FillDDCForPIE"]
 	path = FillDDCForPIE
 	url = https://github.com/ProjectBorealis/FillDDCForPIE.git
+	branch = master
 [submodule "ALS-Community"]
 	path = ALS-Community
-	url = https://github.com/dyanikoglu/ALS-Community.git
+	url = https://github.com/ProjectBorealis/ALS-Community-UE5.git
+	branch = main
 [submodule "AsyncLoadingScreen"]
 	path = AsyncLoadingScreen
-	url = https://github.com/truong-bui/AsyncLoadingScreen.git
+	url = https://github.com/ProjectBorealis/AsyncLoadingScreen.git
 	branch = master
 [submodule "UEGitPlugin"]
 	path = UEGitPlugin
