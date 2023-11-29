@@ -37,7 +37,8 @@
 
 DECLARE_CYCLE_STAT(TEXT("Calc BlastMeshComponent Bounds"), STAT_BlastMeshComponent_CalcBounds, STATGROUP_Blast);
 DECLARE_CYCLE_STAT(TEXT("Sync Chunks and Bodies"), STAT_BlastMeshComponent_SyncChunksAndBodies, STATGROUP_Blast);
-DECLARE_CYCLE_STAT(TEXT("Sync Chunks and Bodies (Non-rendering children update)"), STAT_BlastMeshComponent_SyncChunksAndBodiesChildren, STATGROUP_Blast);
+DECLARE_CYCLE_STAT(TEXT("Sync Chunks and Bodies (Non-rendering children update)"),
+                   STAT_BlastMeshComponent_SyncChunksAndBodiesChildren, STATGROUP_Blast);
 
 UBlastMeshComponent::UBlastMeshComponent(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
@@ -105,7 +106,6 @@ UBlastMeshComponent::UBlastMeshComponent(const FObjectInitializer& ObjectInitial
 	DebrisProperties.DebrisFilters.Add(DebrisFilter);
 }
 
-
 void UBlastMeshComponent::SetModifiedAsset(UBlastAsset* newModifiedAsset)
 {
 	if (ModifiedAsset != newModifiedAsset)
@@ -155,7 +155,9 @@ void UBlastMeshComponent::PreEditChange(FProperty* PropertyThatWillChange)
 
 void UBlastMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	const FName PropertyName = (PropertyChangedEvent.MemberProperty != nullptr) ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
+	const FName PropertyName = (PropertyChangedEvent.MemberProperty != nullptr)
+		                           ? PropertyChangedEvent.MemberProperty->GetFName()
+		                           : NAME_None;
 
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UBlastMeshComponent, BlastMesh))
 	{
@@ -192,8 +194,9 @@ void UBlastMeshComponent::CheckForErrors()
 	if (BlastMesh == nullptr)
 	{
 		FMessageLog("MapCheck").Error()
-			->AddToken(FUObjectToken::Create(this))
-			->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_InvalidBlastMesh", "There is no Blast mesh assigned to this component")));
+		                       ->AddToken(FUObjectToken::Create(this))
+		                       ->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_InvalidBlastMesh",
+		                                                             "There is no Blast mesh assigned to this component")));
 	}
 
 	if (bSupportedByWorld)
@@ -224,10 +227,11 @@ void UBlastMeshComponent::CheckForErrors()
 		TSet<ABlastGlueVolume*> OverlappingVolumes;
 		if (!GetSupportChunksInVolumes(GlueVolumes, OverlappingChunks, GlueVectors, OverlappingVolumes, false))
 		{
-
 			FMessageLog("MapCheck").Warning()
-				->AddToken(FUObjectToken::Create(this))
-				->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_NoGlueVolumes", "BlastMeshComponent is marked bSupportedByWorld but is not inside a ABlastGlueVolume")));
+			                       ->AddToken(FUObjectToken::Create(this))
+			                       ->AddToken(FTextToken::Create(LOCTEXT(
+				                       "MapCheck_Message_NoGlueVolumes",
+				                       "BlastMeshComponent is marked bSupportedByWorld but is not inside a ABlastGlueVolume")));
 		}
 	}
 }
@@ -279,21 +283,23 @@ void UBlastMeshComponent::InitBlastFamily()
 	void* FamilyMem = NVBLAST_ALLOC(NvBlastAssetGetFamilyMemorySize(LLBlastAsset, Nv::Blast::logLL));
 	// Create a NvBlastFamily and wrap it in a shared ptr with a custom deleter so it gets released when we're done with it.
 	BlastFamily = TSharedPtr<NvBlastFamily>(NvBlastAssetCreateFamily(FamilyMem, LLBlastAsset, Nv::Blast::logLL),
-		[FamilyMem](NvBlastFamily* family)
-		{
-			NVBLAST_FREE((void*)FamilyMem);
-		}
+	                                        [FamilyMem](NvBlastFamily* family)
+	                                        {
+		                                        NVBLAST_FREE((void*)FamilyMem);
+	                                        }
 	);
 
 	uint32 MaxActorCount = NvBlastFamilyGetMaxActorCount(BlastFamily.Get(), Nv::Blast::logLL);
 	BlastActors.SetNum(MaxActorCount);
-	ActorBodySetups.Reset(); //In some cases due to the editor duplicating objects this can be not empty so make sure it's zeroed out
+	ActorBodySetups.Reset();
+	//In some cases due to the editor duplicating objects this can be not empty so make sure it's zeroed out
 	ActorBodySetups.SetNumZeroed(MaxActorCount);
 	BlastActorsBeginLive = 0;
 	BlastActorsEndLive = 0;
 
 	TArray<uint8> Scratch;
-	Scratch.SetNumUninitialized(NvBlastFamilyGetRequiredScratchForCreateFirstActor(BlastFamily.Get(), Nv::Blast::logLL));
+	Scratch.SetNumUninitialized(
+		NvBlastFamilyGetRequiredScratchForCreateFirstActor(BlastFamily.Get(), Nv::Blast::logLL));
 
 	NvBlastActorDesc ActorDesc;
 	ActorDesc.uniformInitialBondHealth = 1.0f;
@@ -307,7 +313,8 @@ void UBlastMeshComponent::InitBlastFamily()
 	BlastMesh->RebuildCookedBodySetupsIfRequired();
 #endif
 
-	NvBlastActor* Actor = NvBlastFamilyCreateFirstActor(BlastFamily.Get(), &ActorDesc, Scratch.GetData(), Nv::Blast::logLL);
+	NvBlastActor* Actor = NvBlastFamilyCreateFirstActor(BlastFamily.Get(), &ActorDesc, Scratch.GetData(),
+	                                                    Nv::Blast::logLL);
 
 	// Create stress solver if enabled (right after actor created, but before 'StressSolver->notifyActorCreated()' call)
 	if (GetUsedStressProperties().bCalculateStress)
@@ -370,7 +377,6 @@ void UBlastMeshComponent::UninitBlastFamily()
 	BlastActorsEndLive = 0;
 
 	ShowRootChunks();
-
 }
 
 void UBlastMeshComponent::ShowRootChunks()
@@ -439,7 +445,7 @@ bool UBlastMeshComponent::IsChunkVisible(int32 ChunkIndex) const
 }
 
 bool UBlastMeshComponent::MoveComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep,
-	FHitResult* Hit, EMoveComponentFlags MoveFlags, ETeleportType Teleport)
+                                            FHitResult* Hit, EMoveComponentFlags MoveFlags, ETeleportType Teleport)
 {
 	if (bHasBeenFractured)
 	{
@@ -448,7 +454,8 @@ bool UBlastMeshComponent::MoveComponentImpl(const FVector& Delta, const FQuat& N
 	return Super::MoveComponentImpl(Delta, NewRotation, bSweep, Hit, MoveFlags, Teleport);
 }
 
-void UBlastMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UBlastMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType,
+                                        FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -507,7 +514,10 @@ void UBlastMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickTyp
 #endif
 	}
 
-
+	if (IsRegistered() && IsSimulatingPhysics() && RigidBodyIsAwake())
+	{
+		SyncComponentToRBPhysics();
+	}
 }
 
 void UBlastMeshComponent::PostEditImport()
@@ -546,7 +556,9 @@ FBodyInstance* UBlastMeshComponent::GetActorBodyInstance(int32 ActorIndex) const
 	{
 		ActorIndex = 0;
 	}
-	return (BlastActors.IsValidIndex(ActorIndex) && BlastActors[ActorIndex].BodyInstance) ? BlastActors[ActorIndex].BodyInstance : nullptr;
+	return (BlastActors.IsValidIndex(ActorIndex) && BlastActors[ActorIndex].BodyInstance)
+		       ? BlastActors[ActorIndex].BodyInstance
+		       : nullptr;
 }
 
 FTransform UBlastMeshComponent::GetActorWorldTransform(FName ActorName) const
@@ -612,7 +624,8 @@ int32 UBlastMeshComponent::GetActorIndexForChunk(int32 ChunkIndex) const
 	if (OwningSupportStructure && OwningSupportStructureIndex != INDEX_NONE)
 	{
 		UBlastExtendedSupportMeshComponent* ExtSupport = OwningSupportStructure->GetExtendedSupportMeshComponent();
-		return ExtSupport->GetActorIndexForChunk(ExtSupport->GetCombinedChunkIndex(OwningSupportStructureIndex, ChunkIndex));
+		return ExtSupport->GetActorIndexForChunk(
+			ExtSupport->GetCombinedChunkIndex(OwningSupportStructureIndex, ChunkIndex));
 	}
 
 	NvBlastActor* BlastActor = NvBlastFamilyGetChunkActor(BlastFamily.Get(), ChunkIndex, Nv::Blast::logLL);
@@ -626,7 +639,8 @@ int32 UBlastMeshComponent::GetActorIndexForChunk(int32 ChunkIndex) const
 
 FTransform UBlastMeshComponent::GetChunkWorldTransform(int32 ChunkIndex) const
 {
-	if (!BlastMesh || !BlastMesh->IsValidBlastMesh() || ChunkIndex < 0 || ChunkIndex >= (int32)BlastMesh->GetChunkCount())
+	if (!BlastMesh || !BlastMesh->IsValidBlastMesh() || ChunkIndex < 0 || ChunkIndex >= (int32)BlastMesh->
+		GetChunkCount())
 	{
 		return GetComponentTransform();
 	}
@@ -636,7 +650,8 @@ FTransform UBlastMeshComponent::GetChunkWorldTransform(int32 ChunkIndex) const
 
 FTransform UBlastMeshComponent::GetChunkActorRelativeTransform(int32 ChunkIndex) const
 {
-	if (!BlastMesh || !BlastMesh->IsValidBlastMesh() || ChunkIndex < 0 || ChunkIndex >= (int32)BlastMesh->GetChunkCount())
+	if (!BlastMesh || !BlastMesh->IsValidBlastMesh() || ChunkIndex < 0 || ChunkIndex >= (int32)BlastMesh->
+		GetChunkCount())
 	{
 		return FTransform::Identity;
 	}
@@ -669,7 +684,9 @@ FVector UBlastMeshComponent::GetChunkWorldAngularVelocityInRadians(int32 ChunkIn
 	{
 		FTransform ChunkToActor = GetChunkActorRelativeTransform(ChunkIndex);
 		FBodyInstance* ActorBodyInstance = GetActorBodyInstance(GetActorIndexForChunk(ChunkIndex));
-		FVector Velocity = ActorBodyInstance ? ActorBodyInstance->GetUnrealWorldAngularVelocityInRadians() : FVector::ZeroVector;
+		FVector Velocity = ActorBodyInstance
+			                   ? ActorBodyInstance->GetUnrealWorldAngularVelocityInRadians()
+			                   : FVector::ZeroVector;
 		return ChunkToActor.InverseTransformVector(Velocity);
 	}
 	return FVector::ZeroVector;
@@ -680,7 +697,10 @@ FVector UBlastMeshComponent::GetChunkWorldVelocity(int32 ChunkIndex) const
 	if (ChunkToActorIndex.IsValidIndex(ChunkIndex))
 	{
 		FBodyInstance* ActorBodyInstance = GetActorBodyInstance(GetActorIndexForChunk(ChunkIndex));
-		return ActorBodyInstance ? ActorBodyInstance->GetUnrealWorldVelocityAtPoint(GetChunkWorldTransform(ChunkIndex).GetTranslation()) : FVector::ZeroVector;
+		return ActorBodyInstance
+			       ? ActorBodyInstance->GetUnrealWorldVelocityAtPoint(
+				       GetChunkWorldTransform(ChunkIndex).GetTranslation())
+			       : FVector::ZeroVector;
 	}
 	return FVector::ZeroVector;
 }
@@ -721,7 +741,8 @@ void UBlastMeshComponent::SetDynamicChunkCollisionObjectType(ECollisionChannel C
 	//UPrimitiveComponent::SetCollisionObjectType does not call OnComponentCollisionSettingsChanged()
 }
 
-void UBlastMeshComponent::SetDynamicChunkCollisionResponseToChannel(ECollisionChannel Channel, ECollisionResponse NewResponse)
+void UBlastMeshComponent::SetDynamicChunkCollisionResponseToChannel(ECollisionChannel Channel,
+                                                                    ECollisionResponse NewResponse)
 {
 	DynamicChunkBodyInstance.SetResponseToChannel(Channel, NewResponse);
 	OnComponentCollisionSettingsChanged();
@@ -752,7 +773,8 @@ FVector UBlastMeshComponent::GetActorWorldVelocity(FName ActorName) const
 }
 
 
-FBodyInstance* UBlastMeshComponent::GetBodyInstance(FName BoneName /*= NAME_None*/, bool bGetWelded /*= true*/, int32 Index /*= INDEX_NONE*/) const
+FBodyInstance* UBlastMeshComponent::GetBodyInstance(FName BoneName /*= NAME_None*/, bool bGetWelded /*= true*/,
+                                                    int32 Index /*= INDEX_NONE*/) const
 {
 	return GetActorBodyInstance(BoneName);
 }
@@ -764,7 +786,8 @@ FBoxSphereBounds UBlastMeshComponent::CalcBounds(const FTransform& LocalToWorld)
 	{
 		if (bCachedLocalBoundsUpToDate)
 		{
-			return CachedWorldOrLocalSpaceBounds.TransformBy(CachedWorldToLocalTransform * LocalToWorld.ToMatrixWithScale());
+			return CachedWorldOrLocalSpaceBounds.TransformBy(
+				CachedWorldToLocalTransform * LocalToWorld.ToMatrixWithScale());
 		}
 
 		//Examine the existing bodies to see what we have
@@ -804,7 +827,8 @@ FBoxSphereBounds UBlastMeshComponent::CalcBounds(const FTransform& LocalToWorld)
 	}
 }
 
-FTransform UBlastMeshComponent::GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace /*= RTS_World*/) const
+FTransform UBlastMeshComponent::GetSocketTransform(FName InSocketName,
+                                                   ERelativeTransformSpace TransformSpace /*= RTS_World*/) const
 {
 	if (InSocketName != NAME_None)
 	{
@@ -817,7 +841,9 @@ FTransform UBlastMeshComponent::GetSocketTransform(FName InSocketName, ERelative
 			case RTS_World:
 				return WorldTransform;
 			case RTS_Actor:
-				return GetOwner() ? WorldTransform.GetRelativeTransform(GetOwner()->GetActorTransform()) : WorldTransform;
+				return GetOwner()
+					       ? WorldTransform.GetRelativeTransform(GetOwner()->GetActorTransform())
+					       : WorldTransform;
 			case RTS_ParentBoneSpace:
 			case RTS_Component:
 				return WorldTransform.GetRelativeTransform(GetComponentTransform());
@@ -874,7 +900,8 @@ void UBlastMeshComponent::QuerySupportedSockets(TArray<FComponentSocketDescripti
 	{
 		if (BlastActors[ActorIndex].BlastActor)
 		{
-			new (OutSockets) FComponentSocketDescription(ActorIndexToActorName(ActorIndex), EComponentSocketType::Socket);
+			new(OutSockets)
+				FComponentSocketDescription(ActorIndexToActorName(ActorIndex), EComponentSocketType::Socket);
 		}
 	}
 }
@@ -921,7 +948,8 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 	if (OwningSupportStructure && OwningSupportStructureIndex != INDEX_NONE)
 	{
 		UBlastExtendedSupportMeshComponent* ExtSupport = OwningSupportStructure->GetExtendedSupportMeshComponent();
-		bAnyBodiesChanged = ExtSupport->PopulateComponentBoneTransforms(GetEditableComponentSpaceTransforms(), BonesTouched, OwningSupportStructureIndex);
+		bAnyBodiesChanged = ExtSupport->PopulateComponentBoneTransforms(GetEditableComponentSpaceTransforms(),
+		                                                                BonesTouched, OwningSupportStructureIndex);
 	}
 	else
 	{
@@ -951,7 +979,8 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 					// The indices in ActorChunkIndices are NEW blast indices, so must go through indirection.
 					uint32 ChunkIndex = ChunkData.ChunkIndex;
 					int32 BoneIndex = BlastMesh->ChunkIndexToBoneIndex[ChunkIndex];
-					GetEditableComponentSpaceTransforms()[BoneIndex] = BlastMesh->GetComponentSpaceInitialBoneTransform(BoneIndex) * BodyCST;
+					GetEditableComponentSpaceTransforms()[BoneIndex] = BlastMesh->
+						GetComponentSpaceInitialBoneTransform(BoneIndex) * BodyCST;
 					BonesTouched[BoneIndex] = true;
 				}
 			}
@@ -982,7 +1011,8 @@ bool UBlastMeshComponent::SyncChunksAndBodies()
 
 				if (BonesTouched[ParentIndex])
 				{
-					FTransform::Multiply(SpaceBasesData + BoneIndex, LocalTransformsData + BoneIndex, SpaceBasesData + ParentIndex);
+					FTransform::Multiply(SpaceBasesData + BoneIndex, LocalTransformsData + BoneIndex,
+					                     SpaceBasesData + ParentIndex);
 					BonesTouched[BoneIndex] = true;
 
 					checkSlow(GetEditableComponentSpaceTransforms()[BoneIndex].IsRotationNormalized());
@@ -1105,9 +1135,11 @@ public:
 
 		if (UObject* const* NewSupportStructure = OldToNewInstanceMap.Find(SupportStructure))
 		{
-			SupportStructure = CastChecked<ABlastExtendedSupportStructure>(*NewSupportStructure, ECastCheckedType::NullAllowed);
+			SupportStructure = CastChecked<ABlastExtendedSupportStructure>(
+				*NewSupportStructure, ECastCheckedType::NullAllowed);
 		}
 	}
+
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		FPrimitiveComponentInstanceData::AddReferencedObjects(Collector);
@@ -1118,7 +1150,8 @@ public:
 
 	bool ContainsData() const
 	{
-		return FPrimitiveComponentInstanceData::ContainsData() || ModifiedAsset || ModifiedAssetOwned || SupportStructure || SupportStructureIndex != INDEX_NONE;
+		return FPrimitiveComponentInstanceData::ContainsData() || ModifiedAsset || ModifiedAssetOwned ||
+			SupportStructure || SupportStructureIndex != INDEX_NONE;
 	}
 
 private:
@@ -1230,7 +1263,8 @@ void UBlastMeshComponent::RebuildChunkVisibility()
 	//Need to check SceneProxy since we don't know when to set BlastProxy to null
 	if (BlastProxy && SceneProxy)
 	{
-		ENQUEUE_RENDER_COMMAND(VisibleBonesForDebugDataCommand)([BlastProxy{ BlastProxy }, Chunks{ ChunkVisibility }](FRHICommandList& RHICmdList) mutable
+		ENQUEUE_RENDER_COMMAND(VisibleBonesForDebugDataCommand)(
+			[BlastProxy{BlastProxy}, Chunks{ChunkVisibility}](FRHICommandList& RHICmdList) mutable
 			{
 				BlastProxy->UpdateVisibleChunks(MoveTemp(Chunks));
 			});
@@ -1338,7 +1372,8 @@ bool UBlastMeshComponent::ShouldTickPose() const
 }
 
 
-void UBlastMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport /*= ETeleportType::None*/)
+void UBlastMeshComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags,
+                                            ETeleportType Teleport /*= ETeleportType::None*/)
 {
 	//We handle the Physics update
 	Super::OnUpdateTransform(UpdateTransformFlags | EUpdateTransformFlags::SkipPhysicsUpdate, Teleport);
@@ -1431,7 +1466,7 @@ void UBlastMeshComponent::ForEachBodyEx(TFunctionRef<void(const FBodyInstance*, 
 }
 
 bool UBlastMeshComponent::OverlapComponent(const FVector& Pos, const FQuat& Rot,
-	const FCollisionShape& CollisionShape) const
+                                           const FCollisionShape& CollisionShape) const
 {
 	bool bSuccess = false;
 	ForEachBodyEx(
@@ -1447,17 +1482,21 @@ bool UBlastMeshComponent::OverlapComponent(const FVector& Pos, const FQuat& Rot,
 	return bSuccess;
 }
 
-bool UBlastMeshComponent::UpdateOverlapsImpl(const TOverlapArrayView* PendingOverlaps, bool bDoNotifies, const TOverlapArrayView* OverlapsAtEndLocation)
+bool UBlastMeshComponent::UpdateOverlapsImpl(const TOverlapArrayView* PendingOverlaps, bool bDoNotifies,
+                                             const TOverlapArrayView* OverlapsAtEndLocation)
 {
 	return UPrimitiveComponent::UpdateOverlapsImpl(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
 }
 
-bool UBlastMeshComponent::ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Quat, const struct FCollisionQueryParams& Params)
+bool UBlastMeshComponent::ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos,
+                                                        const FQuat& Quat, const struct FCollisionQueryParams& Params)
 {
 	// we do not support skinned mesh vs skinned mesh overlap test
 	if (PrimComp->IsA<USkinnedMeshComponent>())
 	{
-		UE_LOG(LogCollision, Warning, TEXT("ComponentOverlapComponent : (%s) Does not support skinnedmesh with Physics Asset"), *PrimComp->GetPathName());
+		UE_LOG(LogCollision, Warning,
+		       TEXT("ComponentOverlapComponent : (%s) Does not support skinnedmesh with Physics Asset"),
+		       *PrimComp->GetPathName());
 		return false;
 	}
 
@@ -1477,7 +1516,11 @@ bool UBlastMeshComponent::ComponentOverlapComponentImpl(class UPrimitiveComponen
 	return false;
 }
 
-bool UBlastMeshComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const UWorld* World, const FVector& Pos, const FQuat& Quat, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+bool UBlastMeshComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const UWorld* World,
+                                                    const FVector& Pos, const FQuat& Quat,
+                                                    ECollisionChannel TestChannel,
+                                                    const struct FComponentQueryParams& Params,
+                                                    const struct FCollisionObjectQueryParams& ObjectQueryParams) const
 {
 	OutOverlaps.Reset();
 
@@ -1492,7 +1535,8 @@ bool UBlastMeshComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult
 		[&](const FBodyInstance* Body)
 		{
 			checkSlow(Body);
-			if (Body->OverlapMulti(OutOverlaps, World, &WorldToComponent, Pos, Quat, TestChannel, ParamsWithSelf, ResponseParams, ObjectQueryParams))
+			if (Body->OverlapMulti(OutOverlaps, World, &WorldToComponent, Pos, Quat, TestChannel, ParamsWithSelf,
+			                       ResponseParams, ObjectQueryParams))
 			{
 				bHaveBlockingHit = true;
 			}
@@ -1501,23 +1545,25 @@ bool UBlastMeshComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult
 	return bHaveBlockingHit;
 }
 
-bool UBlastMeshComponent::SweepComponent(FHitResult& OutHit, const FVector Start, const FVector End, const FQuat& ShapeWorldRotation, const FCollisionShape& CollisionShape, bool bTraceComplex)
+bool UBlastMeshComponent::SweepComponent(FHitResult& OutHit, const FVector Start, const FVector End,
+                                         const FQuat& ShapeWorldRotation, const FCollisionShape& CollisionShape,
+                                         bool bTraceComplex)
 {
 	bool bHaveHit = false;
 
 	FHitResult Hit;
 	ForEachBody([&](FBodyInstance* Body)
+	{
+		checkSlow(Body);
+		if (Body->Sweep(Hit, Start, End, ShapeWorldRotation, CollisionShape, bTraceComplex))
 		{
-			checkSlow(Body);
-			if (Body->Sweep(Hit, Start, End, ShapeWorldRotation, CollisionShape, bTraceComplex))
+			if (!bHaveHit || Hit.Time < OutHit.Time)
 			{
-				if (!bHaveHit || Hit.Time < OutHit.Time)
-				{
-					OutHit = Hit;
-				}
-				bHaveHit = true;
+				OutHit = Hit;
 			}
-		});
+			bHaveHit = true;
+		}
+	});
 
 	return bHaveHit;
 }
@@ -1582,7 +1628,9 @@ void UBlastMeshComponent::SendRenderDynamicData_Concurrent()
 	//Need to check SceneProxy since we don't know when to set BlastProxy to null
 	if (BlastProxy && SceneProxy)
 	{
-		ENQUEUE_RENDER_COMMAND(DebugLinesCommand)([BlastProxy{ BlastProxy }, Lines{ MoveTemp(PendingDebugLines) }, Points{ MoveTemp(PendingDebugPoints) }](FRHICommandList& RHICmdList) mutable
+		ENQUEUE_RENDER_COMMAND(DebugLinesCommand)(
+			[BlastProxy{BlastProxy}, Lines{MoveTemp(PendingDebugLines)}, Points{MoveTemp(PendingDebugPoints)}](
+			FRHICommandList& RHICmdList) mutable
 			{
 				BlastProxy->UpdateDebugDrawLines(MoveTemp(Lines), MoveTemp(Points));
 			});
@@ -1658,7 +1706,8 @@ bool UBlastMeshComponent::IsExtendedSupportDirty() const
 		if (SavedComponents.IsValidIndex(OwningSupportStructureIndex))
 		{
 			const auto& Saved = SavedComponents[OwningSupportStructureIndex];
-			if (Saved.GUIDAtMerge == BlastMesh->GetAssetGUID() && Saved.TransformAtMerge.Equals(GetComponentTransform()))
+			if (Saved.GUIDAtMerge == BlastMesh->GetAssetGUID() && Saved.TransformAtMerge.
+			                                                            Equals(GetComponentTransform()))
 			{
 				return false;
 			}
@@ -1678,7 +1727,8 @@ void UBlastMeshComponent::SetOwningSuppportStructure(ABlastExtendedSupportStruct
 #if WITH_EDITOR
 		if (OwningSupportStructure != NewStructure)
 		{
-			OwningSupportStructureIndex = INDEX_NONE; //Make sure don't try and read invalid data inside InvalidateSupportData()
+			OwningSupportStructureIndex = INDEX_NONE;
+			//Make sure don't try and read invalid data inside InvalidateSupportData()
 			if (OwningSupportStructure)
 			{
 				OwningSupportStructure->RemoveStructureActor(GetOwner());
@@ -1717,7 +1767,8 @@ void UBlastMeshComponent::Reset()
 	InitBlastFamily();
 }
 
-void UBlastMeshComponent::BroadcastOnDamaged(FName ActorName, const FVector& DamageOrigin, const FRotator& DamageRot, FName DamageType)
+void UBlastMeshComponent::BroadcastOnDamaged(FName ActorName, const FVector& DamageOrigin, const FRotator& DamageRot,
+                                             FName DamageType)
 {
 	OnDamaged.Broadcast(this, ActorName, DamageOrigin, DamageRot, DamageType);
 }
@@ -1732,55 +1783,65 @@ void UBlastMeshComponent::BroadcastOnActorDestroyed(FName ActorName)
 	OnActorDestroyed.Broadcast(this, ActorName);
 }
 
-void UBlastMeshComponent::BroadcastOnActorCreatedFromDamage(FName ActorName, const FVector& DamageOrigin, const FRotator& DamageRot, FName DamageType)
+void UBlastMeshComponent::BroadcastOnActorCreatedFromDamage(FName ActorName, const FVector& DamageOrigin,
+                                                            const FRotator& DamageRot, FName DamageType)
 {
 	OnActorCreatedFromDamage.Broadcast(this, ActorName, DamageOrigin, DamageRot, DamageType);
 }
 
-void UBlastMeshComponent::BroadcastOnBondsDamaged(FName ActorName, bool bIsSplit, FName DamageType, const TArray<FBondDamageEvent>& Events)
+void UBlastMeshComponent::BroadcastOnBondsDamaged(FName ActorName, bool bIsSplit, FName DamageType,
+                                                  const TArray<FBondDamageEvent>& Events)
 {
 	OnBondsDamaged.Broadcast(this, ActorName, bIsSplit, DamageType, Events);
 }
 
-void UBlastMeshComponent::BroadcastOnChunksDamaged(FName ActorName, bool bIsSplit, FName DamageType, const TArray<FChunkDamageEvent>& Events)
+void UBlastMeshComponent::BroadcastOnChunksDamaged(FName ActorName, bool bIsSplit, FName DamageType,
+                                                   const TArray<FChunkDamageEvent>& Events)
 {
 	OnChunksDamaged.Broadcast(this, ActorName, bIsSplit, DamageType, Events);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageComponent(UBlastBaseDamageComponent* DamageComponent, FVector Origin, FRotator Rot, FName BoneName)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageComponent(UBlastBaseDamageComponent* DamageComponent, FVector Origin,
+                                                             FRotator Rot, FName BoneName)
 {
 	FQuat QuatRot = Rot.Quaternion();
 	return ApplyDamageProgram(*DamageComponent->GetDamagePorgram(), Origin, QuatRot, BoneName);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageComponentOverlap(UBlastBaseDamageComponent* DamageComponent, FVector Origin, FRotator Rot)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageComponentOverlap(UBlastBaseDamageComponent* DamageComponent,
+                                                                    FVector Origin, FRotator Rot)
 {
 	FQuat QuatRot = Rot.Quaternion();
 	return ApplyDamageProgramOverlap(*DamageComponent->GetDamagePorgram(), Origin, QuatRot);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageComponentOverlapAll(UBlastBaseDamageComponent* DamageComponent, FVector Origin, FRotator Rot)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageComponentOverlapAll(UBlastBaseDamageComponent* DamageComponent,
+                                                                       FVector Origin, FRotator Rot)
 {
 	FQuat QuatRot = Rot.Quaternion();
 	return ApplyDamageProgramOverlapAll(*DamageComponent->GetDamagePorgram(), Origin, QuatRot);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlap(const FBlastBaseDamageProgram& DamageProgram, FVector Origin, FQuat Rot)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlap(const FBlastBaseDamageProgram& DamageProgram,
+                                                                  FVector Origin, FQuat Rot)
 {
 	if (OwningSupportStructure && OwningSupportStructureIndex != INDEX_NONE)
 	{
-		return OwningSupportStructure->GetExtendedSupportMeshComponent()->ApplyDamageProgramOverlap(DamageProgram, Origin, Rot);
+		return OwningSupportStructure->GetExtendedSupportMeshComponent()->ApplyDamageProgramOverlap(
+			DamageProgram, Origin, Rot);
 	}
 
 	return ApplyDamageProgramOverlapFiltered(this, DamageProgram, Origin, Rot);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlapAll(const FBlastBaseDamageProgram& DamageProgram, FVector Origin, FQuat Rot)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlapAll(const FBlastBaseDamageProgram& DamageProgram,
+                                                                     FVector Origin, FQuat Rot)
 {
 	return ApplyDamageProgramOverlapFiltered(nullptr, DamageProgram, Origin, Rot);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageProgram(const FBlastBaseDamageProgram& DamageProgram, FVector Origin, FQuat Rot, FName BoneName)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageProgram(const FBlastBaseDamageProgram& DamageProgram, FVector Origin,
+                                                           FQuat Rot, FName BoneName)
 {
 	if (bIgnoreDamage)
 	{
@@ -1789,7 +1850,8 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgram(const FBlastBaseDamag
 
 	if (OwningSupportStructure && OwningSupportStructureIndex != INDEX_NONE)
 	{
-		return OwningSupportStructure->GetExtendedSupportMeshComponent()->ApplyDamageProgram(DamageProgram, Origin, Rot, BoneName);
+		return OwningSupportStructure->GetExtendedSupportMeshComponent()->ApplyDamageProgram(
+			DamageProgram, Origin, Rot, BoneName);
 	}
 
 	EBlastDamageResult totalResult = EBlastDamageResult::None;
@@ -1817,47 +1879,58 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgram(const FBlastBaseDamag
 	return totalResult;
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyRadialDamage(FVector Origin, float MinRadius, float MaxRadius, float Damage, float ImpulseStrength, bool bImpulseVelChange, bool bRandomizeImpulse)
+EBlastDamageResult UBlastMeshComponent::ApplyRadialDamage(FVector Origin, float MinRadius, float MaxRadius,
+                                                          float Damage, float ImpulseStrength, bool bImpulseVelChange,
+                                                          bool bRandomizeImpulse)
 {
-	BlastRadialDamageProgram program(Damage, MinRadius, MaxRadius, ImpulseStrength, bImpulseVelChange, bRandomizeImpulse);
+	BlastRadialDamageProgram program(Damage, MinRadius, MaxRadius, ImpulseStrength, bImpulseVelChange,
+	                                 bRandomizeImpulse);
 	return ApplyDamageProgramOverlap(program, Origin);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyRadialDamageAll(FVector Origin, float MinRadius, float MaxRadius, float Damage, float ImpulseStrength, bool bImpulseVelChange)
+EBlastDamageResult UBlastMeshComponent::ApplyRadialDamageAll(FVector Origin, float MinRadius, float MaxRadius,
+                                                             float Damage, float ImpulseStrength,
+                                                             bool bImpulseVelChange)
 {
 	BlastRadialDamageProgram program(Damage, MinRadius, MaxRadius, ImpulseStrength, bImpulseVelChange);
 	return ApplyDamageProgramOverlapAll(program, Origin);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyShearDamage(FVector Origin, FQuat Direction, float MinRadius, float MaxRadius, float Damage,
-	float ImpulseStrength, bool bImpulseVelChange)
+EBlastDamageResult UBlastMeshComponent::ApplyShearDamage(FVector Origin, FQuat Direction, float MinRadius,
+                                                         float MaxRadius, float Damage,
+                                                         float ImpulseStrength, bool bImpulseVelChange)
 {
 	BlastShearDamageProgram program(Damage, MinRadius, MaxRadius, ImpulseStrength, bImpulseVelChange);
 	return ApplyDamageProgramOverlap(program, Origin, Direction);
 }
 
 EBlastDamageResult UBlastMeshComponent::ApplyShearDamageAll(FVector Origin, float MinRadius, float MaxRadius,
-	float Damage, float ImpulseStrength, bool bImpulseVelChange)
+                                                            float Damage, float ImpulseStrength, bool bImpulseVelChange)
 {
 	BlastShearDamageProgram program(Damage, MinRadius, MaxRadius, ImpulseStrength, bImpulseVelChange);
 	return ApplyDamageProgramOverlapAll(program, Origin);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyCapsuleDamage(FVector Origin, FRotator Rot, float HalfHeight, float MinRadius, float MaxRadius, float Damage, float ImpulseStrength, bool bImpulseVelChange)
+EBlastDamageResult UBlastMeshComponent::ApplyCapsuleDamage(FVector Origin, FRotator Rot, float HalfHeight,
+                                                           float MinRadius, float MaxRadius, float Damage,
+                                                           float ImpulseStrength, bool bImpulseVelChange)
 {
 	BlastCapsuleDamageProgram program(Damage, HalfHeight, MinRadius, MaxRadius, ImpulseStrength, bImpulseVelChange);
 	FQuat QuatRot = Rot.Quaternion();
 	return ApplyDamageProgramOverlap(program, Origin, QuatRot);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyCapsuleDamageAll(FVector Origin, FRotator Rot, float HalfHeight, float MinRadius, float MaxRadius, float Damage, float ImpulseStrength, bool bImpulseVelChange)
+EBlastDamageResult UBlastMeshComponent::ApplyCapsuleDamageAll(FVector Origin, FRotator Rot, float HalfHeight,
+                                                              float MinRadius, float MaxRadius, float Damage,
+                                                              float ImpulseStrength, bool bImpulseVelChange)
 {
 	BlastCapsuleDamageProgram program(Damage, HalfHeight, MinRadius, MaxRadius, ImpulseStrength, bImpulseVelChange);
 	FQuat QuatRot = Rot.Quaternion();
 	return ApplyDamageProgramOverlapAll(program, Origin, QuatRot);
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlapFiltered(UBlastMeshComponent* mesh, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlapFiltered(
+	UBlastMeshComponent* mesh, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot)
 {
 	TArray<FOverlapResult> Overlaps;
 	FCollisionObjectQueryParams ObjectParams;
@@ -1894,7 +1967,10 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageProgramOverlapFiltered(UBlast
 	return totalResult;
 }
 
-EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, const FBlastBaseDamageProgram& DamageProgram, const FVector& Origin, const FQuat& Rot, FScopedSceneLock_Chaos* SceneLock)
+EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex,
+                                                           const FBlastBaseDamageProgram& DamageProgram,
+                                                           const FVector& Origin, const FQuat& Rot,
+                                                           FScopedSceneLock_Chaos* SceneLock)
 {
 	//Should never happen for a sub-component
 	check(!OwningSupportStructure || OwningSupportStructureIndex == INDEX_NONE);
@@ -1914,7 +1990,8 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, co
 
 	if (!NvBlastActorCanFracture(Actor, Nv::Blast::logLL))
 	{
-		UE_LOG(LogBlast, Verbose, TEXT("Can't fracture actor \"%s\" further."), *(ActorIndexToActorName(actorIndex).ToString()));
+		UE_LOG(LogBlast, Verbose, TEXT("Can't fracture actor \"%s\" further."),
+		       *(ActorIndexToActorName(actorIndex).ToString()));
 
 		if (bCrumbleInmostChunks)
 		{
@@ -1931,14 +2008,15 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, co
 				WriteLock.Release();
 				if (SceneLock)
 				{
-					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
+					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(),
+					                                    EPhysicsInterfaceScopedLockType::Read);
 				}
 				bNeedToFlipSpaceBaseBuffers = true;
 				bAddedOrRemovedActorSinceLastRefresh = true;
 			}
 			return EBlastDamageResult::Crumbled;
 		}
-		return  EBlastDamageResult::None;
+		return EBlastDamageResult::None;
 	}
 
 	FBodyInstance* BodyInst = ActorData.BodyInstance;
@@ -1984,7 +2062,8 @@ EBlastDamageResult UBlastMeshComponent::ApplyDamageOnActor(uint32 actorIndex, co
 	return EBlastDamageResult::None;
 }
 
-bool UBlastMeshComponent::ExecuteBlastDamageProgram(uint32 actorIndex, const NvBlastDamageProgram& program, const NvBlastExtProgramParams& programParams, FName DamageType)
+bool UBlastMeshComponent::ExecuteBlastDamageProgram(uint32 actorIndex, const NvBlastDamageProgram& program,
+                                                    const NvBlastExtProgramParams& programParams, FName DamageType)
 {
 	check(BlastActors.IsValidIndex(actorIndex));
 	NvBlastActor* Actor = BlastActors[actorIndex].BlastActor;
@@ -2008,7 +2087,8 @@ bool UBlastMeshComponent::ExecuteBlastDamageProgram(uint32 actorIndex, const NvB
 	}
 }
 
-void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFractureBuffers& fractureBuffers, FName DamageType)
+void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFractureBuffers& fractureBuffers,
+                                        FName DamageType)
 {
 	FActorData& ActorData = BlastActors[actorIndex];
 	NvBlastActor* Actor = ActorData.BlastActor;
@@ -2045,7 +2125,8 @@ void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFracture
 			for (uint32 i = 0; i < fractureBuffers.bondFractureCount; i++)
 			{
 				const NvBlastBondFractureData& FractureData = fractureBuffers.bondFractures[i];
-				for (uint32 AdjacencyIndex = Graph.adjacencyPartition[FractureData.nodeIndex0]; AdjacencyIndex < Graph.adjacencyPartition[FractureData.nodeIndex0 + 1]; AdjacencyIndex++)
+				for (uint32 AdjacencyIndex = Graph.adjacencyPartition[FractureData.nodeIndex0]; AdjacencyIndex < Graph.
+				     adjacencyPartition[FractureData.nodeIndex0 + 1]; AdjacencyIndex++)
 				{
 					if (Graph.adjacentNodeIndices[AdjacencyIndex] == FractureData.nodeIndex1)
 					{
@@ -2091,7 +2172,10 @@ void UBlastMeshComponent::ApplyFracture(uint32 actorIndex, const NvBlastFracture
 	}
 }
 
-bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType, const FBlastBaseDamageProgram* DamageProgram, const FBlastBaseDamageProgram::FInput* Input, FScopedSceneLock_Chaos* SceneLock)
+bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType,
+                                           const FBlastBaseDamageProgram* DamageProgram,
+                                           const FBlastBaseDamageProgram::FInput* Input,
+                                           FScopedSceneLock_Chaos* SceneLock)
 {
 	// At this point we can split off some new actors
 
@@ -2109,19 +2193,24 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 
 	uint32 parentActorIndex = NvBlastActorGetIndex(actor, Nv::Blast::logLL);
 
-	uint32 newActorsCount = NvBlastActorSplit(&splitEvent, actor, newActorsBuffer.Num(), splitScratch.GetData(), Nv::Blast::logLL, nullptr);
+	uint32 newActorsCount = NvBlastActorSplit(&splitEvent, actor, newActorsBuffer.Num(), splitScratch.GetData(),
+	                                          Nv::Blast::logLL, nullptr);
 	bool bIsSplit = (splitEvent.deletedActor != nullptr);
 
 	// Now we know if split is going to happen, we can fire buffered damage events
 	if (OnChunksDamagedBound() && RecentDamageEventsBuffer.ChunkEvents.Num() > 0)
 	{
-		check(RecentDamageEventsBuffer.ActorIndex == parentActorIndex); // If it fails some damage logic must have changed and we need more clever event buffer (per-actor probably)
-		BroadcastOnChunksDamaged(ActorIndexToActorName(parentActorIndex), bIsSplit, DamageType, RecentDamageEventsBuffer.ChunkEvents);
+		check(RecentDamageEventsBuffer.ActorIndex == parentActorIndex);
+		// If it fails some damage logic must have changed and we need more clever event buffer (per-actor probably)
+		BroadcastOnChunksDamaged(ActorIndexToActorName(parentActorIndex), bIsSplit, DamageType,
+		                         RecentDamageEventsBuffer.ChunkEvents);
 	}
 	if (OnBondsDamagedBound() && RecentDamageEventsBuffer.BondEvents.Num() > 0)
 	{
-		check(RecentDamageEventsBuffer.ActorIndex == parentActorIndex); // If it fails some damage logic must have changed and we need more clever event buffer (per-actor probably)
-		BroadcastOnBondsDamaged(ActorIndexToActorName(parentActorIndex), bIsSplit, DamageType, RecentDamageEventsBuffer.BondEvents);
+		check(RecentDamageEventsBuffer.ActorIndex == parentActorIndex);
+		// If it fails some damage logic must have changed and we need more clever event buffer (per-actor probably)
+		BroadcastOnBondsDamaged(ActorIndexToActorName(parentActorIndex), bIsSplit, DamageType,
+		                        RecentDamageEventsBuffer.BondEvents);
 	}
 	RecentDamageEventsBuffer.Reset();
 
@@ -2129,10 +2218,16 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 	if (bIsSplit)
 	{
 		FBodyInstance* ParentBodyInstance = BlastActors[parentActorIndex].BodyInstance;
-		FTransform ParentWorldTransform = SceneLock ? ParentBodyInstance->GetUnrealWorldTransform_AssumesLocked() : ParentBodyInstance->GetUnrealWorldTransform();
+		FTransform ParentWorldTransform = SceneLock
+			                                  ? ParentBodyInstance->GetUnrealWorldTransform_AssumesLocked()
+			                                  : ParentBodyInstance->GetUnrealWorldTransform();
 		ParentWorldTransform.SetScale3D(ParentBodyInstance->Scale3D);
-		FVector ParentLinVel = SceneLock ? ParentBodyInstance->GetUnrealWorldVelocity_AssumesLocked() : ParentBodyInstance->GetUnrealWorldVelocity();
-		FVector ParentAngVel = SceneLock ? ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians_AssumesLocked() : ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians();
+		FVector ParentLinVel = SceneLock
+			                       ? ParentBodyInstance->GetUnrealWorldVelocity_AssumesLocked()
+			                       : ParentBodyInstance->GetUnrealWorldVelocity();
+		FVector ParentAngVel = SceneLock
+			                       ? ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians_AssumesLocked()
+			                       : ParentBodyInstance->GetUnrealWorldAngularVelocityInRadians();
 		FVector ParentCOM = ParentBodyInstance->GetCOMPosition();
 
 		//Cannot have the read lock when doing BreakDownBlastActor since it can't upgrade to a write lock
@@ -2168,7 +2263,8 @@ bool UBlastMeshComponent::HandlePostDamage(NvBlastActor* actor, FName DamageType
 	return false;
 }
 
-void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+                                FVector NormalImpulse, const FHitResult& Hit)
 {
 	const FBlastImpactDamageProperties& UsedImpactProperties = GetUsedImpactDamageProperties();
 	if (!UsedImpactProperties.AdvancedSettings.bSelfCollision && HitComponent == OtherComp)
@@ -2178,7 +2274,10 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 	const FName& OtherBoneName = Hit.Component == this ? Hit.MyBoneName : Hit.BoneName;
 	if (OurBoneName.IsNone())
 	{
-		UE_LOG(LogBlast, Warning, TEXT("BlastMeshComponent was hit but BoneName is empty. Add BoneName in order impact damage/stress solver/damage component to work."));
+		UE_LOG(LogBlast, Warning,
+		       TEXT(
+			       "BlastMeshComponent was hit but BoneName is empty. Add BoneName in order impact damage/stress solver/damage component to work."
+		       ));
 		return;
 	}
 	const int32 ActorIndex = ActorNameToActorIndex(OurBoneName);
@@ -2188,7 +2287,9 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 	}
 
 	// Look for a BlastDamageComponent on the actor that hit us.
-	UBlastBaseDamageComponent* DamageComponent = OtherActor ? OtherActor->FindComponentByClass<UBlastBaseDamageComponent>() : nullptr;
+	UBlastBaseDamageComponent* DamageComponent = OtherActor
+		                                             ? OtherActor->FindComponentByClass<UBlastBaseDamageComponent>()
+		                                             : nullptr;
 	if (!DamageComponent || !DamageComponent->bDamageOnHit)
 	{
 		// Look for a BlastDamageComponent on us then.
@@ -2233,20 +2334,26 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 			}
 
 			// Impact Impulse
-			const FVector VelocityDelta = BodyInst->GetUnrealWorldVelocity_AssumesLocked() - OtherBodyInst->GetUnrealWorldVelocity_AssumesLocked();
+			const FVector VelocityDelta = BodyInst->GetUnrealWorldVelocity_AssumesLocked() - OtherBodyInst->
+				GetUnrealWorldVelocity_AssumesLocked();
 			const float ImpactVelocity = FMath::Abs<float>(Hit.ImpactNormal | VelocityDelta);
 			const float ImpactImpulse = ImpactVelocity * ReducedMass;
 
 			// Pass impact impulse to stress solver?
-			if (Actor && BodyInst && UsedStressProperties.bApplyImpactImpulses && UsedStressProperties.bCalculateStress && StressSolver)
+			if (Actor && BodyInst && UsedStressProperties.bApplyImpactImpulses && UsedStressProperties.bCalculateStress
+				&& StressSolver)
 			{
 				FTransform WT = BodyInst->GetUnrealWorldTransform_AssumesLocked();
 				WT.SetScale3D(BodyInst->Scale3D);
 				const FTransform invWT = WT.Inverse();
 
-				const float ForceScale = 1.f / (BodyInst->Scale3D.X * BodyInst->Scale3D.X * BodyInst->Scale3D.X * BodyInst->Scale3D.X); // assuming uniform. (p = mv; X*X*X goes for the volume, and one more X for velocity)
+				const float ForceScale = 1.f / (BodyInst->Scale3D.X * BodyInst->Scale3D.X * BodyInst->Scale3D.X *
+					BodyInst->Scale3D.X);
+				// assuming uniform. (p = mv; X*X*X goes for the volume, and one more X for velocity)
 				NvcVec3 LocalPosition = ToNvVector(invWT.TransformPosition(Hit.ImpactPoint));
-				NvcVec3 LocalForce = ToNvVector((invWT.TransformVector(Hit.ImpactNormal)).GetSafeNormal() * ImpactImpulse * UsedStressProperties.ImpactImpulseToStressImpulseFactor * ForceScale);
+				NvcVec3 LocalForce = ToNvVector(
+					(invWT.TransformVector(Hit.ImpactNormal)).GetSafeNormal() * ImpactImpulse * UsedStressProperties.
+					ImpactImpulseToStressImpulseFactor * ForceScale);
 
 				StressSolver->addForce(*Actor, (NvcVec3&)LocalPosition, (NvcVec3&)LocalForce);
 			}
@@ -2254,29 +2361,37 @@ void UBlastMeshComponent::OnHit(UPrimitiveComponent* HitComponent, AActor* Other
 			// Apply impact impulse damage ?
 			if (UsedImpactProperties.bEnabled)
 			{
-				const float DamageImpulse = ImpactVelocity * (UsedImpactProperties.AdvancedSettings.bVelocityBased ? 1.0f : ReducedMass);
-				const float Impulse01 = FMath::Clamp<float>(FMath::GetRangePct(0.f, UsedBlastMaterial.Health * UsedImpactProperties.Hardness, DamageImpulse), 0.f, UsedImpactProperties.AdvancedSettings.MaxDamageThreshold);
+				const float DamageImpulse = ImpactVelocity * (UsedImpactProperties.AdvancedSettings.bVelocityBased
+					                                              ? 1.0f
+					                                              : ReducedMass);
+				const float Impulse01 = FMath::Clamp<float>(
+					FMath::GetRangePct(0.f, UsedBlastMaterial.Health * UsedImpactProperties.Hardness, DamageImpulse),
+					0.f, UsedImpactProperties.AdvancedSettings.MaxDamageThreshold);
 				if (Impulse01 > UsedImpactProperties.AdvancedSettings.MinDamageThreshold)
 				{
 					const float Damage = UsedBlastMaterial.Health * Impulse01;
 
 					const float RadiusScale = 1.f / BodyInst->Scale3D.X; // approx for non-uniform scale
 					const float MinRadius = UsedImpactProperties.MaxDamageRadius * Impulse01 * RadiusScale;
-					const float MaxRadius = MinRadius * FMath::Clamp<float>(UsedImpactProperties.AdvancedSettings.DamageFalloffRadiusFactor, 1, 32); // 32 is just some reasonable limit here
+					const float MaxRadius = MinRadius * FMath::Clamp<float>(
+						UsedImpactProperties.AdvancedSettings.DamageFalloffRadiusFactor, 1,
+						32); // 32 is just some reasonable limit here
 					const FName DamageType(TEXT("Impact"));
 					const FQuat NormalRot = Hit.ImpactNormal.Rotation().Quaternion();
 
 					if (UsedImpactProperties.AdvancedSettings.bUseShearDamage)
 					{
 						BlastShearDamageProgram AppliedDamageProgram(Damage, MinRadius, MaxRadius);
-						AppliedDamageProgram.ImpulseStrength = ImpactImpulse * UsedImpactProperties.PhysicalImpulseFactor;
+						AppliedDamageProgram.ImpulseStrength = ImpactImpulse * UsedImpactProperties.
+							PhysicalImpulseFactor;
 						AppliedDamageProgram.DamageType = DamageType;
 						ApplyDamageOnActor(ActorIndex, AppliedDamageProgram, Hit.ImpactPoint, NormalRot, &Lock);
 					}
 					else
 					{
 						BlastRadialDamageProgram AppliedDamageProgram(Damage, MinRadius, MaxRadius);
-						AppliedDamageProgram.ImpulseStrength = ImpactImpulse * UsedImpactProperties.PhysicalImpulseFactor;
+						AppliedDamageProgram.ImpulseStrength = ImpactImpulse * UsedImpactProperties.
+							PhysicalImpulseFactor;
 						AppliedDamageProgram.DamageType = DamageType;
 						ApplyDamageOnActor(ActorIndex, AppliedDamageProgram, Hit.ImpactPoint, NormalRot, &Lock);
 					}
@@ -2294,7 +2409,8 @@ void UBlastMeshComponent::UpdateFractureBufferSize()
 		return;
 	}
 
-	FBlastFractureScratch::getInstance().ensureFractureBuffersSize(BlastAsset->GetChunkCount(), BlastAsset->GetBondCount());
+	FBlastFractureScratch::getInstance().ensureFractureBuffersSize(BlastAsset->GetChunkCount(),
+	                                                               BlastAsset->GetBondCount());
 }
 
 bool UBlastMeshComponent::IsSimulatingPhysics(FName BoneName /*= NAME_None*/) const
@@ -2302,7 +2418,8 @@ bool UBlastMeshComponent::IsSimulatingPhysics(FName BoneName /*= NAME_None*/) co
 	return true;
 }
 
-void UBlastMeshComponent::AddRadialImpulse(FVector Origin, float Radius, float Strength, enum ERadialImpulseFalloff Falloff, bool bVelChange /*= false*/)
+void UBlastMeshComponent::AddRadialImpulse(FVector Origin, float Radius, float Strength,
+                                           enum ERadialImpulseFalloff Falloff, bool bVelChange /*= false*/)
 {
 	for (int32 A = BlastActorsBeginLive; A < BlastActorsEndLive; A++)
 	{
@@ -2315,7 +2432,8 @@ void UBlastMeshComponent::AddRadialImpulse(FVector Origin, float Radius, float S
 }
 
 
-void UBlastMeshComponent::AddRadialForce(FVector Origin, float Radius, float Strength, enum ERadialImpulseFalloff Falloff, bool bAccelChange /*= false*/)
+void UBlastMeshComponent::AddRadialForce(FVector Origin, float Radius, float Strength,
+                                         enum ERadialImpulseFalloff Falloff, bool bAccelChange /*= false*/)
 {
 	for (int32 A = BlastActorsBeginLive; A < BlastActorsEndLive; A++)
 	{
@@ -2339,7 +2457,10 @@ void UBlastMeshComponent::Serialize(FArchive& Ar)
 	SetSkinnedAsset(BlastMesh ? BlastMesh->Mesh : nullptr);
 }
 
-void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastActorCreateInfo& CreateInfo, const FBlastBaseDamageProgram* DamageProgram, const FBlastBaseDamageProgram::FInput* Input, FName DamageType, bool bIsFirstActor)
+void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastActorCreateInfo& CreateInfo,
+                                             const FBlastBaseDamageProgram* DamageProgram,
+                                             const FBlastBaseDamageProgram::FInput* Input, FName DamageType,
+                                             bool bIsFirstActor)
 {
 	uint32 actorIndex = NvBlastActorGetIndex(actor, Nv::Blast::logLL);
 
@@ -2375,7 +2496,8 @@ void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastAc
 
 	TArray<uint32> VisibleChunksTemp;
 	VisibleChunksTemp.SetNumUninitialized(VisibleChunkCount);
-	NvBlastActorGetVisibleChunkIndices(VisibleChunksTemp.GetData(), VisibleChunkCount, ActorData.BlastActor, Nv::Blast::logLL);
+	NvBlastActorGetVisibleChunkIndices(VisibleChunksTemp.GetData(), VisibleChunkCount, ActorData.BlastActor,
+	                                   Nv::Blast::logLL);
 
 	check(VisibleChunkCount > 0);
 
@@ -2398,7 +2520,8 @@ void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastAc
 	if (!ActorData.bIsAttachedToComponent)
 	{
 		const FVector ActorCOM = ActorData.BodyInstance->GetCOMPosition();
-		const FVector LinVel = CreateInfo.ParentActorLinVel + FVector::CrossProduct(CreateInfo.ParentActorAngVel, (ActorCOM - CreateInfo.ParentActorCOM));
+		const FVector LinVel = CreateInfo.ParentActorLinVel + FVector::CrossProduct(
+			CreateInfo.ParentActorAngVel, (ActorCOM - CreateInfo.ParentActorCOM));
 		ActorData.BodyInstance->SetLinearVelocity(LinVel, false);
 		ActorData.BodyInstance->SetAngularVelocityInRadians(CreateInfo.ParentActorAngVel, false);
 	}
@@ -2417,7 +2540,9 @@ void UBlastMeshComponent::SetupNewBlastActor(NvBlastActor* actor, const FBlastAc
 
 	if (!DamageType.IsNone())
 	{
-		BroadcastOnActorCreatedFromDamage(ActorIndexToActorName(actorIndex), Input ? FVector(Input->worldOrigin) : FVector::ZeroVector, Input ? FQuat(Input->worldRot).Rotator() : FRotator::ZeroRotator, DamageType);
+		BroadcastOnActorCreatedFromDamage(ActorIndexToActorName(actorIndex),
+		                                  Input ? FVector(Input->worldOrigin) : FVector::ZeroVector,
+		                                  Input ? FQuat(Input->worldRot).Rotator() : FRotator::ZeroRotator, DamageType);
 	}
 
 	BroadcastOnActorCreated(ActorIndexToActorName(actorIndex));
@@ -2498,7 +2623,9 @@ void UBlastMeshComponent::BreakDownBlastActor(uint32 actorIndex)
 	bAddedOrRemovedActorSinceLastRefresh = true;
 }
 
-void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIndex, const FTransform& ParentActorWorldTransform, FPhysScene* PhysScene, bool bIsFirstActor)
+void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIndex,
+                                           const FTransform& ParentActorWorldTransform, FPhysScene* PhysScene,
+                                           bool bIsFirstActor)
 {
 	const UBlastAsset* BlastAsset = GetBlastAsset();
 	const auto& VisibleChunks = ActorData.Chunks;
@@ -2580,14 +2707,15 @@ void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIn
 		BodyInst->bNotifyRigidBodyCollision = false;
 	}
 
-	BodyInst->bStartAwake = true;	// Default to true - should we be taking this from higher up?
+	BodyInst->bStartAwake = true; // Default to true - should we be taking this from higher up?
 	BodyInst->DOFMode = EDOFMode::None;
 
 	BodyInst->InitBody(NewBodySetup, ParentActorWorldTransform, this, PhysScene);
 
 	// set max contact impulse for impact damage
 	const FBlastImpactDamageProperties& UsedImpactProperties = GetUsedImpactDamageProperties();
-	if (UsedImpactProperties.bEnabled && !BodyInst->bSimulatePhysics && UsedImpactProperties.AdvancedSettings.KinematicsMaxContactImpulse >= 0.f)
+	if (UsedImpactProperties.bEnabled && !BodyInst->bSimulatePhysics && UsedImpactProperties.AdvancedSettings.
+		KinematicsMaxContactImpulse >= 0.f)
 	{
 #if BLAST_USE_PHYSX
 		if (BodyInst->ActorHandle.IsValid() && FPhysicsInterface::IsRigidBody(BodyInst->ActorHandle))
@@ -2616,7 +2744,9 @@ void UBlastMeshComponent::InitBodyForActor(FActorData& ActorData, uint32 ActorIn
 
 #if WITH_EDITOR
 //It's ok to use the normal debug drawing API here since it's not called in tick
-bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolume*>& Volumes, TArray<uint32>& OverlappingChunks, TArray<FVector>& GlueVectors, TSet<class ABlastGlueVolume*>& OverlappingVolumes, bool bDrawDebug)
+bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolume*>& Volumes,
+                                                    TArray<uint32>& OverlappingChunks, TArray<FVector>& GlueVectors,
+                                                    TSet<class ABlastGlueVolume*>& OverlappingVolumes, bool bDrawDebug)
 {
 	OverlappingChunks.Reset();
 	GlueVectors.Reset();
@@ -2676,13 +2806,15 @@ bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolum
 						float Dist = DistanceToBox;
 						for (auto& Vertex : convex.VertexData)
 						{
-							if (GlueVolume->EncompassesPoint(CombinedTransform.TransformPosition(Vertex), 0.f, &Dist) && Dist <= DistanceToBox)
+							if (GlueVolume->EncompassesPoint(CombinedTransform.TransformPosition(Vertex), 0.f, &Dist) &&
+								Dist <= DistanceToBox)
 							{
 								isOverlapping = Dist <= 0.f;
 								DistanceToBox = Dist;
 							}
 						}
-						if (isOverlapping && (MostOverlappingGlueVolume == nullptr || DistanceToBox < MostOverlappingDistanceToBox))
+						if (isOverlapping && (MostOverlappingGlueVolume == nullptr || DistanceToBox <
+							MostOverlappingDistanceToBox))
 						{
 							MostOverlappingGlueVolume = GlueVolume;
 							MostOverlappingDistanceToBox = DistanceToBox;
@@ -2716,7 +2848,8 @@ bool UBlastMeshComponent::GetSupportChunksInVolumes(const TArray<ABlastGlueVolum
 
 				if (bDrawDebug)
 				{
-					::DrawDebugBox(GetWorld(), bounds.Origin, bounds.BoxExtent, FQuat::Identity, debugDrawColor.QuantizeRound(), true, 5.0f, 0, 2);
+					::DrawDebugBox(GetWorld(), bounds.Origin, bounds.BoxExtent, FQuat::Identity,
+					               debugDrawColor.QuantizeRound(), true, 5.0f, 0, 2);
 				}
 			}
 		}
@@ -2766,19 +2899,25 @@ void UBlastMeshComponent::TickStressSolver()
 		}
 
 		uint32 nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
-		if (nodeCount <= 1) // subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
+		if (nodeCount <= 1)
+			// subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
 			continue;
 
 		FBodyInstance* BodyInst = ActorData.BodyInstance;
 		if (BodyInst->bSimulatePhysics)
 		{
 			// should we apply centrifugal force? Add a toggle-parameter setting here?
-			const FVector LocalAngularVelocity = BodyInst->GetUnrealWorldTransform_AssumesLocked().InverseTransformVectorNoScale(BodyInst->GetUnrealWorldAngularVelocityInRadians_AssumesLocked());
-			StressSolver->addCentrifugalAcceleration(*actor, ToNvVector(BodyInst->GetMassSpaceLocal().GetLocation()), ToNvVector(LocalAngularVelocity));
+			const FVector LocalAngularVelocity = BodyInst->GetUnrealWorldTransform_AssumesLocked().
+			                                               InverseTransformVectorNoScale(
+				                                               BodyInst->
+				                                               GetUnrealWorldAngularVelocityInRadians_AssumesLocked());
+			StressSolver->addCentrifugalAcceleration(*actor, ToNvVector(BodyInst->GetMassSpaceLocal().GetLocation()),
+			                                         ToNvVector(LocalAngularVelocity));
 		}
 		else
 		{
-			const FVector LocalGravity = BodyInst->GetUnrealWorldTransform_AssumesLocked().InverseTransformVectorNoScale(Gravity);
+			const FVector LocalGravity = BodyInst->GetUnrealWorldTransform_AssumesLocked().
+			                                       InverseTransformVectorNoScale(Gravity);
 			StressSolver->addGravity(*actor, ToNvVector(LocalGravity));
 		}
 	}
@@ -2837,11 +2976,15 @@ void UBlastMeshComponent::TickStressSolver()
 							float ImpulseStrength;
 							float Radius;
 
-							virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override { return false; }
+							virtual bool Execute(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input,
+							                     UBlastMeshComponent& owner) const override { return false; }
 
-							virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody, const FInput& input, UBlastMeshComponent& owner) const override
+							virtual void ExecutePostActorCreated(uint32 actorIndex, FBodyInstance* actorBody,
+							                                     const FInput& input,
+							                                     UBlastMeshComponent& owner) const override
 							{
-								actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), Radius, ImpulseStrength, 0, true);
+								actorBody->AddRadialImpulseToBody(FVector(input.worldOrigin), Radius, ImpulseStrength,
+								                                  0, true);
 							}
 						};
 
@@ -2859,7 +3002,6 @@ void UBlastMeshComponent::TickStressSolver()
 						{
 							HandlePostDamage(actor, StressDamageType);
 						}
-
 					}
 				}
 			}
@@ -2887,7 +3029,8 @@ void UBlastMeshComponent::UpdateDebris()
 	}
 }
 
-void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& ActorTransform, FScopedSceneLock_Chaos* SceneLock)
+void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& ActorTransform,
+                                       FScopedSceneLock_Chaos* SceneLock)
 {
 	check(SceneLock);
 
@@ -2930,11 +3073,13 @@ void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& Actor
 				isDebris &= AABB.GetExtent().GetAbsMax() * 2.f < filter.DebrisMaxSize;
 			}
 
-			if (isDebris && (filter.bUseDebrisDepth || filter.bUseDebrisMaxSeparation || filter.bUseValidBounds || filter.bUseDebrisMaxSize))
+			if (isDebris && (filter.bUseDebrisDepth || filter.bUseDebrisMaxSeparation || filter.bUseValidBounds ||
+				filter.bUseDebrisMaxSize))
 			{
 				if (filter.DebrisLifetimeMin < filter.DebrisLifetimeMax)
 				{
-					lifetime = FMath::Min(lifetime, FMath::RandRange(filter.DebrisLifetimeMin, filter.DebrisLifetimeMax));
+					lifetime = FMath::Min(
+						lifetime, FMath::RandRange(filter.DebrisLifetimeMin, filter.DebrisLifetimeMax));
 				}
 				else
 				{
@@ -2943,10 +3088,12 @@ void UBlastMeshComponent::UpdateDebris(int32 ActorIndex, const FTransform& Actor
 				if (lifetime < 1e-2) //destroy debris immediately if its lifetime less then 0.01 s
 				{
 					SceneLock->Release();
-					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Write);
+					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(),
+					                                    EPhysicsInterfaceScopedLockType::Write);
 					BreakDownBlastActor(ActorIndex);
 					SceneLock->Release();
-					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(), EPhysicsInterfaceScopedLockType::Read);
+					*SceneLock = FScopedSceneLock_Chaos(GetWorld()->GetPhysicsScene(),
+					                                    EPhysicsInterfaceScopedLockType::Read);
 					break;
 				}
 			}
@@ -2967,7 +3114,9 @@ inline FLinearColor bondHealthColor(float healthFraction)
 	const FLinearColor BOND_HEALTHY_COLOR(0, 1.0f, 0, 1.0f);
 	const FLinearColor BOND_MID_COLOR(1.0f, 1.0f, 0, 1.0f);
 	const FLinearColor BOND_BROKEN_COLOR(1.0f, 0, 0, 1.0f);
-	return healthFraction < 0.5 ? FMath::Lerp(BOND_BROKEN_COLOR, BOND_MID_COLOR, 2.0f * healthFraction) : FMath::Lerp(BOND_MID_COLOR, BOND_HEALTHY_COLOR, 2.0f * healthFraction - 1.0f);
+	return healthFraction < 0.5
+		       ? FMath::Lerp(BOND_BROKEN_COLOR, BOND_MID_COLOR, 2.0f * healthFraction)
+		       : FMath::Lerp(BOND_MID_COLOR, BOND_HEALTHY_COLOR, 2.0f * healthFraction - 1.0f);
 }
 
 void UBlastMeshComponent::DrawDebugChunkCentroids()
@@ -3007,7 +3156,8 @@ void UBlastMeshComponent::DrawDebugChunkCentroids()
 			}
 
 			FVector worldCentroid = RestSpaceToWorldSpace.TransformPosition(FromNvVector(LLChunk.centroid));
-			DrawDebugBox(worldCentroid, FVector(10.0f), ActorData.bIsAttachedToComponent ? FLinearColor::White : FLinearColor::Green);
+			DrawDebugBox(worldCentroid, FVector(10.0f),
+			             ActorData.bIsAttachedToComponent ? FLinearColor::White : FLinearColor::Green);
 		}
 	}
 
@@ -3017,7 +3167,6 @@ void UBlastMeshComponent::DrawDebugChunkCentroids()
 		FVector worldCentroid = GetComponentTransform().TransformPosition(FromNvVector(LLChunk.centroid));
 		DrawDebugBox(worldCentroid, FVector(10.0f), FLinearColor::Blue);
 	}
-
 }
 
 void UBlastMeshComponent::DrawDebugSupportGraph()
@@ -3050,7 +3199,8 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 		}
 
 		uint32 nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
-		if (nodeCount <= 1) // subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
+		if (nodeCount <= 1)
+			// subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
 			continue;
 
 		FTransform RestSpaceToWorldSpace = ActorData.BodyInstance->GetUnrealWorldTransform();
@@ -3067,7 +3217,8 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 			const uint32 node0 = Nodes[i];
 			const uint32 chunkIndex0 = graph.chunkIndices[node0];
 
-			for (uint32 adjacencyIndex = graph.adjacencyPartition[node0]; adjacencyIndex < graph.adjacencyPartition[node0 + 1]; adjacencyIndex++)
+			for (uint32 adjacencyIndex = graph.adjacencyPartition[node0]; adjacencyIndex < graph.adjacencyPartition[
+				     node0 + 1]; adjacencyIndex++)
 			{
 				const uint32 node1 = graph.adjacentNodeIndices[adjacencyIndex];
 				const uint32 chunkIndex1 = graph.chunkIndices[node1];
@@ -3097,8 +3248,11 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 				// chunk connection (bond)
 				if (!invisibleBond)
 				{
-					DrawDebugLine(RestSpaceToWorldSpace.TransformPosition(FromNvVector(BlastAsset->GetChunkInfo(chunkIndex0).centroid)),
-						RestSpaceToWorldSpace.TransformPosition(FromNvVector(BlastAsset->GetChunkInfo(chunkIndex1).centroid)),
+					DrawDebugLine(
+						RestSpaceToWorldSpace.TransformPosition(
+							FromNvVector(BlastAsset->GetChunkInfo(chunkIndex0).centroid)),
+						RestSpaceToWorldSpace.TransformPosition(
+							FromNvVector(BlastAsset->GetChunkInfo(chunkIndex1).centroid)),
 						color);
 				}
 			}
@@ -3108,7 +3262,7 @@ void UBlastMeshComponent::DrawDebugSupportGraph()
 
 FLinearColor UnpackColor(uint32 color)
 {
-	const FLinearColor LinColor{ FColor(color) };
+	const FLinearColor LinColor{FColor(color)};
 	return FLinearColor(LinColor.B, LinColor.G, LinColor.R, LinColor.A);
 }
 
@@ -3130,16 +3284,20 @@ void UBlastMeshComponent::DrawDebugStressGraph()
 		}
 
 		uint32 nodeCount = NvBlastActorGetGraphNodeCount(actor, Nv::Blast::logLL);
-		if (nodeCount <= 1) // subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
+		if (nodeCount <= 1)
+			// subsupport chunks don't have graph nodes and only 1 node actor doesn't make sense to be drawn
 			continue;
 
 		Nodes.SetNum(nodeCount);
-		nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), static_cast<uint32>(Nodes.Max()), actor, Nv::Blast::logLL);
+		nodeCount = NvBlastActorGetGraphNodeIndices(Nodes.GetData(), static_cast<uint32>(Nodes.Max()), actor,
+		                                            Nv::Blast::logLL);
 
 		FTransform RestSpaceToWorldSpace = ActorData.BodyInstance->GetUnrealWorldTransform();
 		RestSpaceToWorldSpace.SetScale3D(ActorData.BodyInstance->Scale3D);
 
-		const Nv::Blast::ExtStressSolver::DebugBuffer Buf = StressSolver->fillDebugRender(Nodes.GetData(), nodeCount, static_cast<Nv::Blast::ExtStressSolver::DebugRenderMode>(static_cast<int>(StressDebugMode) - 1), 0.01f);
+		const Nv::Blast::ExtStressSolver::DebugBuffer Buf = StressSolver->fillDebugRender(
+			Nodes.GetData(), nodeCount,
+			static_cast<Nv::Blast::ExtStressSolver::DebugRenderMode>(static_cast<int>(StressDebugMode) - 1), 0.01f);
 
 		for (uint32 Idx = 0; Idx < Buf.lineCount; Idx++)
 		{
@@ -3152,31 +3310,46 @@ void UBlastMeshComponent::DrawDebugStressGraph()
 	}
 }
 
-void UBlastMeshComponent::DrawDebugLine(FVector const& LineStart, FVector const& LineEnd, FLinearColor const& Color, uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
+void UBlastMeshComponent::DrawDebugLine(FVector const& LineStart, FVector const& LineEnd, FLinearColor const& Color,
+                                        uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
 {
 	//We don't use the lifetime member
 	PendingDebugLines.Emplace(LineStart, LineEnd, Color, 0, Thickness, DepthPriority);
 }
 
-void UBlastMeshComponent::DrawDebugBox(FVector const& Center, FVector const& Extent, FLinearColor const& Color, uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
+void UBlastMeshComponent::DrawDebugBox(FVector const& Center, FVector const& Extent, FLinearColor const& Color,
+                                       uint8 DepthPriority /*= 0*/, float Thickness /*= 0.f*/)
 {
-	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, -Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, Extent.Y, Extent.Z), Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, -Extent.Y, Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, -Extent.Y, Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, Extent.Y, Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, Extent.Y, Extent.Z),
+	              Color, DepthPriority, Thickness);
 
-	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, -Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, -Extent.Z), Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Center + FVector(-Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, -Extent.Z), Center + FVector(Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, -Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, -Extent.Z), Center + FVector(-Extent.X, -Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Center + FVector(-Extent.X, Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, -Extent.Z), Center + FVector(Extent.X, Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
 
-	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, -Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
-	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, Extent.Z), Center + FVector(-Extent.X, Extent.Y, -Extent.Z), Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(Extent.X, Extent.Y, Extent.Z), Center + FVector(Extent.X, Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(Extent.X, -Extent.Y, Extent.Z), Center + FVector(Extent.X, -Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(-Extent.X, -Extent.Y, Extent.Z), Center + FVector(-Extent.X, -Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
+	DrawDebugLine(Center + FVector(-Extent.X, Extent.Y, Extent.Z), Center + FVector(-Extent.X, Extent.Y, -Extent.Z),
+	              Color, DepthPriority, Thickness);
 }
 
-void UBlastMeshComponent::DrawDebugPoint(FVector const& Position, float Size, FLinearColor const& PointColor, uint8 DepthPriority /*= 0*/)
+void UBlastMeshComponent::DrawDebugPoint(FVector const& Position, float Size, FLinearColor const& PointColor,
+                                         uint8 DepthPriority /*= 0*/)
 {
 	//We don't use the lifetime member
 	PendingDebugPoints.Emplace(Position, PointColor, Size, 0, DepthPriority);
@@ -3212,7 +3385,8 @@ FPrimitiveSceneProxy* UBlastMeshComponent::CreateSceneProxy()
 	return Result;
 }
 
-FBlastMeshSceneProxy::FBlastMeshSceneProxy(const UBlastMeshComponent* Component, FSkeletalMeshRenderData* InSkelMeshRenderData) :
+FBlastMeshSceneProxy::FBlastMeshSceneProxy(const UBlastMeshComponent* Component,
+                                           FSkeletalMeshRenderData* InSkelMeshRenderData) :
 	FBlastMeshSceneProxyBase(Component),
 	FSkeletalMeshSceneProxy(Component, InSkelMeshRenderData)
 {
@@ -3225,7 +3399,8 @@ FBlastMeshSceneProxy::FBlastMeshSceneProxy(const UBlastMeshComponent* Component,
 	}
 }
 
-void FBlastMeshSceneProxy::DebugDrawPhysicsAsset(int32 ViewIndex, FMeshElementCollector& Collector, const FEngineShowFlags& EngineShowFlags) const
+void FBlastMeshSceneProxy::DebugDrawPhysicsAsset(int32 ViewIndex, FMeshElementCollector& Collector,
+                                                 const FEngineShowFlags& EngineShowFlags) const
 {
 	FMatrix ProxyLocalToWorld, WorldToLocal;
 	if (!GetWorldMatrices(ProxyLocalToWorld, WorldToLocal))
@@ -3237,7 +3412,10 @@ void FBlastMeshSceneProxy::DebugDrawPhysicsAsset(int32 ViewIndex, FMeshElementCo
 	RenderPhysicsAsset(ViewIndex, Collector, EngineShowFlags, ProxyLocalToWorld, BoneSpaceBases);
 }
 
-void FBlastMeshSceneProxyBase::RenderPhysicsAsset(int32 ViewIndex, FMeshElementCollector& Collector, const FEngineShowFlags& EngineShowFlags, const FMatrix& ProxyLocalToWorld, const TArray<FTransform>* BoneSpaceBases) const
+void FBlastMeshSceneProxyBase::RenderPhysicsAsset(int32 ViewIndex, FMeshElementCollector& Collector,
+                                                  const FEngineShowFlags& EngineShowFlags,
+                                                  const FMatrix& ProxyLocalToWorld,
+                                                  const TArray<FTransform>* BoneSpaceBases) const
 {
 	FMatrix ScalingMatrix = ProxyLocalToWorld;
 	FVector TotalScale = ScalingMatrix.ExtractScaling();
@@ -3258,9 +3436,11 @@ void FBlastMeshSceneProxyBase::RenderPhysicsAsset(int32 ViewIndex, FMeshElementC
 					int32 BoneIndex = ChunkIndexToBoneIndex[It.GetIndex()];
 					if (BoneSpaceBases->IsValidIndex(BoneIndex))
 					{
-						FTransform BoneTransform = BlastMeshForDebug->GetComponentSpaceInitialBoneTransform(BoneIndex) * (*BoneSpaceBases)[BoneIndex] * LocalToWorldTransform;
+						FTransform BoneTransform = BlastMeshForDebug->GetComponentSpaceInitialBoneTransform(BoneIndex) *
+							(*BoneSpaceBases)[BoneIndex] * LocalToWorldTransform;
 						CookedChunkData[It.GetIndex()].CookedBodySetup->CreatePhysicsMeshes();
-						CookedChunkData[It.GetIndex()].CookedBodySetup->AggGeom.GetAggGeom(BoneTransform, FColor::Orange, nullptr, false, false, false, ViewIndex, Collector);
+						CookedChunkData[It.GetIndex()].CookedBodySetup->AggGeom.GetAggGeom(
+							BoneTransform, FColor::Orange, nullptr, false, false, false, ViewIndex, Collector);
 					}
 				}
 			}
@@ -3269,7 +3449,9 @@ void FBlastMeshSceneProxyBase::RenderPhysicsAsset(int32 ViewIndex, FMeshElementC
 }
 
 #if WITH_EDITOR
-void FBlastMeshSceneProxyBase::RenderDebugLines(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
+void FBlastMeshSceneProxyBase::RenderDebugLines(const TArray<const FSceneView*>& Views,
+                                                const FSceneViewFamily& ViewFamily, uint32 VisibilityMap,
+                                                FMeshElementCollector& Collector) const
 {
 	if (DebugDrawLines.Num() > 0 || DebugDrawPoints.Num() > 0)
 	{
