@@ -114,7 +114,7 @@ struct BlastRadialDamageProgram final : public FBlastBaseDamageProgram
 //  Capsule Damage
 ///////////////////////////////////////////////////////////////////////////////
 
-FVector3f ClosestPointOnLine(const FVector3f& LineStart, const FVector3f& LineEnd, const FVector3f& Point)
+inline FVector3f ClosestPointOnLine3f(const FVector3f& LineStart, const FVector3f& LineEnd, const FVector3f& Point)
 {
 	// Solve to find alpha along line that is closest point
 	// Weisstein, Eric W. "Point-Line Distance--3-Dimensional." From MathWorld--A Switchram Web Resource. http://mathworld.wolfram.com/Point-LineDistance3-Dimensional.html 
@@ -215,7 +215,7 @@ struct BlastCapsuleDamageProgram final : public FBlastBaseDamageProgram
 			FVector3f pointB = input.worldOrigin - CapsuleDir * HalfHeight;
 
 			FVector3f ActorCom = FVector3f(actorBody->GetCOMPosition());
-			FVector3f CapsulePoint = ClosestPointOnLine(pointA, pointB, ActorCom);
+			FVector3f CapsulePoint = ClosestPointOnLine3f(pointA, pointB, ActorCom);
 
 			actorBody->AddRadialImpulseToBody(FVector(CapsulePoint), (ActorCom - CapsulePoint).SizeSquared(),
 			                                  ImpulseStrength, 0, bImpulseVelChange);
