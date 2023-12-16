@@ -40,3 +40,7 @@
 	path = RTXGI
 	url = https://github.com/ProjectBorealis/RTXGI-UE-Plugin.git
 	branch = main
+[submodule "VisualStudioTools"]
+	path = VisualStudioTools
+	url = https://github.com/microsoft/vc-ue-extensions
+	branch = main
