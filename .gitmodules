@@ -2,61 +2,41 @@
 	path = Prefabricator
 	url = https://github.com/ProjectBorealis/prefabricator-ue4.git
 	branch = master
-[submodule "UE4GitPlugin"]
-	path = UE4GitPlugin
-	url = https://github.com/ProjectBorealis/UE4GitPlugin.git
-	branch = release
 [submodule "ArcticAnalytics"]
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
 	branch = master
-[submodule "GenericGraph"]
-	path = GenericGraph
-	url = https://github.com/ProjectBorealis/GenericGraph.git
-	branch = master
-[submodule "LoadingScreen"]
-	path = LoadingScreen
-	url = https://github.com/ProjectBorealis/LoadingScreen.git
-	branch = master
-[submodule "FactionsExtension"]
-	path = FactionsExtension
-	url = https://github.com/ProjectBorealis/FactionsExtension.git
-	branch = main
-[submodule "ObjectBrowser"]
-	path = ObjectBrowser
-	url = https://github.com/ProjectBorealis/ObjectBrowser.git
-	branch = master
-[submodule "GameViewportSync"]
-	path = GameViewportSync
-	url = https://github.com/ProjectBorealis/GameViewportSync.git
-	branch = master
-[submodule "ALSCommunity"]
-	path = ALSCommunity
-	url = https://github.com/ProjectBorealis/ALS-Community.git
-	branch = main
 [submodule "DiscordGameSDK"]
 	path = DiscordGameSDK
 	url = https://github.com/ProjectBorealis/DiscordGameSDK.git
 	branch = master
-[submodule "SplineSnappingTool"]
-	path = SplineSnappingTool
-	url = https://github.com/ProjectBorealis/UE4-SplineSnappingToolPlugin.git
-	branch = master
-[submodule "OrientedCapsuleComponent"]
-	path = OrientedCapsuleComponent
-	url = https://github.com/ProjectBorealis/UE4-OrientedCapsuleComponentPlugin.git
-	branch = master
-[submodule "EditorScriptingTools"]
-	path = EditorScriptingTools
-	url = https://github.com/ProjectBorealis/UE4-EditorScriptingToolsPlugin.git
-	branch = main
 [submodule "SplashSettings"]
 	path = SplashSettings
 	url = https://github.com/ProjectBorealis/SplashSettings.git
 	branch = main
 [submodule "IAUS"]
 	path = IAUS
-	url = https://github.com/ProjectBorealis/IAUS
+	url = https://github.com/ProjectBorealis/IAUS.git
 [submodule "FillDDCForPIE"]
 	path = FillDDCForPIE
 	url = https://github.com/ProjectBorealis/FillDDCForPIE.git
+[submodule "Blast"]
+	path = Blast
+	url = https://github.com/ProjectBorealis/Blast-UE-Plugin.git
+	branch = main
+[submodule "ALSV4_CPP"]
+	path = ALSV4_CPP
+	url = https://github.com/ProjectBorealis/ALS-Community-UE5.git
+	branch = main
+[submodule "AsyncLoadingScreen"]
+	path = AsyncLoadingScreen
+	url = https://github.com/ProjectBorealis/AsyncLoadingScreen.git
+	branch = master
+[submodule "UEGitPlugin"]
+	path = UEGitPlugin
+	url = https://github.com/ProjectBorealis/UEGitPlugin.git
+	branch = release
+[submodule "RTXGI"]
+	path = RTXGI
+	url = https://github.com/ProjectBorealis/RTXGI-UE-Plugin.git
+	branch = main
