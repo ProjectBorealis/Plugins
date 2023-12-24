@@ -55,9 +55,6 @@ public:
 		return LayerId;
 	}
 
-		return LayerId;
-	}
-
 private:
 	const TSharedRef<FTextLayout> TextLayout;
 	TWeakObjectPtr<URichTextBlockDecorator> Decorator;
