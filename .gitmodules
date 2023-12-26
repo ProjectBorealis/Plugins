@@ -21,6 +21,7 @@
 [submodule "FillDDCForPIE"]
 	path = FillDDCForPIE
 	url = https://github.com/ProjectBorealis/FillDDCForPIE.git
+	branch = master
 [submodule "Blast"]
 	path = Blast
 	url = https://github.com/ProjectBorealis/Blast-UE-Plugin.git
