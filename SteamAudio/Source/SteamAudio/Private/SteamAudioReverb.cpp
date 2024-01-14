@@ -384,7 +384,13 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
         iplAudioBufferDownmix(Context, &Source.InBuffer, &Source.MonoBuffer);
 
         UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(InputData.AudioComponentId);
-        USteamAudioSourceComponent* SteamAudioSourceComponent = (AudioComponent) ? AudioComponent->GetOwner()->FindComponentByClass<USteamAudioSourceComponent>() : nullptr;
+        AActor* ActorOwner = IsValid(AudioComponent) ? AudioComponent->GetOwner() : nullptr;
+		USteamAudioSourceComponent* SteamAudioSourceComponent = nullptr;
+		// a world settings will never have a source component, don't bother
+		if (IsValid(ActorOwner) && !ActorOwner->IsA(AWorldSettings::StaticClass()))
+		{
+			SteamAudioSourceComponent = ActorOwner->FindComponentByClass<USteamAudioSourceComponent>();
+		}
 
         if (SteamAudioSourceComponent)
         {
