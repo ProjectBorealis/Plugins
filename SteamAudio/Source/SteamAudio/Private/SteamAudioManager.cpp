@@ -1,5 +1,17 @@
 //
-// Copyright (C) Valve Corporation. All rights reserved.
+// Copyright 2017-2023 Valve Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #include "SteamAudioManager.h"
@@ -129,7 +141,7 @@ bool FSteamAudioManager::InitHRTF(IPLAudioSettings& AudioSettings)
     {
         HRTFSettings.volume = SteamAudio::ConvertDbToLinear(Settings->HRTFVolume);
         HRTFSettings.normType = static_cast<IPLHRTFNormType>(Settings->HRTFNormalizationType);
-        
+
         if (Settings->SOFAFile.IsValid())
         {
             USOFAFile* SOFAFile = Cast<USOFAFile>(Settings->SOFAFile.TryLoad());
@@ -156,7 +168,7 @@ bool FSteamAudioManager::InitHRTF(IPLAudioSettings& AudioSettings)
             UE_LOG(LogSteamAudio, Error, TEXT("Unable to create HRTF from SOFA file %s, reverting to default HRTF. [%d]"), *Settings->SOFAFile.GetAssetPathString(), Status);
 
             HRTFSettings.type = IPL_HRTFTYPE_DEFAULT;
-            
+
             Status = iplHRTFCreate(Context, &AudioSettings, &HRTFSettings, &HRTF);
             if (Status == IPL_STATUS_SUCCESS)
                 return true;
@@ -406,7 +418,7 @@ void FSteamAudioManager::ShutDownSteamAudio(bool bResetFlags /* = true */)
     }
 
     FSteamAudioModule::SetAudioEngineState(nullptr);
-    
+
     iplHRTFRelease(&HRTF);
 
     if (ThreadPool)
@@ -643,14 +655,14 @@ void FSteamAudioManager::Tick(float DeltaTime)
 	SharedInputs.irradianceMinDistance = SteamAudioSettings.RealTimeIrradianceMinDistance;
 
     iplSimulatorSetSharedInputs(Simulator, IPL_SIMULATIONFLAGS_DIRECT, &SharedInputs);
-        
+
     for (USteamAudioSourceComponent* Source : Sources)
     {
         Source->SetInputs(IPL_SIMULATIONFLAGS_DIRECT);
     }
-        
+
     iplSimulatorRunDirect(Simulator);
-        
+
     for (USteamAudioSourceComponent* Source : Sources)
     {
         Source->UpdateOutputs(IPL_SIMULATIONFLAGS_DIRECT);
@@ -659,7 +671,7 @@ void FSteamAudioManager::Tick(float DeltaTime)
     SimulationUpdateTimeElapsed += DeltaTime;
     if (SimulationUpdateTimeElapsed < SteamAudioSettings.SimulationUpdateInterval)
         return;
-    
+
     if (ThreadPool && ThreadPoolIdle)
     {
         for (USteamAudioSourceComponent* Source : Sources)
