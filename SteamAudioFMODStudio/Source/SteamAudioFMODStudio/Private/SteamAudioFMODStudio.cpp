@@ -18,7 +18,7 @@
 #include "Interfaces/IPluginManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "FMODStudioModule.h"
-#include "FMODStudio/Classes/FMODAudioComponent.h"
+#include "FMODAudioComponent.h"
 #include "SteamAudioSourceComponent.h"
 
 #define LOCTEXT_NAMESPACE "FSteamAudioFMODStudioModule"
