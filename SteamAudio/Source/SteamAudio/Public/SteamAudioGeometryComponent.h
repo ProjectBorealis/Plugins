@@ -58,13 +58,12 @@ public:
      * Inherited from UActorComponent
      */
 
+#if WITH_EDITOR
     /** Called when the component is first created. */
     virtual void OnComponentCreated() override;
 
-#if WITH_EDITOR
     /** Called when some property of the component is changed. */
     virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-#endif
 
 private:
     /** Recalculates the number of vertices and triangles that are exported as part of this component. */
@@ -75,4 +74,5 @@ private:
 
     /** Calculates the number of vertices and triangles to export from an Actor and all of its children. */
     static void GetStatisticsForActorAndChildren(AActor* Actor, int& NumVertices, int& NumTriangles);
+#endif
 };

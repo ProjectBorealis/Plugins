@@ -91,9 +91,6 @@ public:
     /** Returns the manager singleton object, which is in turn owned by the module singleton. */
     static FSteamAudioManager& GetManager() { return *Get().Manager; }
 
-    /** Returns true if we're currently playing (i.e., in a standalone game or in play-in-editor mode. */
-    static bool IsPlaying();
-
     /** Returns the audio engine interface. */
     static IAudioEngineState* GetAudioEngineState();
 
@@ -119,24 +116,7 @@ private:
 	/** Factory object used to instantiate the reverb plugin. */
 	TUniquePtr<FSteamAudioReverbPluginFactory> ReverbPluginFactory;
 
-    /** Incremented once for each game or PIE session. */
-    static TAtomic<int> PIEInitCount;
-
-    static FCriticalSection PIEInitCountMutex;
-
-    /** Called when the game is initialized (only in standalone builds). */
-    void OnEngineLoopInitComplete();
-
-    /** Called when the game is shut down (only in standalone builds). */
-    void OnEnginePreExit();
-
-#if WITH_EDITOR
-    /** Called when PIE mode starts (only in editor builds). */
-    void OnPIEStarted(bool bSimulating);
-
-    /** Called when PIE mode ends (only in editor builds). */
-    void OnEndPIE(bool bSimulating);
-#endif
+	TSet<const UWorld*> WorldsHoldingManager;
 };
 
 }

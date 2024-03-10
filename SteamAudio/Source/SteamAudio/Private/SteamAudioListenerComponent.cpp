@@ -39,18 +39,13 @@ USteamAudioListenerComponent::USteamAudioListenerComponent()
 	, PlayerController(nullptr)
 {}
 
-void USteamAudioListenerComponent::SetInputs()
+void USteamAudioListenerComponent::SetInputs(IPLSimulationFlags Flags)
 {
 	SteamAudio::FSteamAudioManager& Manager = SteamAudio::FSteamAudioModule::GetManager();
 	if (!Manager.IsInitialized() || !Source)
 		return;
 
     IPLSimulationInputs Inputs{};
-
-    if (bSimulateReverb)
-    {
-        Inputs.flags = IPL_SIMULATIONFLAGS_REFLECTIONS;
-    }
 
 	if (PlayerController)
 	{
@@ -84,11 +79,17 @@ void USteamAudioListenerComponent::SetInputs()
     Inputs.hybridReverbTransitionTime = Manager.GetSteamAudioSettings().HybridReverbTransitionTime;
     Inputs.hybridReverbOverlapPercent = Manager.GetSteamAudioSettings().HybridReverbOverlapPercent / 100.0f;
     Inputs.baked = (ReverbType != EReverbSimulationType::REALTIME) ? IPL_TRUE : IPL_FALSE;
+	Inputs.bakedDataIdentifier = GetBakedDataIdentifier();
 
-    Inputs.bakedDataIdentifier.type = IPL_BAKEDDATATYPE_REFLECTIONS;
-    Inputs.bakedDataIdentifier.variation = IPL_BAKEDDATAVARIATION_REVERB;
+	Inputs.flags = static_cast<IPLSimulationFlags>(0);
+	if (bSimulateReverb)
+	{
+		Inputs.flags = static_cast<IPLSimulationFlags>(Inputs.flags | IPL_SIMULATIONFLAGS_REFLECTIONS);
+	}
 
-    iplSourceSetInputs(Source, IPL_SIMULATIONFLAGS_REFLECTIONS, &Inputs);
+	Inputs.directFlags = static_cast<IPLDirectSimulationFlags>(0);
+
+    iplSourceSetInputs(Source, Flags, &Inputs);
 }
 
 IPLSimulationOutputs USteamAudioListenerComponent::GetOutputs()
@@ -103,7 +104,7 @@ IPLSimulationOutputs USteamAudioListenerComponent::GetOutputs()
 	return Outputs;
 }
 
-void USteamAudioListenerComponent::UpdateOutputs()
+void USteamAudioListenerComponent::UpdateOutputs(IPLSimulationFlags Flags)
 {}
 
 IPLBakedDataIdentifier USteamAudioListenerComponent::GetBakedDataIdentifier() const
@@ -140,7 +141,7 @@ void USteamAudioListenerComponent::BeginPlay()
 	PlayerController = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 
 	SteamAudio::FSteamAudioManager& Manager = SteamAudio::FSteamAudioModule::GetManager();
-	if (!Manager.InitializeSteamAudio(SteamAudio::EManagerInitReason::PLAYING))
+	if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
 		return;
 
     Simulator = iplSimulatorRetain(Manager.GetSimulator());
@@ -158,33 +159,20 @@ void USteamAudioListenerComponent::BeginPlay()
 		return;
 	}
 
+	bIsStarted = true;
+
     iplSourceAdd(Source, Simulator);
 
 	Manager.AddListener(this);
 
-	SteamAudio::IAudioEngineState* AudioEngineState = SteamAudio::FSteamAudioModule::GetAudioEngineState();
-	if (AudioEngineState)
-    {
-        AudioEngineState->SetReverbSource(Source);
-    }
+	FSubmixEffectSteamAudioReverbPlugin::SetReverbSource(Source);
 }
 
 void USteamAudioListenerComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	SteamAudio::IAudioEngineState* AudioEngineState = SteamAudio::FSteamAudioModule::GetAudioEngineState();
-	if (AudioEngineState)
-    {
-        AudioEngineState->SetReverbSource(nullptr);
-    }
-
-    SteamAudio::FSteamAudioManager& Manager = SteamAudio::FSteamAudioModule::GetManager();
-
-	if (Simulator && Source)
+	if (bIsStarted)
 	{
-        Manager.RemoveListener(this);
-        iplSourceRemove(Source, Simulator);
-        iplSourceRelease(&Source);
-        iplSimulatorRelease(&Simulator);
+		Shutdown(SteamAudio::FSteamAudioModule::GetManager());
 	}
 
 	Super::EndPlay(EndPlayReason);
@@ -193,4 +181,24 @@ void USteamAudioListenerComponent::EndPlay(const EEndPlayReason::Type EndPlayRea
 USteamAudioListenerComponent* USteamAudioListenerComponent::GetCurrentListener()
 {
 	return CurrentListener;
+}
+
+void USteamAudioListenerComponent::Shutdown(SteamAudio::FSteamAudioManager& Manager)
+{
+	if (!bIsStarted)
+	{
+		return;
+	}
+	
+	bIsStarted = false;
+	
+	FSubmixEffectSteamAudioReverbPlugin::SetReverbSource(nullptr);
+
+	if (Simulator && Source)
+	{
+		Manager.RemoveListener(this);
+		iplSourceRemove(Source, Simulator);
+		iplSourceRelease(&Source);
+		iplSimulatorRelease(&Simulator);
+	}
 }

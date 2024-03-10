@@ -33,16 +33,14 @@ USteamAudioGeometryComponent::USteamAudioGeometryComponent()
     PrimaryComponentTick.bCanEverTick = false;
 }
 
+#if WITH_EDITOR
 void USteamAudioGeometryComponent::OnComponentCreated()
 {
     Super::OnComponentCreated();
 
-#if WITH_EDITOR
     UpdateStatistics();
-#endif
 }
 
-#if WITH_EDITOR
 void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
     Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -54,11 +52,9 @@ void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent&
         UpdateStatistics();
     }
 }
-#endif
 
 void USteamAudioGeometryComponent::UpdateStatistics()
 {
-#if WITH_EDITOR
     if (bExportAllChildren)
     {
         GetStatisticsForActorAndChildren(GetOwner(), NumVertices, NumTriangles);
@@ -67,7 +63,6 @@ void USteamAudioGeometryComponent::UpdateStatistics()
     {
         GetStatisticsForStaticMeshActor(Cast<AStaticMeshActor>(GetOwner()), NumVertices, NumTriangles);
     }
-#endif
 }
 
 void USteamAudioGeometryComponent::GetStatisticsForStaticMeshActor(AStaticMeshActor* StaticMeshActor, int& NumVertices, int& NumTriangles)
@@ -122,3 +117,4 @@ void USteamAudioGeometryComponent::GetStatisticsForActorAndChildren(AActor* Acto
         NumTriangles += NumTrianglesForActor;
     }
 }
+#endif

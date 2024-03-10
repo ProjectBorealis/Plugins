@@ -21,7 +21,6 @@
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
 #include "Misc/QueuedThreadPool.h"
-#include "SteamAudioCommon.h"
 #include "SteamAudioSettings.h"
 
 class USteamAudioDynamicObjectComponent;
@@ -70,12 +69,18 @@ enum class EManagerInitReason : uint8
     PLAYING,
 };
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSteamAudioInitialized, EManagerInitReason)
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSteamAudioShutDown, EManagerInitReason)
+
 /**
  * Singleton class that contains global Steam Audio state.
  */
 class STEAMAUDIO_API FSteamAudioManager : public FTickableGameObject
 {
 public:
+	FOnSteamAudioInitialized OnInitialized;
+	FOnSteamAudioShutDown OnShutDown;
+	
     FSteamAudioManager();
 
     ~FSteamAudioManager();
@@ -95,8 +100,9 @@ public:
     IPLScene GetScene() { return Scene; }
     IPLSimulator GetSimulator() { return Simulator; }
     IPLCoordinateSpace3 GetListenerCoordinates();
-    FSteamAudioSettings GetSteamAudioSettings() const { return SteamAudioSettings; }
+    const FSteamAudioSettings& GetSteamAudioSettings() const { return SteamAudioSettings; }
     bool IsInitialized() const { return bInitializationSucceded; }
+    EManagerInitReason InitializedType() const { return bInitializationSucceded ? InitializationAttempted : EManagerInitReason::NONE; }
 
     /** Initializes the HRTF. */
     bool InitHRTF(IPLAudioSettings& AudioSettings);
@@ -130,6 +136,9 @@ public:
 
     /** Unregisters a Steam Audio Source component from simulation. */
     void RemoveSource(USteamAudioSourceComponent* Source);
+
+    /** Retrieves a Steam Audio Source component on the given actor if it exists. */
+	USteamAudioSourceComponent* GetSource(uint64_t AudioComponentID) const;
 
     /** Registers a Steam Audio Listener component for simulation. */
     void AddListener(USteamAudioListenerComponent* Listener);
@@ -169,7 +178,7 @@ private:
     IPLSimulator Simulator;
 
     /** True if we've attempted to initialize Steam Audio. */
-    bool bInitializationAttempted;
+    EManagerInitReason InitializationAttempted;
 
     /** True if we successfully initialized Steam Audio. */
     bool bInitializationSucceded;
@@ -187,7 +196,7 @@ private:
     TMap<FString, int> DynamicObjectRefCounts;
 
     /** Steam Audio Source components that are currently registered for simulation. */
-    TSet<USteamAudioSourceComponent*> Sources;
+    TMap<uint32_t, USteamAudioSourceComponent*> Sources;
 
     /** Steam Audio Listener components that are currently registered for simulation. */
     TSet<USteamAudioListenerComponent*> Listeners;

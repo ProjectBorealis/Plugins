@@ -142,12 +142,6 @@ bool FSteamAudioSpatializationPlugin::IsSpatializationEffectInitialized() const
 
 void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, USpatializationPluginSourceSettingsBase* InSettings)
 {
-    // Make sure we're initialized, so real-time audio can work.
-    SteamAudio::RunInGameThread<void>([&]()
-    {
-        FSteamAudioModule::GetManager().InitializeSteamAudio(EManagerInitReason::PLAYING);
-    });
-
     FSteamAudioSpatializationSource& Source = Sources[SourceId];
 
     // If a settings asset was provided, use that to configure the source. Otherwise, use defaults.
@@ -292,9 +286,15 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
     float* InBufferData = InputData.AudioBuffer->GetData();
     float* OutBufferData = OutputData.AudioBuffer.GetData();
 
-    IPLContext Context = FSteamAudioModule::GetManager().GetContext();
+    FSteamAudioManager& Manager = FSteamAudioModule::GetManager();
+    IPLContext Context = Manager.GetContext();
 
     Source.ClearBuffers();
+
+	if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
+    {
+        return;
+    }
 
     // The input buffer is always mono, so we don't need to deinterleave it into a temporary buffer.
     IPLAudioBuffer InBuffer{};
@@ -338,12 +338,11 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
     {
         // FIXME: Unreal 4.27 does not pass the audio component id correctly to the spatializer plugin. It does this
         // correctly for the occlusion and reverb plugins.
-        UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(InputData.AudioComponentId);
-        USteamAudioSourceComponent* SteamAudioSourceComponent = (AudioComponent) ? AudioComponent->GetOwner()->FindComponentByClass<USteamAudioSourceComponent>() : nullptr;
+        USteamAudioSourceComponent* SteamAudioSourceComponent = Manager.GetSource(InputData.AudioComponentId);
 
-        if (SteamAudioSourceComponent && FSteamAudioModule::IsPlaying())
+        if (SteamAudioSourceComponent)
         {
-            IPLSimulationSettings SimulationSettings = FSteamAudioModule::GetManager().GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
+            IPLSimulationSettings SimulationSettings = Manager.GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
             IPLSimulationOutputs Outputs = SteamAudioSourceComponent->GetOutputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
@@ -356,7 +355,7 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
             PathingParams.order = SimulationSettings.maxOrder;
             PathingParams.binaural = Source.bApplyHRTFToPathing ? IPL_TRUE : IPL_FALSE;
             PathingParams.hrtf = Source.HRTF;
-            PathingParams.listener = FSteamAudioModule::GetManager().GetListenerCoordinates();
+            PathingParams.listener = Manager.GetListenerCoordinates();
 
             iplPathEffectApply(Source.PathEffect, &PathingParams, &Source.PathingInputBuffer, &Source.SpatializedPathingBuffer);
 

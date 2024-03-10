@@ -15,6 +15,8 @@
 //
 
 #include "SteamAudioReverb.h"
+
+#include "AudioDeviceManager.h"
 #include "Components/AudioComponent.h"
 #include "HAL/UnrealMemory.h"
 #include "Sound/SoundSubmix.h"
@@ -124,11 +126,28 @@ FSteamAudioReverbPlugin::FSteamAudioReverbPlugin()
     , PrevReflectionEffectType(IPL_REFLECTIONEFFECTTYPE_CONVOLUTION)
     , PrevDuration(0.0f)
     , PrevOrder(-1)
-{}
+{
+	InitHandle = FSteamAudioModule::GetManager().OnInitialized.AddLambda([this](EManagerInitReason Type)
+	{
+		if (Type == EManagerInitReason::PLAYING)
+		{
+			LazyInitMixer();
+		}
+	});
+
+	ShutdownHandle = FSteamAudioModule::GetManager().OnShutDown.AddLambda([this](EManagerInitReason Type)
+	{
+		if (Type == EManagerInitReason::PLAYING)
+		{
+			ShutDownMixer();
+		}
+	});
+}
 
 FSteamAudioReverbPlugin::~FSteamAudioReverbPlugin()
 {
-    ShutDownMixer();
+	FSteamAudioModule::GetManager().OnInitialized.Remove(InitHandle);
+	FSteamAudioModule::GetManager().OnShutDown.Remove(ShutdownHandle);
 }
 
 void FSteamAudioReverbPlugin::Initialize(const FAudioPluginInitializationParams InitializationParams)
@@ -137,6 +156,23 @@ void FSteamAudioReverbPlugin::Initialize(const FAudioPluginInitializationParams 
 	AudioSettings.frameSize = InitializationParams.BufferLength;
 
 	Sources.AddDefaulted(InitializationParams.NumSources);
+
+	if (FSteamAudioModule::GetManager().InitializedType() == EManagerInitReason::PLAYING)
+	{
+		LazyInitMixer();
+	}
+}
+
+void FSteamAudioReverbPlugin::Shutdown()
+{
+	if (ReverbSubmixEffect)
+    {
+        StaticCastSharedPtr<FSubmixEffectSteamAudioReverbPlugin, FSoundEffectSubmix>(ReverbSubmixEffect)->SetReverbPlugin(nullptr);
+        ReverbSubmixEffect->SetEnabled(false);
+    }
+	ShutDownMixer();
+	
+	IAudioReverb::Shutdown();
 }
 
 void FSteamAudioReverbPlugin::LazyInitMixer()
@@ -176,19 +212,16 @@ void FSteamAudioReverbPlugin::ShutDownMixer()
 
 void FSteamAudioReverbPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, const uint32 NumChannels, UReverbPluginSourceSettingsBase* InSettings)
 {
-    // Make sure we're initialized, so real-time audio can work.
-    SteamAudio::RunInGameThread<void>([&]()
-    {
-        FSteamAudioModule::GetManager().InitializeSteamAudio(EManagerInitReason::PLAYING);
-    });
-
+	if (FSteamAudioModule::GetManager().InitializedType() != EManagerInitReason::PLAYING)
+		return;
+	
 	FSteamAudioReverbSource& Source = Sources[SourceId];
 
     // If a settings asset was provided, use that to configure the source. Otherwise, use defaults.
-	USteamAudioReverbSettings* Settings = Cast<USteamAudioReverbSettings>(InSettings);
-	Source.bApplyReflections = (Settings) ? Settings->bApplyReflections : false;
-	Source.bApplyHRTFToReflections = (Settings) ? Settings->bApplyHRTFToReflections : false;
-	Source.ReflectionsMixLevel = (Settings) ? Settings->ReflectionsMixLevel : 1.0f;
+	const USteamAudioReverbSettings* Settings = Cast<USteamAudioReverbSettings>(InSettings);
+	Source.bApplyReflections = Settings ? Settings->bApplyReflections : false;
+	Source.bApplyHRTFToReflections = Settings ? Settings->bApplyHRTFToReflections : false;
+	Source.ReflectionsMixLevel = Settings ? Settings->ReflectionsMixLevel : 1.0f;
 
     IPLContext Context = FSteamAudioModule::GetManager().GetContext();
 
@@ -303,10 +336,10 @@ FSoundEffectSubmixPtr FSteamAudioReverbPlugin::GetEffectSubmix()
 
         if (Submix)
         {
-            USteamAudioReverbSubmixPluginPreset* Preset = nullptr;
+            USubmixEffectSteamAudioReverbPluginPreset* Preset = nullptr;
             if (Submix->SubmixEffectChain.Num() > 0)
             {
-                if (USteamAudioReverbSubmixPluginPreset* CurrentPreset = Cast<USteamAudioReverbSubmixPluginPreset>(Submix->SubmixEffectChain[0]))
+                if (USubmixEffectSteamAudioReverbPluginPreset* CurrentPreset = Cast<USubmixEffectSteamAudioReverbPluginPreset>(Submix->SubmixEffectChain[0]))
                 {
                     Preset = CurrentPreset;
                 }
@@ -314,7 +347,7 @@ FSoundEffectSubmixPtr FSteamAudioReverbPlugin::GetEffectSubmix()
 
             if (!Preset)
             {
-                Preset = NewObject<USteamAudioReverbSubmixPluginPreset>(Submix, TEXT("Steam Audio Reverb Preset"));
+                Preset = NewObject<USubmixEffectSteamAudioReverbPluginPreset>(Submix, TEXT("Steam Audio Reverb Preset"));
             }
 
             if (Preset)
@@ -323,7 +356,7 @@ FSoundEffectSubmixPtr FSteamAudioReverbPlugin::GetEffectSubmix()
 
                 if (ReverbSubmixEffect)
                 {
-                    StaticCastSharedPtr<FSteamAudioReverbSubmixPlugin, FSoundEffectSubmix>(ReverbSubmixEffect)->SetReverbPlugin(this);
+                    StaticCastSharedPtr<FSubmixEffectSteamAudioReverbPlugin, FSoundEffectSubmix>(ReverbSubmixEffect)->SetReverbPlugin(this);
                     ReverbSubmixEffect->SetEnabled(true);
                 }
             }
@@ -356,7 +389,7 @@ USoundSubmix* FSteamAudioReverbPlugin::GetSubmix()
         bool bFoundPreset = false;
         for (USoundEffectSubmixPreset* Preset : ReverbSubmix->SubmixEffectChain)
         {
-            if (Cast<USteamAudioReverbSubmixPluginPreset>(Preset))
+            if (Cast<USubmixEffectSteamAudioReverbPluginPreset>(Preset))
             {
                 bFoundPreset = true;
                 break;
@@ -366,7 +399,7 @@ USoundSubmix* FSteamAudioReverbPlugin::GetSubmix()
         if (!bFoundPreset)
         {
             static const FString DefaultPresetName = TEXT("Steam Audio Reverb Preset");
-            ReverbSubmix->SubmixEffectChain.Add(NewObject<USteamAudioReverbSubmixPluginPreset>(USteamAudioReverbSubmixPluginPreset::StaticClass(), *DefaultPresetName));
+            ReverbSubmix->SubmixEffectChain.Add(NewObject<USubmixEffectSteamAudioReverbPluginPreset>(USubmixEffectSteamAudioReverbPluginPreset::StaticClass(), *DefaultPresetName));
         }
     }
 
@@ -377,9 +410,6 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
 {
 	FSteamAudioReverbSource& Source = Sources[InputData.SourceId];
     Source.ClearBuffers();
-
-    if (!FSteamAudioModule::IsPlaying())
-        return;
 
     float* InBufferData = InputData.AudioBuffer->GetData();
     float* OutBufferData = OutputData.AudioBuffer.GetData();
@@ -395,8 +425,7 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
         iplAudioBufferDeinterleave(Context, InBufferData, &Source.InBuffer);
         iplAudioBufferDownmix(Context, &Source.InBuffer, &Source.MonoBuffer);
 
-        UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(InputData.AudioComponentId);
-        USteamAudioSourceComponent* SteamAudioSourceComponent = (AudioComponent) ? AudioComponent->GetOwner()->FindComponentByClass<USteamAudioSourceComponent>() : nullptr;
+        USteamAudioSourceComponent* SteamAudioSourceComponent = FSteamAudioModule::GetManager().GetSource(InputData.AudioComponentId);
 
         if (SteamAudioSourceComponent)
         {
@@ -405,8 +434,6 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
             {
                 Source.MonoBuffer.data[0][i] *= Source.ReflectionsMixLevel;
             }
-
-            LazyInitMixer();
 
             IPLSimulationOutputs Outputs = SteamAudioSourceComponent->GetOutputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
@@ -476,13 +503,12 @@ TAudioReverbPtr FSteamAudioReverbPluginFactory::CreateNewReverbPlugin(FAudioDevi
 
 
 // ---------------------------------------------------------------------------------------------------------------------
-// FSteamAudioReverbSubmixPlugin
+// FSubmixEffectSteamAudioReverbPlugin
 // ---------------------------------------------------------------------------------------------------------------------
 
-IPLSource FSteamAudioReverbSubmixPlugin::ReverbSource[2] = { nullptr, nullptr };
-std::atomic<bool> FSteamAudioReverbSubmixPlugin::bNewReverbSourceWritten(false);
+std::atomic<IPLSource> FSubmixEffectSteamAudioReverbPlugin::ReverbSource =  nullptr;
 
-FSteamAudioReverbSubmixPlugin::FSteamAudioReverbSubmixPlugin()
+FSubmixEffectSteamAudioReverbPlugin::FSubmixEffectSteamAudioReverbPlugin()
 	: ReverbPlugin(nullptr)
 	, Context(nullptr)
     , HRTF(nullptr)
@@ -496,25 +522,46 @@ FSteamAudioReverbSubmixPlugin::FSteamAudioReverbSubmixPlugin()
     , PrevReflectionEffectType(IPL_REFLECTIONEFFECTTYPE_CONVOLUTION)
     , PrevDuration(0.0f)
     , PrevOrder(-1)
-{}
-
-FSteamAudioReverbSubmixPlugin::~FSteamAudioReverbSubmixPlugin()
 {
-    ShutDown();
 }
 
-uint32 FSteamAudioReverbSubmixPlugin::GetDesiredInputChannelCountOverride() const
+uint32 FSubmixEffectSteamAudioReverbPlugin::GetDesiredInputChannelCountOverride() const
 {
 	// Always use stereo input/output buffers.
 	return 2;
 }
 
-void FSteamAudioReverbSubmixPlugin::SetReverbPlugin(SteamAudio::FSteamAudioReverbPlugin* Plugin)
+void FSubmixEffectSteamAudioReverbPlugin::SetReverbPlugin(SteamAudio::FSteamAudioReverbPlugin* Plugin)
 {
 	ReverbPlugin = Plugin;
+	if (ReverbPlugin)
+	{
+		InitHandle = SteamAudio::FSteamAudioModule::GetManager().OnInitialized.AddLambda([this](SteamAudio::EManagerInitReason Type)
+		{
+			if (Type == SteamAudio::EManagerInitReason::PLAYING)
+			{
+				LazyInit();
+			}
+		});
+
+		ShutdownHandle = SteamAudio::FSteamAudioModule::GetManager().OnShutDown.AddLambda([this](SteamAudio::EManagerInitReason Type)
+		{
+			if (Type == SteamAudio::EManagerInitReason::PLAYING)
+			{
+				ShutDown();
+			}
+		});
+	}
+	else
+	{
+		ShutDown();
+		
+		SteamAudio::FSteamAudioModule::GetManager().OnInitialized.Remove(InitHandle);
+		SteamAudio::FSteamAudioModule::GetManager().OnShutDown.Remove(ShutdownHandle);
+	}
 }
 
-void FSteamAudioReverbSubmixPlugin::LazyInit()
+void FSubmixEffectSteamAudioReverbPlugin::LazyInit()
 {
     if (!Context)
     {
@@ -536,10 +583,7 @@ void FSteamAudioReverbSubmixPlugin::LazyInit()
     if (!ReflectionEffect || PrevReflectionEffectType != SimulationSettings.reflectionType ||
         PrevDuration != SimulationSettings.maxDuration || PrevOrder != SimulationSettings.maxOrder)
     {
-        if (ReflectionEffect)
-        {
-            iplReflectionEffectRelease(&ReflectionEffect);
-        }
+		iplReflectionEffectRelease(&ReflectionEffect);
 
         IPLReflectionEffectSettings ReflectionSettings{};
         ReflectionSettings.type = SimulationSettings.reflectionType;
@@ -632,7 +676,7 @@ void FSteamAudioReverbSubmixPlugin::LazyInit()
     PrevOrder = SimulationSettings.maxOrder;
 }
 
-void FSteamAudioReverbSubmixPlugin::ShutDown()
+void FSubmixEffectSteamAudioReverbPlugin::ShutDown()
 {
     iplAudioBufferFree(Context, &InBuffer);
     iplAudioBufferFree(Context, &MonoBuffer);
@@ -640,17 +684,17 @@ void FSteamAudioReverbSubmixPlugin::ShutDown()
     iplAudioBufferFree(Context, &IndirectBuffer);
     iplAudioBufferFree(Context, &OutBuffer);
 
-    iplSourceRelease(&ReverbSource[0]);
-    iplSourceRelease(&ReverbSource[1]);
-    bNewReverbSourceWritten = false;
-
     iplAmbisonicsDecodeEffectRelease(&AmbisonicsDecodeEffect);
     iplReflectionEffectRelease(&ReflectionEffect);
+	
+	IPLSource Source = ReverbSource.exchange(nullptr);
+    iplSourceRelease(&Source);
+
     iplHRTFRelease(&HRTF);
     iplContextRelease(&Context);
 }
 
-void FSteamAudioReverbSubmixPlugin::Reset()
+void FSubmixEffectSteamAudioReverbPlugin::Reset()
 {
     if (ReflectionEffect)
     {
@@ -665,7 +709,7 @@ void FSteamAudioReverbSubmixPlugin::Reset()
     ClearBuffers();
 }
 
-void FSteamAudioReverbSubmixPlugin::ClearBuffers()
+void FSubmixEffectSteamAudioReverbPlugin::ClearBuffers()
 {
     if (InBuffer.data)
     {
@@ -708,22 +752,12 @@ void FSteamAudioReverbSubmixPlugin::ClearBuffers()
     }
 }
 
-void FSteamAudioReverbSubmixPlugin::OnProcessAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData)
+void FSubmixEffectSteamAudioReverbPlugin::OnProcessAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData)
 {
 	// The submix plugin can keep running in the editor when not in play mode. So don't do anything if Steam Audio
 	// is not initialized.
-    if (!SteamAudio::FSteamAudioModule::IsPlaying())
+	if(!ReflectionEffect)
     {
-        if (ReflectionEffect)
-        {
-            ShutDown();
-        }
-
-        if (ReverbPlugin && ReverbPlugin->GetReflectionMixer())
-        {
-            ReverbPlugin->ShutDownMixer();
-        }
-
         return;
     }
 
@@ -734,12 +768,8 @@ void FSteamAudioReverbSubmixPlugin::OnProcessAudio(const FSoundEffectSubmixInput
 
     IPLSimulationSettings SimulationSettings = SteamAudio::FSteamAudioModule::GetManager().GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
-    LazyInit();
-
-    if (ReverbPlugin)
+    if (ReverbPlugin && (SimulationSettings.reflectionType != IPL_REFLECTIONEFFECTTYPE_TAN || SimulationSettings.tanDevice))
 	{
-        ReverbPlugin->LazyInitMixer();
-
         bool bHasOutput = false;
 
 		// Grab source-centric reflections from the mixer.
@@ -760,7 +790,7 @@ void FSteamAudioReverbSubmixPlugin::OnProcessAudio(const FSoundEffectSubmixInput
 		}
 
 		// If requested, apply reverb to the input.
-		USteamAudioReverbSubmixPluginPreset* ReverbPreset = Cast<USteamAudioReverbSubmixPluginPreset>(GetPreset());
+		USubmixEffectSteamAudioReverbPluginPreset* ReverbPreset = Cast<USubmixEffectSteamAudioReverbPluginPreset>(GetPreset());
 		if (ReverbPreset && ReverbPreset->Settings.bApplyReverb)
 		{
             // If a Steam Audio Listener component has not set the current reverb source, stop.
@@ -800,7 +830,7 @@ void FSteamAudioReverbSubmixPlugin::OnProcessAudio(const FSoundEffectSubmixInput
 
         if (bHasOutput && HRTF && AmbisonicsDecodeEffect && IndirectBuffer.data && OutBuffer.data)
         {
-            USteamAudioReverbSubmixPluginPreset* CurrentPreset = Cast<USteamAudioReverbSubmixPluginPreset>(GetPreset());
+            USubmixEffectSteamAudioReverbPluginPreset* CurrentPreset = Cast<USubmixEffectSteamAudioReverbPluginPreset>(GetPreset());
 
             IPLAmbisonicsDecodeEffectParams AmbisonicsDecodeParams{};
             AmbisonicsDecodeParams.order = SimulationSettings.maxOrder;
@@ -815,28 +845,15 @@ void FSteamAudioReverbSubmixPlugin::OnProcessAudio(const FSoundEffectSubmixInput
 	}
 }
 
-IPLSource FSteamAudioReverbSubmixPlugin::GetReverbSource()
+IPLSource FSubmixEffectSteamAudioReverbPlugin::GetReverbSource()
 {
-    if (bNewReverbSourceWritten)
-    {
-        iplSourceRelease(&ReverbSource[0]);
-        ReverbSource[0] = iplSourceRetain(ReverbSource[1]);
-
-        bNewReverbSourceWritten = false;
-    }
-
-    return ReverbSource[0];
+    return ReverbSource.load();
 }
 
-void FSteamAudioReverbSubmixPlugin::SetReverbSource(IPLSource Source)
+void FSubmixEffectSteamAudioReverbPlugin::SetReverbSource(IPLSource Source)
 {
-    if (!bNewReverbSourceWritten)
-    {
-        iplSourceRelease(&ReverbSource[1]);
-        ReverbSource[1] = iplSourceRetain(Source);
-
-        bNewReverbSourceWritten = true;
-    }
+	IPLSource PrevSource = ReverbSource.exchange(iplSourceRetain(Source));
+	iplSourceRelease(&PrevSource);
 }
 
 
@@ -844,7 +861,7 @@ void FSteamAudioReverbSubmixPlugin::SetReverbSource(IPLSource Source)
 // FSteamAudioReverbSubmixPluginSettings
 // ---------------------------------------------------------------------------------------------------------------------
 
-FSteamAudioReverbSubmixPluginSettings::FSteamAudioReverbSubmixPluginSettings()
+FSubmixEffectSteamAudioReverbPluginSettings::FSubmixEffectSteamAudioReverbPluginSettings()
 	: bApplyReverb(false)
 	, bApplyHRTF(false)
 {}

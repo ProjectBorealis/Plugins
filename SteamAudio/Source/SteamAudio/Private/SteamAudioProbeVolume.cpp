@@ -73,7 +73,7 @@ void ASteamAudioProbeVolume::BeginPlay()
 		return;
 
 	// Make sure Steam Audio is initialized.
-	if (!Manager.InitializeSteamAudio(SteamAudio::EManagerInitReason::PLAYING))
+	if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
 		return;
 
     Simulator = iplSimulatorRetain(Manager.GetSimulator());

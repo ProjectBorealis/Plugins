@@ -154,6 +154,9 @@ public:
     /** Returns the baked data identifier for this source. */
     IPLBakedDataIdentifier GetBakedDataIdentifier() const;
 
+	/** Release steam audio resources */
+	void Shutdown(SteamAudio::FSteamAudioManager& Manager);
+	
     /**
      * Inherited from UActorComponent
      */
@@ -185,4 +188,6 @@ private:
 
     /** Interface for communicating with the spatializer effect instance. */
     TSharedPtr<SteamAudio::IAudioEngineSource> AudioEngineSource;
+	
+	bool bIsStarted = false;
 };

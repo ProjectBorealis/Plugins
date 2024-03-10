@@ -61,7 +61,7 @@ void USteamAudioDynamicObjectComponent::BeginPlay()
     if (!AssetToLoad.IsAsset())
         return;
 
-    if (!Manager.InitializeSteamAudio(SteamAudio::EManagerInitReason::PLAYING))
+    if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
         return;
 
     Scene = iplSceneRetain(Manager.GetScene());

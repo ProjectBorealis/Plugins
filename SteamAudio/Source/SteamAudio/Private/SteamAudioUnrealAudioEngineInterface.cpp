@@ -24,20 +24,6 @@ namespace SteamAudio {
 // FUnrealAudioEngineState
 // ---------------------------------------------------------------------------------------------------------------------
 
-void FUnrealAudioEngineState::Initialize(IPLContext Context, IPLHRTF HRTF, const IPLSimulationSettings& SimulationSettings)
-{}
-
-void FUnrealAudioEngineState::Destroy()
-{}
-
-void FUnrealAudioEngineState::SetHRTF(IPLHRTF HRTF)
-{}
-
-void FUnrealAudioEngineState::SetReverbSource(IPLSource Source)
-{
-    FSteamAudioReverbSubmixPlugin::SetReverbSource(Source);
-}
-
 FTransform FUnrealAudioEngineState::GetListenerTransform()
 {
     FTransform Transform;

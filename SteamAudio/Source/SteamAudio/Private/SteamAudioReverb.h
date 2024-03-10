@@ -92,6 +92,8 @@ public:
     /** Called to initialize the plugin. */
 	virtual void Initialize(const FAudioPluginInitializationParams InitializationParams) override;
 
+	virtual void Shutdown() override;
+
     /** Called when a given source voice is assigned for rendering a given Audio Component. */
 	virtual void OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, const uint32 NumChannels, UReverbPluginSourceSettingsBase* InSettings) override;
 
@@ -135,6 +137,9 @@ private:
 	IPLReflectionEffectType PrevReflectionEffectType;
 	float PrevDuration;
 	int PrevOrder;
+	
+	FDelegateHandle InitHandle;
+	FDelegateHandle ShutdownHandle;
 };
 
 
@@ -173,19 +178,17 @@ public:
 
 
 // ---------------------------------------------------------------------------------------------------------------------
-// FSteamAudioReverbSubmixPlugin
+// FSubmixEffectSteamAudioReverbPlugin
 // ---------------------------------------------------------------------------------------------------------------------
 
 /**
  * A submix plugin that optionally a) applies listener-centric reverb to its input, and/or b) adds mixed
  * source-centric reflections into its output.
  */
-class FSteamAudioReverbSubmixPlugin : public FSoundEffectSubmix
+class FSubmixEffectSteamAudioReverbPlugin : public FSoundEffectSubmix
 {
 public:
-	FSteamAudioReverbSubmixPlugin();
-
-	~FSteamAudioReverbSubmixPlugin();
+	FSubmixEffectSteamAudioReverbPlugin();
 
 	/** Returns the number of channels to use for input and output. */
 	virtual uint32 GetDesiredInputChannelCountOverride() const override;
@@ -238,10 +241,7 @@ private:
     int PrevOrder;
 
 	/** Double-buffered reference to the Steam Audio simulation source. */
-	static IPLSource ReverbSource[2];
-
-	/** True if the double buffers need to be swapped. */
-	static std::atomic<bool> bNewReverbSourceWritten;
+	static std::atomic<IPLSource> ReverbSource;
 
 	/** Ensures that the Steam Audio effects are initialized. */
 	void LazyInit();
@@ -252,6 +252,9 @@ private:
 	void Reset();
 
 	void ClearBuffers();
+
+	FDelegateHandle InitHandle;
+	FDelegateHandle ShutdownHandle;
 };
 
 
@@ -263,7 +266,7 @@ private:
  * Actual settings for the submix plugin.
  */
 USTRUCT(BlueprintType)
-struct FSteamAudioReverbSubmixPluginSettings
+struct FSubmixEffectSteamAudioReverbPluginSettings
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -275,7 +278,7 @@ struct FSteamAudioReverbSubmixPluginSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SubmixSettings)
 	bool bApplyHRTF;
 
-	FSteamAudioReverbSubmixPluginSettings();
+	FSubmixEffectSteamAudioReverbPluginSettings();
 };
 
 
@@ -287,13 +290,13 @@ struct FSteamAudioReverbSubmixPluginSettings
  * Settings object for the submix plugin.
  */
 UCLASS()
-class USteamAudioReverbSubmixPluginPreset : public USoundEffectSubmixPreset
+class USubmixEffectSteamAudioReverbPluginPreset : public USoundEffectSubmixPreset
 {
 	GENERATED_BODY()
 
 public:
-	EFFECT_PRESET_METHODS(SteamAudioReverbSubmixPlugin);
+	EFFECT_PRESET_METHODS(SubmixEffectSteamAudioReverbPlugin);
 
 	UPROPERTY(EditAnywhere, Category = SubmixPreset)
-	FSteamAudioReverbSubmixPluginSettings Settings;
+	FSubmixEffectSteamAudioReverbPluginSettings Settings;
 };

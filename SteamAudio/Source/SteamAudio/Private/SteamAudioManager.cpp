@@ -55,7 +55,7 @@ FSteamAudioManager::FSteamAudioManager()
     , TrueAudioNextDevice(nullptr)
     , Scene(nullptr)
     , Simulator(nullptr)
-    , bInitializationAttempted(false)
+    , InitializationAttempted(EManagerInitReason::NONE)
     , bInitializationSucceded(false)
     , SteamAudioSettings()
     , bSettingsLoaded(false)
@@ -91,6 +91,7 @@ FSteamAudioManager::FSteamAudioManager()
 FSteamAudioManager::~FSteamAudioManager()
 {
     ShutDownSteamAudio();
+	iplContextRelease(&Context);
 }
 
 IPLCoordinateSpace3 FSteamAudioManager::GetListenerCoordinates()
@@ -183,10 +184,10 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
 {
     // We already tried initializing before, so just return a flag indicating whether or not we succeeded when we last
     // tried.
-    if (bInitializationAttempted)
+    if (InitializationAttempted == Reason)
         return bInitializationSucceded;
 
-    bInitializationAttempted = true;
+    InitializationAttempted = Reason;
 
     const USteamAudioSettings* Settings = GetDefault<USteamAudioSettings>();
     if (!Settings)
@@ -239,7 +240,7 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
 
         IPLOpenCLDeviceList OpenCLDeviceList = nullptr;
         IPLerror Status = iplOpenCLDeviceListCreate(Context, &OpenCLDeviceSettings, &OpenCLDeviceList);
-        if (Status != IPL_STATUS_SUCCESS)
+        if (Status == IPL_STATUS_SUCCESS && OpenCLDeviceList)
         {
             int NumDevices = iplOpenCLDeviceListGetNumDevices(OpenCLDeviceList);
 
@@ -395,12 +396,9 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
                 UE_LOG(LogSteamAudio, Warning, TEXT("Unable to initialize TrueAudio Next device. [%d] Falling back to convolution."), Status);
             }
         }
-
-        if (AudioEngineState)
-        {
-            AudioEngineState->Initialize(Context, HRTF, SimulationSettings);
-        }
     }
+
+	OnInitialized.Broadcast(InitializationAttempted);
 
     bInitializationSucceded = true;
     return true;
@@ -408,14 +406,13 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
 
 void FSteamAudioManager::ShutDownSteamAudio(bool bResetFlags /* = true */)
 {
-    if (!bInitializationAttempted)
+    if (InitializationAttempted == EManagerInitReason::NONE)
         return;
 
-    IAudioEngineState* AudioEngineState = FSteamAudioModule::GetAudioEngineState();
-    if (AudioEngineState)
-    {
-        AudioEngineState->Destroy();
-    }
+	if (bInitializationSucceded)
+	{
+		OnShutDown.Broadcast(InitializationAttempted);
+	}
 
     FSteamAudioModule::SetAudioEngineState(nullptr);
 
@@ -438,7 +435,7 @@ void FSteamAudioManager::ShutDownSteamAudio(bool bResetFlags /* = true */)
 
     if (bResetFlags)
     {
-        bInitializationAttempted = false;
+        InitializationAttempted = EManagerInitReason::NONE;
         bInitializationSucceded = false;
         bSettingsLoaded = false;
     }
@@ -604,14 +601,28 @@ void FSteamAudioManager::UnloadDynamicObject(USteamAudioDynamicObjectComponent* 
 
 void FSteamAudioManager::AddSource(USteamAudioSourceComponent* Source)
 {
-    check(Source);
-    Sources.Add(Source);
+    check(Source && Source->GetOwner());
+	FScopeLock Lock(&UAudioComponent::AudioIDToComponentMapLock);
+    Sources.Add(Source->GetOwner()->GetUniqueID(), Source);
 }
 
 void FSteamAudioManager::RemoveSource(USteamAudioSourceComponent* Source)
 {
-    check(Source);
-    Sources.Remove(Source);
+    check(Source && Source->GetOwner());
+	FScopeLock Lock(&UAudioComponent::AudioIDToComponentMapLock);
+    Sources.Remove(Source->GetOwner()->GetUniqueID());
+}
+
+USteamAudioSourceComponent* FSteamAudioManager::GetSource(uint64_t AudioComponentID) const
+{
+	FScopeLock Lock(&UAudioComponent::AudioIDToComponentMapLock);
+	const UAudioComponent* AudioComponent = UAudioComponent::AudioIDToComponentMap.FindRef(AudioComponentID);
+	if (!AudioComponent || !AudioComponent->GetOwner())
+	{
+		return nullptr;
+	}
+	
+	return Sources.FindRef(AudioComponent->GetOwner()->GetUniqueID());
 }
 
 void FSteamAudioManager::AddListener(USteamAudioListenerComponent* Listener)
@@ -633,7 +644,7 @@ TStatId FSteamAudioManager::GetStatId() const
 
 void FSteamAudioManager::Tick(float DeltaTime)
 {
-    if (!InitializeSteamAudio(EManagerInitReason::PLAYING))
+    if (InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
         return;
 
     if (ThreadPool && ThreadPoolIdle)
@@ -656,47 +667,57 @@ void FSteamAudioManager::Tick(float DeltaTime)
 
     iplSimulatorSetSharedInputs(Simulator, IPL_SIMULATIONFLAGS_DIRECT, &SharedInputs);
 
-    for (USteamAudioSourceComponent* Source : Sources)
+    for (const auto& Source : Sources)
     {
-        Source->SetInputs(IPL_SIMULATIONFLAGS_DIRECT);
+        Source.Value->SetInputs(IPL_SIMULATIONFLAGS_DIRECT);
+    }
+
+    for (USteamAudioListenerComponent* Listener : Listeners)
+    {
+        Listener->SetInputs(IPL_SIMULATIONFLAGS_DIRECT);
     }
 
     iplSimulatorRunDirect(Simulator);
 
-    for (USteamAudioSourceComponent* Source : Sources)
+    for (const auto& Source : Sources)
     {
-        Source->UpdateOutputs(IPL_SIMULATIONFLAGS_DIRECT);
+        Source.Value->UpdateOutputs(IPL_SIMULATIONFLAGS_DIRECT);
+    }
+
+    for (USteamAudioListenerComponent* Listener : Listeners)
+    {
+        Listener->UpdateOutputs(IPL_SIMULATIONFLAGS_DIRECT);
     }
 
     SimulationUpdateTimeElapsed += DeltaTime;
     if (SimulationUpdateTimeElapsed < SteamAudioSettings.SimulationUpdateInterval)
         return;
+    
+    SimulationUpdateTimeElapsed = 0.f;
 
-    if (ThreadPool && ThreadPoolIdle)
+    if (ThreadPool && ThreadPoolIdle.exchange(false))
     {
-        for (USteamAudioSourceComponent* Source : Sources)
+        for (const auto& Source : Sources)
         {
-            Source->UpdateOutputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
+            Source.Value->UpdateOutputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
         }
 
         for (USteamAudioListenerComponent* Listener : Listeners)
         {
-            Listener->UpdateOutputs();
+            Listener->UpdateOutputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
         }
 
         iplSimulatorSetSharedInputs(Simulator, static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING), &SharedInputs);
 
-        for (USteamAudioSourceComponent* Source : Sources)
+        for (const auto& Source : Sources)
         {
-            Source->SetInputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
+            Source.Value->SetInputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
         }
 
         for (USteamAudioListenerComponent* Listener : Listeners)
         {
-            Listener->SetInputs();
+            Listener->SetInputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
         }
-
-        ThreadPoolIdle = false;
 
         AsyncPool(*ThreadPool, [this]
         {
