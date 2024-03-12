@@ -27,18 +27,26 @@
 #include "SteamAudioSourceComponent.h"
 #include "SOFAFile.h"
 
-namespace SteamAudio {
+using namespace SteamAudio;
 
 // ---------------------------------------------------------------------------------------------------------------------
 // FSteamAudioPluginListener
 // ---------------------------------------------------------------------------------------------------------------------
 
+FSteamAudioPluginListener::FSteamAudioPluginListener()
+{
+	ListenerCoordinates.origin = ConvertVector(FVector::ZeroVector);
+	ListenerCoordinates.ahead = ConvertVector(FVector::ForwardVector, false);
+	ListenerCoordinates.up = ConvertVector(FVector::UpVector, false);
+	ListenerCoordinates.right = ConvertVector(FVector::RightVector, false);
+}
+	
 void FSteamAudioPluginListener::OnListenerUpdated(FAudioDevice* AudioDevice, const int32 ViewportIndex, const FTransform& ListenerTransform, const float InDeltaSeconds)
 {
-    ListenerCoordinates.origin = SteamAudio::ConvertVector(ListenerTransform.GetLocation());
-    ListenerCoordinates.ahead = SteamAudio::ConvertVector(ListenerTransform.GetUnitAxis(EAxis::X), false);
-    ListenerCoordinates.up = SteamAudio::ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Z), false);
-    ListenerCoordinates.right = SteamAudio::ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Y), false);
+    ListenerCoordinates.origin = ConvertVector(ListenerTransform.GetLocation());
+    ListenerCoordinates.ahead = ConvertVector(ListenerTransform.GetUnitAxis(EAxis::X), false);
+    ListenerCoordinates.up = ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Z), false);
+    ListenerCoordinates.right = ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Y), false);
 }
 
 
@@ -94,7 +102,7 @@ FSteamAudioManager::~FSteamAudioManager()
 	iplContextRelease(&Context);
 }
 
-IPLCoordinateSpace3 FSteamAudioManager::GetListenerCoordinates()
+IPLCoordinateSpace3 FSteamAudioManager::GetListenerCoordinates() const
 {
     IPLCoordinateSpace3 ListenerCoordinates{};
 
@@ -115,10 +123,10 @@ IPLCoordinateSpace3 FSteamAudioManager::GetListenerCoordinates()
         {
             FTransform ListenerTransform = AudioEngineState->GetListenerTransform();
 
-            ListenerCoordinates.origin = SteamAudio::ConvertVector(ListenerTransform.GetLocation());
-            ListenerCoordinates.ahead = SteamAudio::ConvertVector(ListenerTransform.GetUnitAxis(EAxis::X), false);
-            ListenerCoordinates.up = SteamAudio::ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Z), false);
-            ListenerCoordinates.right = SteamAudio::ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Y), false);
+            ListenerCoordinates.origin = ConvertVector(ListenerTransform.GetLocation());
+            ListenerCoordinates.ahead = ConvertVector(ListenerTransform.GetUnitAxis(EAxis::X), false);
+            ListenerCoordinates.up = ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Z), false);
+            ListenerCoordinates.right = ConvertVector(ListenerTransform.GetUnitAxis(EAxis::Y), false);
         }
     }
 
@@ -140,7 +148,7 @@ bool FSteamAudioManager::InitHRTF(IPLAudioSettings& AudioSettings)
     const USteamAudioSettings* Settings = GetDefault<USteamAudioSettings>();
     if (Settings)
     {
-        HRTFSettings.volume = SteamAudio::ConvertDbToLinear(Settings->HRTFVolume);
+        HRTFSettings.volume = ConvertDbToLinear(Settings->HRTFVolume);
         HRTFSettings.normType = static_cast<IPLHRTFNormType>(Settings->HRTFNormalizationType);
 
         if (Settings->SOFAFile.IsValid())
@@ -151,7 +159,7 @@ bool FSteamAudioManager::InitHRTF(IPLAudioSettings& AudioSettings)
                 HRTFSettings.type = IPL_HRTFTYPE_SOFA;
                 HRTFSettings.sofaData = SOFAFile->Data.GetData();
                 HRTFSettings.sofaDataSize = SOFAFile->Data.Num();
-                HRTFSettings.volume = SteamAudio::ConvertDbToLinear(SOFAFile->Volume);
+                HRTFSettings.volume = ConvertDbToLinear(SOFAFile->Volume);
                 HRTFSettings.normType = static_cast<IPLHRTFNormType>(SOFAFile->NormalizationType);
             }
         }
@@ -186,7 +194,7 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
     // tried.
     if (InitializationAttempted == Reason)
         return bInitializationSucceded;
-
+	
     InitializationAttempted = Reason;
 
     const USteamAudioSettings* Settings = GetDefault<USteamAudioSettings>();
@@ -401,6 +409,7 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
 	OnInitialized.Broadcast(InitializationAttempted);
 
     bInitializationSucceded = true;
+	UE_LOG(LogSteamAudio, Warning, TEXT("Steam audio initialized for state %d"), InitializationAttempted);
     return true;
 }
 
@@ -435,6 +444,7 @@ void FSteamAudioManager::ShutDownSteamAudio(bool bResetFlags /* = true */)
 
     if (bResetFlags)
     {
+    	UE_LOG(LogSteamAudio, Warning, TEXT("Steam audio shut down from state %d"), InitializationAttempted);
         InitializationAttempted = EManagerInitReason::NONE;
         bInitializationSucceded = false;
         bSettingsLoaded = false;
@@ -644,7 +654,7 @@ TStatId FSteamAudioManager::GetStatId() const
 
 void FSteamAudioManager::Tick(float DeltaTime)
 {
-    if (InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
+    if (InitializedType() != EManagerInitReason::PLAYING)
         return;
 
     if (ThreadPool && ThreadPoolIdle)
@@ -754,6 +764,4 @@ void* FSteamAudioManager::AllocateCallback(IPLsize Size, IPLsize Alignment)
 void FSteamAudioManager::FreeCallback(void* Ptr)
 {
     FMemory::Free(Ptr);
-}
-
 }

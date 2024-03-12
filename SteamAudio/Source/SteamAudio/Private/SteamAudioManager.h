@@ -39,6 +39,8 @@ namespace SteamAudio {
 class FSteamAudioPluginListener : public IAudioPluginListener
 {
 public:
+	FSteamAudioPluginListener();
+	
     /**
      * Inherited from IAudioPluginListener
      */
@@ -46,7 +48,7 @@ public:
     /** Called to specify the latest listener position and orientation. */
     virtual void OnListenerUpdated(FAudioDevice* AudioDevice, const int32 ViewportIndex, const FTransform& ListenerTransform, const float InDeltaSeconds) override;
 
-    IPLCoordinateSpace3 GetListenerCoordinates() { return ListenerCoordinates; }
+    IPLCoordinateSpace3 GetListenerCoordinates() const { return ListenerCoordinates; }
 
 private:
     /** The current listener position and orientation. */
@@ -60,13 +62,14 @@ private:
 
 class FSimulationThreadRunnable;
 
+UENUM()
 enum class EManagerInitReason : uint8
 {
     NONE,
     EXPORTING_SCENE,
     GENERATING_PROBES,
     BAKING,
-    PLAYING,
+    PLAYING
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSteamAudioInitialized, EManagerInitReason)
@@ -95,11 +98,11 @@ public:
     /** Returns the stat id to use for this object. */
     virtual TStatId GetStatId() const override;
 
-    IPLContext GetContext() { return Context; }
-    IPLHRTF GetHRTF() { return HRTF; }
-    IPLScene GetScene() { return Scene; }
-    IPLSimulator GetSimulator() { return Simulator; }
-    IPLCoordinateSpace3 GetListenerCoordinates();
+    IPLContext GetContext() const { return Context; }
+    IPLHRTF GetHRTF() const { return HRTF; }
+    IPLScene GetScene() const { return Scene; }
+    IPLSimulator GetSimulator() const { return Simulator; }
+    IPLCoordinateSpace3 GetListenerCoordinates() const;
     const FSteamAudioSettings& GetSteamAudioSettings() const { return SteamAudioSettings; }
     bool IsInitialized() const { return bInitializationSucceded; }
     EManagerInitReason InitializedType() const { return bInitializationSucceded ? InitializationAttempted : EManagerInitReason::NONE; }

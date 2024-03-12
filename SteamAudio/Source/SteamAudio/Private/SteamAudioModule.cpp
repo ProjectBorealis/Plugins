@@ -16,6 +16,7 @@
 
 #include "SteamAudioModule.h"
 
+#include "AudioDeviceManager.h"
 #include "IAudioParameterTransmitter.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/CoreDelegates.h"
@@ -99,6 +100,16 @@ void FSteamAudioModule::StartupModule()
     Manager = MakeShared<FSteamAudioManager>();
     check(Manager);
 
+	FWorldDelegates::OnWorldBeginTearDown.AddLambda([this](const UWorld* World)
+	{
+		if (World->AllowAudioPlayback() && (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+		{
+			WorldsHoldingManager.Remove(World);
+			if (WorldsHoldingManager.IsEmpty())
+				Manager->ShutDownSteamAudio();
+		}
+	});
+
     FAudioDeviceWorldDelegates::OnWorldRegisteredToAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
     {
 	    if (World->AllowAudioPlayback() && (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
@@ -116,7 +127,6 @@ void FSteamAudioModule::StartupModule()
 			if (WorldsHoldingManager.IsEmpty())
 				Manager->ShutDownSteamAudio();
 		}
-
 	});
 
     UE_LOG(LogSteamAudio, Log, TEXT("Initialized module SteamAudio."));

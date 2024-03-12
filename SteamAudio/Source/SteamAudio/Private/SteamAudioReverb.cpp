@@ -414,8 +414,10 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
     float* InBufferData = InputData.AudioBuffer->GetData();
     float* OutBufferData = OutputData.AudioBuffer.GetData();
 
-    IPLContext Context = FSteamAudioModule::GetManager().GetContext();
-    IPLSimulationSettings SimulationSettings = FSteamAudioModule::GetManager().GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
+	FSteamAudioManager& Manager = FSteamAudioModule::GetManager();
+
+    IPLContext Context = Manager.GetContext();
+    IPLSimulationSettings SimulationSettings = Manager.GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
     // Apply reflections if requested.
     if (Source.bApplyReflections && Source.HRTF && Source.ReflectionEffect && Source.AmbisonicsDecodeEffect &&
@@ -425,8 +427,7 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
         iplAudioBufferDeinterleave(Context, InBufferData, &Source.InBuffer);
         iplAudioBufferDownmix(Context, &Source.InBuffer, &Source.MonoBuffer);
 
-        USteamAudioSourceComponent* SteamAudioSourceComponent = FSteamAudioModule::GetManager().GetSource(InputData.AudioComponentId);
-
+        USteamAudioSourceComponent* SteamAudioSourceComponent = Manager.GetSource(InputData.AudioComponentId);
         if (SteamAudioSourceComponent)
         {
             // Apply reflection mix level to mono buffer.
@@ -457,7 +458,10 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
                 IPLAmbisonicsDecodeEffectParams AmbisonicsDecodeParams{};
                 AmbisonicsDecodeParams.order = SimulationSettings.maxOrder;
                 AmbisonicsDecodeParams.hrtf = Source.HRTF;
-                AmbisonicsDecodeParams.orientation = FSteamAudioModule::GetManager().GetListenerCoordinates();
+            	AmbisonicsDecodeParams.orientation.origin = ConvertVector(InputData.SpatializationParams->ListenerPosition);
+            	AmbisonicsDecodeParams.orientation.ahead = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisX(), false);
+            	AmbisonicsDecodeParams.orientation.right = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisY(), false);
+            	AmbisonicsDecodeParams.orientation.up = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisZ(), false);
                 AmbisonicsDecodeParams.binaural = bBinaural ? IPL_TRUE : IPL_FALSE;
 
                 iplAmbisonicsDecodeEffectApply(Source.AmbisonicsDecodeEffect, &AmbisonicsDecodeParams, &Source.IndirectBuffer, &Source.OutBuffer);
@@ -828,14 +832,17 @@ void FSubmixEffectSteamAudioReverbPlugin::OnProcessAudio(const FSoundEffectSubmi
 			}
 		}
 
-        if (bHasOutput && HRTF && AmbisonicsDecodeEffect && IndirectBuffer.data && OutBuffer.data)
+        if (bHasOutput && HRTF && AmbisonicsDecodeEffect && IndirectBuffer.data && OutBuffer.data && InData.ListenerTransforms && !InData.ListenerTransforms->IsEmpty())
         {
             USubmixEffectSteamAudioReverbPluginPreset* CurrentPreset = Cast<USubmixEffectSteamAudioReverbPluginPreset>(GetPreset());
 
             IPLAmbisonicsDecodeEffectParams AmbisonicsDecodeParams{};
             AmbisonicsDecodeParams.order = SimulationSettings.maxOrder;
             AmbisonicsDecodeParams.hrtf = HRTF;
-            AmbisonicsDecodeParams.orientation = SteamAudio::FSteamAudioModule::GetManager().GetListenerCoordinates();
+        	AmbisonicsDecodeParams.orientation.origin = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetLocation());
+        	AmbisonicsDecodeParams.orientation.ahead = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetUnitAxis(EAxis::X), false);
+        	AmbisonicsDecodeParams.orientation.right = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetUnitAxis(EAxis::Y), false);
+        	AmbisonicsDecodeParams.orientation.up = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetUnitAxis(EAxis::Z), false);
             AmbisonicsDecodeParams.binaural = (CurrentPreset && CurrentPreset->Settings.bApplyHRTF) ? IPL_TRUE : IPL_FALSE;
 
             iplAmbisonicsDecodeEffectApply(AmbisonicsDecodeEffect, &AmbisonicsDecodeParams, &IndirectBuffer, &OutBuffer);

@@ -355,7 +355,10 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
             PathingParams.order = SimulationSettings.maxOrder;
             PathingParams.binaural = Source.bApplyHRTFToPathing ? IPL_TRUE : IPL_FALSE;
             PathingParams.hrtf = Source.HRTF;
-            PathingParams.listener = Manager.GetListenerCoordinates();
+        	PathingParams.listener.origin = ConvertVector(InputData.SpatializationParams->ListenerPosition);
+        	PathingParams.listener.ahead = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisX(), false);
+        	PathingParams.listener.right = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisY(), false);
+        	PathingParams.listener.up = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisZ(), false);
 
             iplPathEffectApply(Source.PathEffect, &PathingParams, &Source.PathingInputBuffer, &Source.SpatializedPathingBuffer);
 

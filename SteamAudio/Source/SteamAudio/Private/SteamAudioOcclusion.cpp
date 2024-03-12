@@ -167,14 +167,14 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
         iplAudioBufferDeinterleave(Context, InBufferData, &Source.InBuffer);
 
         // We are given the source's position and orientation.
-        IPLCoordinateSpace3 SourceCoordinates{};
-        SourceCoordinates.origin = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldPosition);
-        SourceCoordinates.ahead = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldRotation * FVector::ForwardVector, false);
-        SourceCoordinates.right = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldRotation * FVector::RightVector, false);
-        SourceCoordinates.up = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldRotation * FVector::UpVector, false);
+        IPLCoordinateSpace3 SourceCoordinates;
+        SourceCoordinates.origin = ConvertVector(InputData.SpatializationParams->EmitterWorldPosition);
+        SourceCoordinates.ahead = ConvertVector(InputData.SpatializationParams->EmitterWorldRotation.GetAxisX(), false);
+        SourceCoordinates.right = ConvertVector(InputData.SpatializationParams->EmitterWorldRotation.GetAxisY(), false);
+        SourceCoordinates.up = ConvertVector(InputData.SpatializationParams->EmitterWorldRotation.GetAxisZ(), false);
 
         // Get the listener's position and orientation from the global audio plugin listener.
-        IPLCoordinateSpace3 ListenerCoordinates = FSteamAudioModule::GetManager().GetListenerCoordinates();
+        const IPLVector3 ListenerPosition = ConvertVector(InputData.SpatializationParams->ListenerPosition);
 
         IPLDirectEffectParams Params{};
 
@@ -196,7 +196,7 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
             IPLDistanceAttenuationModel DistanceAttenuationModel{};
             DistanceAttenuationModel.type = IPL_DISTANCEATTENUATIONTYPE_DEFAULT;
 
-            Params.distanceAttenuation = iplDistanceAttenuationCalculate(Context, SourceCoordinates.origin, ListenerCoordinates.origin, &DistanceAttenuationModel);
+            Params.distanceAttenuation = iplDistanceAttenuationCalculate(Context, SourceCoordinates.origin, ListenerPosition, &DistanceAttenuationModel);
         }
 
         // If enabled, calculate frequency-dependent air absorption using the default model.
@@ -205,7 +205,7 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
             IPLAirAbsorptionModel AirAbsorptionModel{};
             AirAbsorptionModel.type = IPL_AIRABSORPTIONTYPE_DEFAULT;
 
-            iplAirAbsorptionCalculate(Context, SourceCoordinates.origin, ListenerCoordinates.origin, &AirAbsorptionModel, Params.airAbsorption);
+            iplAirAbsorptionCalculate(Context, SourceCoordinates.origin, ListenerPosition, &AirAbsorptionModel, Params.airAbsorption);
         }
 
         // If enabled, calculate directivity using the configured dipole model.
@@ -215,14 +215,14 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
             DirectivityModel.dipoleWeight = Source.DipoleWeight;
             DirectivityModel.dipolePower = Source.DipolePower;
 
-            Params.directivity = iplDirectivityCalculate(Context, SourceCoordinates, ListenerCoordinates.origin, &DirectivityModel);
+            Params.directivity = iplDirectivityCalculate(Context, SourceCoordinates, ListenerPosition, &DirectivityModel);
         }
 
         // If enabled, retrieve occlusion (and optionally transmission) values from the actor's Steam Audio Source
         // component.
         if (Source.bApplyOcclusion)
         {
-            USteamAudioSourceComponent* SteamAudioSourceComponent = FSteamAudioModule::GetManager().GetSource(InputData.AudioComponentId);
+            const USteamAudioSourceComponent* SteamAudioSourceComponent = FSteamAudioModule::GetManager().GetSource(InputData.AudioComponentId);
 
             Params.occlusion = SteamAudioSourceComponent ? SteamAudioSourceComponent->OcclusionValue : 1.0f;
 
