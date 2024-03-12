@@ -34,6 +34,18 @@ class IAudioEngineSource;
 class IAudioEngineState
 {
 public:
+     /** Initializes the audio engine part of the plugin. Call after the Steam Audio Manager is initialized. */
+    virtual void Initialize(IPLContext Context, IPLHRTF HRTF, const IPLSimulationSettings& SimulationSettings) = 0;
+
+    /** Shuts down the audio engine part of the plugin. Call before shutting down the Steam Audio Manager. */
+    virtual void Destroy() = 0;
+
+    /** Specifies the HRTF to use for rendering. Call right after Initialize(). */
+    virtual void SetHRTF(IPLHRTF HRTF) = 0;
+
+    /** Specifies the simulation source to use for reverb. Call in BeginPlay for the Steam Audio Listener. */
+    virtual void SetReverbSource(IPLSource Source) = 0;
+
     /** Retrieves the current listener transform from the audio engine plugin. */
     virtual FTransform GetListenerTransform() = 0;
 

@@ -34,6 +34,18 @@ public:
      * Inherited from IAudioEngineState
      */
 
+    /** Does nothing. */
+    virtual void Initialize(IPLContext Context, IPLHRTF HRTF, const IPLSimulationSettings& SimulationSettings) override;
+
+    /** Does nothing. */
+    virtual void Destroy() override;
+
+    /** Does nothing. */
+    virtual void SetHRTF(IPLHRTF HRTF) override;
+
+    /** Specifies the simulation source to use for reverb. Call in BeginPlay for the Steam Audio Listener. */
+    virtual void SetReverbSource(IPLSource Source) override;
+
     /** Returns the listener transform used by the Unreal audio device. */
     virtual FTransform GetListenerTransform() override;
 

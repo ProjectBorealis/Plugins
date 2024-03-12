@@ -404,6 +404,11 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
                 UE_LOG(LogSteamAudio, Warning, TEXT("Unable to initialize TrueAudio Next device. [%d] Falling back to convolution."), Status);
             }
         }
+
+        if (AudioEngineState)
+        {
+            AudioEngineState->Initialize(Context, HRTF, SimulationSettings);
+        }
     }
 
 	OnInitialized.Broadcast(InitializationAttempted);
@@ -422,6 +427,12 @@ void FSteamAudioManager::ShutDownSteamAudio(bool bResetFlags /* = true */)
 	{
 		OnShutDown.Broadcast(InitializationAttempted);
 	}
+
+    IAudioEngineState* AudioEngineState = FSteamAudioModule::GetAudioEngineState();
+    if (AudioEngineState)
+    {
+        AudioEngineState->Destroy();
+    }
 
     FSteamAudioModule::SetAudioEngineState(nullptr);
 

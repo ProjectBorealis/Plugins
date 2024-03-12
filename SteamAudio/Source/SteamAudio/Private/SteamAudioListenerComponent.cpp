@@ -165,7 +165,11 @@ void USteamAudioListenerComponent::BeginPlay()
 
 	Manager.AddListener(this);
 
-	FSubmixEffectSteamAudioReverbPlugin::SetReverbSource(Source);
+	SteamAudio::IAudioEngineState* AudioEngineState = SteamAudio::FSteamAudioModule::GetAudioEngineState();
+	if (AudioEngineState)
+    {
+        AudioEngineState->SetReverbSource(Source);
+    }
 }
 
 void USteamAudioListenerComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -192,7 +196,11 @@ void USteamAudioListenerComponent::Shutdown(SteamAudio::FSteamAudioManager& Mana
 	
 	bIsStarted = false;
 	
-	FSubmixEffectSteamAudioReverbPlugin::SetReverbSource(nullptr);
+	SteamAudio::IAudioEngineState* AudioEngineState = SteamAudio::FSteamAudioModule::GetAudioEngineState();
+	if (AudioEngineState)
+    {
+        AudioEngineState->SetReverbSource(nullptr);
+    }
 
 	if (Simulator && Source)
 	{
