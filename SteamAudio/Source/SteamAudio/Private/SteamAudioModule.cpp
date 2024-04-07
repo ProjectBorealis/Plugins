@@ -100,9 +100,11 @@ void FSteamAudioModule::StartupModule()
     Manager = MakeShared<FSteamAudioManager>();
     check(Manager);
 
+	// IMPORTANT: When loading maps, Worlds can get registered to an audio device before they are initialized, which means World->AllowAudioPlayback()
+	// always returns false because it was not set yet. Skip that check for now.
 	FWorldDelegates::OnWorldBeginTearDown.AddLambda([this](const UWorld* World)
 	{
-		if (World->AllowAudioPlayback() && (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 		{
 			WorldsHoldingManager.Remove(World);
 			if (WorldsHoldingManager.IsEmpty())
@@ -112,7 +114,7 @@ void FSteamAudioModule::StartupModule()
 
     FAudioDeviceWorldDelegates::OnWorldRegisteredToAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
     {
-	    if (World->AllowAudioPlayback() && (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+	    if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 	    {
 	    	if (WorldsHoldingManager.IsEmpty())
 	    		Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
@@ -121,7 +123,7 @@ void FSteamAudioModule::StartupModule()
     });
 	FAudioDeviceWorldDelegates::OnWorldUnregisteredWithAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
 	{
-		if (World->AllowAudioPlayback() && (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 		{
 			WorldsHoldingManager.Remove(World);
 			if (WorldsHoldingManager.IsEmpty())
