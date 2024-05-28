@@ -37,7 +37,7 @@
 [submodule "UEGitPlugin"]
 	path = UEGitPlugin
 	url = https://github.com/ProjectBorealis/UEGitPlugin.git
-	branch = release
+	branch = dev
 [submodule "VisualStudioTools"]
 	path = VisualStudioTools
 	url = https://github.com/ProjectBorealis/vc-ue-extensions
