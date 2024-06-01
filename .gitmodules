@@ -17,9 +17,11 @@
 [submodule "IAUS"]
 	path = IAUS
 	url = https://github.com/ProjectBorealis/IAUS.git
+	branch = ue5
 [submodule "FillDDCForPIE"]
 	path = FillDDCForPIE
 	url = https://github.com/ProjectBorealis/FillDDCForPIE.git
+	branch = master
 [submodule "Blast"]
 	path = Blast
 	url = https://github.com/ProjectBorealis/Blast-UE-Plugin.git
@@ -35,7 +37,8 @@
 [submodule "UEGitPlugin"]
 	path = UEGitPlugin
 	url = https://github.com/ProjectBorealis/UEGitPlugin.git
-	branch = release
+	branch = dev
 [submodule "VisualStudioTools"]
 	path = VisualStudioTools
 	url = https://github.com/ProjectBorealis/vc-ue-extensions
+	branch = main
