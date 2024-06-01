@@ -688,14 +688,12 @@ void FSteamAudioManager::Tick(float DeltaTime)
 
     iplSimulatorSetSharedInputs(Simulator, IPL_SIMULATIONFLAGS_DIRECT, &SharedInputs);
 
-    for (USteamAudioSourceComponent* Source : Sources)
+    for (const auto& Source : Sources)
     {
         Source.Value->SetInputs(IPL_SIMULATIONFLAGS_DIRECT);
     }
 
-    iplSimulatorRunDirect(Simulator);
-
-    for (USteamAudioSourceComponent* Source : Sources)
+    for (USteamAudioListenerComponent* Listener : Listeners)
     {
         Listener->SetInputs(IPL_SIMULATIONFLAGS_DIRECT);
     }
@@ -715,8 +713,10 @@ void FSteamAudioManager::Tick(float DeltaTime)
     SimulationUpdateTimeElapsed += DeltaTime;
     if (SimulationUpdateTimeElapsed < SteamAudioSettings.SimulationUpdateInterval)
         return;
+    
+    SimulationUpdateTimeElapsed = 0.f;
 
-    if (ThreadPool && ThreadPoolIdle)
+    if (ThreadPool && ThreadPoolIdle.exchange(false))
     {
         for (const auto& Source : Sources)
         {
