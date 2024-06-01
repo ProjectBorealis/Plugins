@@ -1,5 +1,17 @@
 //
-// Copyright (C) Valve Corporation. All rights reserved.
+// Copyright 2017-2023 Valve Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #include "SteamAudioReverb.h"
@@ -36,7 +48,7 @@ FSteamAudioReverbSource::FSteamAudioReverbSource()
     , PrevOrder(-1)
 {}
 
-FSteamAudioReverbSource::~FSteamAudioReverbSource() 
+FSteamAudioReverbSource::~FSteamAudioReverbSource()
 {
 	IPLContext Context = FSteamAudioModule::GetManager().GetContext();
 
@@ -119,7 +131,7 @@ FSteamAudioReverbPlugin::~FSteamAudioReverbPlugin()
     ShutDownMixer();
 }
 
-void FSteamAudioReverbPlugin::Initialize(const FAudioPluginInitializationParams InitializationParams) 
+void FSteamAudioReverbPlugin::Initialize(const FAudioPluginInitializationParams InitializationParams)
 {
 	AudioSettings.samplingRate = InitializationParams.SampleRate;
 	AudioSettings.frameSize = InitializationParams.BufferLength;
@@ -132,7 +144,7 @@ void FSteamAudioReverbPlugin::LazyInitMixer()
     IPLContext Context = FSteamAudioModule::GetManager().GetContext();
     IPLSimulationSettings SimulationSettings = FSteamAudioModule::GetManager().GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
-    if (!ReflectionMixer || PrevReflectionEffectType != SimulationSettings.reflectionType || 
+    if (!ReflectionMixer || PrevReflectionEffectType != SimulationSettings.reflectionType ||
         PrevDuration != SimulationSettings.maxDuration || PrevOrder != SimulationSettings.maxOrder)
     {
         if (ReflectionMixer)
@@ -162,7 +174,7 @@ void FSteamAudioReverbPlugin::ShutDownMixer()
     iplReflectionMixerRelease(&ReflectionMixer);
 }
 
-void FSteamAudioReverbPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, const uint32 NumChannels, UReverbPluginSourceSettingsBase* InSettings) 
+void FSteamAudioReverbPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, const uint32 NumChannels, UReverbPluginSourceSettingsBase* InSettings)
 {
     // Make sure we're initialized, so real-time audio can work.
     SteamAudio::RunInGameThread<void>([&]()
@@ -276,19 +288,19 @@ void FSteamAudioReverbPlugin::OnInitSource(const uint32 SourceId, const FName& A
     Source.Reset();
 }
 
-void FSteamAudioReverbPlugin::OnReleaseSource(const uint32 SourceId) 
+void FSteamAudioReverbPlugin::OnReleaseSource(const uint32 SourceId)
 {
 	FSteamAudioReverbSource& Source = Sources[SourceId];
     Source.Reset();
     iplHRTFRelease(&Source.HRTF);
 }
 
-FSoundEffectSubmixPtr FSteamAudioReverbPlugin::GetEffectSubmix() 
+FSoundEffectSubmixPtr FSteamAudioReverbPlugin::GetEffectSubmix()
 {
-	if (!ReverbSubmixEffect.IsValid()) 
+	if (!ReverbSubmixEffect.IsValid())
 	{
         USoundSubmix* Submix = GetSubmix();
-        
+
         if (Submix)
         {
             USteamAudioReverbSubmixPluginPreset* Preset = nullptr;
@@ -321,12 +333,12 @@ FSoundEffectSubmixPtr FSteamAudioReverbPlugin::GetEffectSubmix()
 	return ReverbSubmixEffect;
 }
 
-USoundSubmix* FSteamAudioReverbPlugin::GetSubmix() 
+USoundSubmix* FSteamAudioReverbPlugin::GetSubmix()
 {
 	const USteamAudioSettings* Settings = GetDefault<USteamAudioSettings>();
 	check(Settings);
 
-	if (!ReverbSubmix.IsValid()) 
+	if (!ReverbSubmix.IsValid())
 	{
 		ReverbSubmix = Cast<USoundSubmix>(Settings->ReverbSubmix.TryLoad());
 
@@ -357,11 +369,11 @@ USoundSubmix* FSteamAudioReverbPlugin::GetSubmix()
             ReverbSubmix->SubmixEffectChain.Add(NewObject<USteamAudioReverbSubmixPluginPreset>(USteamAudioReverbSubmixPluginPreset::StaticClass(), *DefaultPresetName));
         }
     }
-    
+
     return ReverbSubmix.Get();
 }
 
-void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData) 
+void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData)
 {
 	FSteamAudioReverbSource& Source = Sources[InputData.SourceId];
     Source.ClearBuffers();
@@ -408,7 +420,7 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
 
             // If we're not outputting to the mixer (i.e., the submix plugin), then spatialize the reflections here.
             // NOTE: This does not currently work given the signal flow in the audio engine plugins.
-            bool bOutputToMixer = (SimulationSettings.reflectionType == IPL_REFLECTIONEFFECTTYPE_CONVOLUTION || 
+            bool bOutputToMixer = (SimulationSettings.reflectionType == IPL_REFLECTIONEFFECTTYPE_CONVOLUTION ||
                 SimulationSettings.reflectionType == IPL_REFLECTIONEFFECTTYPE_TAN);
 
             if (!bOutputToMixer)
@@ -434,13 +446,13 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
 // FSteamAudioReverbPluginFactory
 // ---------------------------------------------------------------------------------------------------------------------
 
-FString FSteamAudioReverbPluginFactory::GetDisplayName() 
+FString FSteamAudioReverbPluginFactory::GetDisplayName()
 {
 	static FString DisplayName = FString(TEXT("Steam Audio Reverb"));
 	return DisplayName;
 }
 
-bool FSteamAudioReverbPluginFactory::SupportsPlatform(const FString& PlatformName) 
+bool FSteamAudioReverbPluginFactory::SupportsPlatform(const FString& PlatformName)
 {
 	return PlatformName == FString(TEXT("Windows")) ||
 		PlatformName == FString(TEXT("Linux")) ||
@@ -449,12 +461,12 @@ bool FSteamAudioReverbPluginFactory::SupportsPlatform(const FString& PlatformNam
         PlatformName == FString(TEXT("IOS"));
 }
 
-UClass* FSteamAudioReverbPluginFactory::GetCustomReverbSettingsClass() const 
+UClass* FSteamAudioReverbPluginFactory::GetCustomReverbSettingsClass() const
 {
 	return USteamAudioReverbSettings::StaticClass();
 }
 
-TAudioReverbPtr FSteamAudioReverbPluginFactory::CreateNewReverbPlugin(FAudioDevice* OwningDevice) 
+TAudioReverbPtr FSteamAudioReverbPluginFactory::CreateNewReverbPlugin(FAudioDevice* OwningDevice)
 {
 	FSteamAudioModule::Get().RegisterAudioDevice(OwningDevice);
 	return TAudioReverbPtr(new FSteamAudioReverbPlugin());
@@ -753,7 +765,7 @@ void FSteamAudioReverbSubmixPlugin::OnProcessAudio(const FSoundEffectSubmixInput
 		{
             // If a Steam Audio Listener component has not set the current reverb source, stop.
             IPLSource CurrentReverbSource = GetReverbSource();
-			if (CurrentReverbSource && ReflectionEffect && 
+			if (CurrentReverbSource && ReflectionEffect &&
                 InBuffer.data && MonoBuffer.data && ReverbBuffer.data && IndirectBuffer.data)
 			{
 				iplAudioBufferDeinterleave(Context, InBufferData, &InBuffer);

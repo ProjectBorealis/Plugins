@@ -1,5 +1,17 @@
 //
-// Copyright (C) Valve Corporation. All rights reserved.
+// Copyright 2017-2023 Valve Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #pragma once
@@ -92,7 +104,7 @@ public:
     /** The high frequency (8 kHz and above) EQ value for transmission. Only if not simulating transmission. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = OcclusionSettings, meta = (UIMin = "0.0", UIMax = "1.0"))
     float TransmissionHighValue;
-    
+
     /** The maximum number of rays to trace when finding surfaces between the source and the listener for the
         purposes of simulating transmission. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = OcclusionSettings, meta = (UIMin = "1", UIMax = "8"))
@@ -116,7 +128,7 @@ public:
 
     /** The probe volume within which to simulate pathing. Only if simulating pathing. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PathingSettings)
-    TSoftObjectPtr<ASteamAudioProbeVolume> PathingProbeBatch;
+    ASteamAudioProbeVolume* PathingProbeBatch;
 
     /** If true, baked paths are checked for occlusion by dynamic geometry. Only if simulating pathing. */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PathingSettings)

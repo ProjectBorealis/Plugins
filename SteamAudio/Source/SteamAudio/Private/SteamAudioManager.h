@@ -1,5 +1,17 @@
 //
-// Copyright (C) Valve Corporation. All rights reserved.
+// Copyright 2017-2023 Valve Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #pragma once
@@ -134,7 +146,7 @@ private:
 
     /** The Steam Audio Context object. */
     IPLContext Context;
-    
+
     /** The (default) HRTF. */
     IPLHRTF HRTF;
 
@@ -149,10 +161,10 @@ private:
 
     /** The TrueAudio Next device. */
     IPLTrueAudioNextDevice TrueAudioNextDevice;
-    
+
     /** The global scene used for simulation. */
     IPLScene Scene;
-    
+
     /** The Steam Audio Simulator object. */
     IPLSimulator Simulator;
 
@@ -170,16 +182,16 @@ private:
 
     /** Scenes referenced by each dynamic object that's currently loaded. */
     TMap<FString, IPLScene> DynamicObjects;
-    
+
     /** Reference counts for the scenes referenced by dynamic objects. */
     TMap<FString, int> DynamicObjectRefCounts;
-    
+
     /** Steam Audio Source components that are currently registered for simulation. */
     TSet<USteamAudioSourceComponent*> Sources;
 
     /** Steam Audio Listener components that are currently registered for simulation. */
     TSet<USteamAudioListenerComponent*> Listeners;
-    
+
     /** The audio plugin listener used to receive global data from the built-in audio engine. */
     TAudioPluginListenerPtr AudioPluginListener;
 
@@ -188,7 +200,7 @@ private:
 
     /** Thread pool containing the simulation thread. */
     FQueuedThreadPool* ThreadPool;
-    
+
     /** If true, the simulation thread is idle. */
     std::atomic<bool> ThreadPoolIdle;
 

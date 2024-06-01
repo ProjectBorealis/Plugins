@@ -1,5 +1,17 @@
 //
-// Copyright (C) Valve Corporation. All rights reserved.
+// Copyright 2017-2023 Valve Corporation.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #include "SteamAudioSpatialization.h"
@@ -293,7 +305,7 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
     if (Source.HRTF && Source.PanningEffect && Source.BinauralEffect && Source.OutBuffer.data)
     {
         // Workaround. The directions passed to spatializer is not consistent with the coordinate system of UE4, therefore
-        // special tranformation is performed here. Review this change if further changes are made to the direction passed 
+        // special tranformation is performed here. Review this change if further changes are made to the direction passed
         // to the spatializer.
         IPLVector3 RelativeDirection;
         RelativeDirection.x = InputData.SpatializationParams->EmitterPosition.Y;
@@ -321,7 +333,7 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
     }
 
     // Apply pathing if specified.
-    if (Source.bApplyPathing && Source.HRTF && Source.PathEffect && Source.AmbisonicsDecodeEffect && 
+    if (Source.bApplyPathing && Source.HRTF && Source.PathEffect && Source.AmbisonicsDecodeEffect &&
         Source.PathingInputBuffer.data && Source.PathingBuffer.data && Source.SpatializedPathingBuffer.data && Source.OutBuffer.data)
     {
         // FIXME: Unreal 4.27 does not pass the audio component id correctly to the spatializer plugin. It does this
