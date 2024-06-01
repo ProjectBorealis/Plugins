@@ -134,6 +134,65 @@ void FSteamAudioModule::StartupModule()
     UE_LOG(LogSteamAudio, Log, TEXT("Initialized module SteamAudio."));
 }
 
+void FSteamAudioModule::OnEngineLoopInitComplete()
+{
+    if (Manager)
+    {
+        Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
+    }
+
+    PIEInitCount = 1;
+}
+
+void FSteamAudioModule::OnEnginePreExit()
+{
+    FScopeLock Lock(&PIEInitCountMutex);
+
+    PIEInitCount = 0;
+
+    if (Manager)
+    {
+        Manager->ShutDownSteamAudio();
+    }
+}
+
+bool FSteamAudioModule::IsPlaying()
+{
+    FScopeLock Lock(&PIEInitCountMutex);
+    return (PIEInitCount > 0);
+}
+
+#if WITH_EDITOR
+void FSteamAudioModule::OnPIEStarted(bool bSimulating)
+{
+    if (PIEInitCount == 0)
+    {
+        if (Manager)
+        {
+            Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
+        }
+    }
+
+    PIEInitCount++;
+}
+
+void FSteamAudioModule::OnEndPIE(bool bSimulating)
+{
+    if (PIEInitCount <= 0)
+        return;
+
+    PIEInitCount--;
+
+    if (PIEInitCount == 0)
+    {
+        if (Manager)
+        {
+            Manager->ShutDownSteamAudio();
+        }
+    }
+}
+#endif
+
 void FSteamAudioModule::ShutdownModule()
 {
     // Unload the DLL.

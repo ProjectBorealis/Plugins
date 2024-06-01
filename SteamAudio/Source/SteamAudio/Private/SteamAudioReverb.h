@@ -185,7 +185,7 @@ public:
  * A submix plugin that optionally a) applies listener-centric reverb to its input, and/or b) adds mixed
  * source-centric reflections into its output.
  */
-class FSubmixEffectSteamAudioReverbPlugin : public FSoundEffectSubmix
+class FSteamAudioReverbSubmixPlugin : public FSoundEffectSubmix
 {
 public:
 	FSubmixEffectSteamAudioReverbPlugin();
@@ -266,7 +266,7 @@ private:
  * Actual settings for the submix plugin.
  */
 USTRUCT(BlueprintType)
-struct FSubmixEffectSteamAudioReverbPluginSettings
+struct FSteamAudioReverbSubmixPluginSettings
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -290,7 +290,7 @@ struct FSubmixEffectSteamAudioReverbPluginSettings
  * Settings object for the submix plugin.
  */
 UCLASS()
-class USubmixEffectSteamAudioReverbPluginPreset : public USoundEffectSubmixPreset
+class USteamAudioReverbSubmixPluginPreset : public USoundEffectSubmixPreset
 {
 	GENERATED_BODY()
 
