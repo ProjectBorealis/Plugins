@@ -468,6 +468,11 @@ void FSteamAudioManager::RegisterAudioPluginListener(FAudioDevice* OwningDevice)
     OwningDevice->RegisterPluginListener(AudioPluginListener);
 }
 
+bool FSteamAudioManager::IsReadyForRealTimeEffects() const
+{
+	return bSettingsLoaded;
+}
+
 IPLSimulationSettings FSteamAudioManager::GetRealTimeSettings(IPLSimulationFlags Flags)
 {
     check(bSettingsLoaded);

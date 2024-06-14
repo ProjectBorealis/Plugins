@@ -29,7 +29,8 @@ namespace SteamAudio {
 // ---------------------------------------------------------------------------------------------------------------------
 
 FSteamAudioSpatializationSource::FSteamAudioSpatializationSource()
-    : bBinaural(true)
+    : bValid(false)
+	, bBinaural(true)
     , Interpolation(EHRTFInterpolation::NEAREST)
     , bApplyPathing(false)
     , bApplyHRTFToPathing(false)
@@ -142,7 +143,13 @@ bool FSteamAudioSpatializationPlugin::IsSpatializationEffectInitialized() const
 
 void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, USpatializationPluginSourceSettingsBase* InSettings)
 {
+	if (!FSteamAudioModule::GetManager().IsReadyForRealTimeEffects())
+	{
+		return;
+	}
+	
     FSteamAudioSpatializationSource& Source = Sources[SourceId];
+	Source.bValid = true;
 
     // If a settings asset was provided, use that to configure the source. Otherwise, use defaults.
     USteamAudioSpatializationSettings* Settings = Cast<USteamAudioSpatializationSettings>(InSettings);
@@ -277,11 +284,16 @@ void FSteamAudioSpatializationPlugin::OnReleaseSource(const uint32 SourceId)
     FSteamAudioSpatializationSource& Source = Sources[SourceId];
     Source.Reset();
     iplHRTFRelease(&Source.HRTF);
+	Source.bValid = false;
 }
 
 void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData)
-{
+{	
     FSteamAudioSpatializationSource& Source = Sources[InputData.SourceId];
+	if (!Source.bValid)
+	{
+		return;
+	}
 
     float* InBufferData = InputData.AudioBuffer->GetData();
     float* OutBufferData = OutputData.AudioBuffer.GetData();

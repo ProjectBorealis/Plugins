@@ -16,6 +16,7 @@
 
 #include "SteamAudioModule.h"
 
+#include "AudioDevice.h"
 #include "AudioDeviceManager.h"
 #include "IAudioParameterTransmitter.h"
 #include "Interfaces/IPluginManager.h"
@@ -112,18 +113,18 @@ void FSteamAudioModule::StartupModule()
 		}
 	});
 
-    FAudioDeviceWorldDelegates::OnWorldRegisteredToAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
+    FAudioDeviceWorldDelegates::OnWorldRegisteredToAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID DeviceID)
     {
-	    if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+    	if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 	    {
 	    	if (WorldsHoldingManager.IsEmpty())
 	    		Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
 	    	WorldsHoldingManager.Add(World);
 	    }
     });
-	FAudioDeviceWorldDelegates::OnWorldUnregisteredWithAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
+	FAudioDeviceWorldDelegates::OnWorldUnregisteredWithAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID DeviceID)
 	{
-		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game || World->WorldType == EWorldType::Editor))
 		{
 			WorldsHoldingManager.Remove(World);
 			if (WorldsHoldingManager.IsEmpty())

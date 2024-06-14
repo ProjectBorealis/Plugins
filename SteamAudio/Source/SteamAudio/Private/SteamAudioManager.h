@@ -119,6 +119,8 @@ public:
     /** Initializes the audio plugin listener. */
     void RegisterAudioPluginListener(FAudioDevice* OwningDevice);
 
+	bool IsReadyForRealTimeEffects() const;
+
     /** Returns the Steam Audio simulation settings to use at runtime. */
     IPLSimulationSettings GetRealTimeSettings(IPLSimulationFlags Flags);
 

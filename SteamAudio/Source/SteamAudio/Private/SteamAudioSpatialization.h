@@ -34,6 +34,7 @@ struct FSteamAudioSpatializationSource
 
     ~FSteamAudioSpatializationSource();
 
+	bool bValid;
     bool bBinaural;
     EHRTFInterpolation Interpolation;
     bool bApplyPathing;
