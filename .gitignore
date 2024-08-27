@@ -7,3 +7,6 @@ Build
 ULIS1.0.lib
 libULIS1.0.a
 libzmq_d.lib
+
+# raddbg
+*.rdi
