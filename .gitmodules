@@ -42,3 +42,6 @@
 	path = VisualStudioTools
 	url = https://github.com/ProjectBorealis/vc-ue-extensions
 	branch = main
+[submodule "StevesUEHelpers"]
+	path = StevesUEHelpers
+	url = https://github.com/ProjectBorealis/StevesUEHelpers.git
