@@ -103,7 +103,7 @@ void FSteamAudioModule::StartupModule()
 
 	// IMPORTANT: When loading maps, Worlds can get registered to an audio device before they are initialized, which means World->AllowAudioPlayback()
 	// always returns false because it was not set yet. Skip that check for now.
-	FWorldDelegates::OnWorldBeginTearDown.AddLambda([this](const UWorld* World)
+	FWorldDelegates::OnWorldCleanup.AddLambda([this](const UWorld* World, bool bSessionEnded, bool bCleanupResources)
 	{
 		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 		{
