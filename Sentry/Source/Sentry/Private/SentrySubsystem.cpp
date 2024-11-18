@@ -49,6 +49,13 @@ void USentrySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	UE_LOG(LogSentrySdk, Log, TEXT("Sentry plugin auto initialization: %s"), Settings->InitAutomatically ? TEXT("true") : TEXT("false"));
 
+#if UE_BUILD_SHIPPING
+	if (FParse::Param(FCommandLine::Get(), TEXT("NOCRASHREPORT")))
+	{
+		return;
+	}
+#endif
+
 	if (Settings->InitAutomatically)
 	{
 		Initialize();
