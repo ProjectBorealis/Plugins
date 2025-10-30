@@ -48,3 +48,6 @@
 [submodule "BruceBulkImporter"]
 	path = BruceBulkImporter
 	url = https://github.com/Lost-Cosmonauts/BruceBulkImporter.git
+[submodule "Cinemos"]
+	path = Cinemos
+	url = https://github.com/Lost-Cosmonauts/Cinemos.git
