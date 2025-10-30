@@ -327,10 +327,10 @@ private:
 	TSharedPtr<FSentryOutputDeviceError> OutputDeviceError;
 
 	UPROPERTY()
-	USentryBeforeSendHandler* BeforeSendHandler;
+	TObjectPtr<USentryBeforeSendHandler> BeforeSendHandler;
 
 	UPROPERTY()
-	USentryTraceSampler* TraceSampler;
+	TObjectPtr<USentryTraceSampler> TraceSampler;
 
 	FDelegateHandle PreLoadMapDelegate;
 	FDelegateHandle PostLoadMapDelegate;
