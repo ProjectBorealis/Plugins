@@ -45,3 +45,6 @@
 [submodule "StevesUEHelpers"]
 	path = StevesUEHelpers
 	url = https://github.com/ProjectBorealis/StevesUEHelpers.git
+[submodule "BruceBulkImporter"]
+	path = BruceBulkImporter
+	url = https://github.com/Lost-Cosmonauts/BruceBulkImporter.git
