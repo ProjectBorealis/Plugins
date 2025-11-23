@@ -1,7 +1,3 @@
-[submodule "Prefabricator"]
-	path = Prefabricator
-	url = https://github.com/ProjectBorealis/prefabricator-ue4.git
-	branch = master
 [submodule "ArcticAnalytics"]
 	path = ArcticAnalytics
 	url = https://github.com/ProjectBorealis/ArcticAnalytics.git
@@ -25,10 +21,6 @@
 [submodule "Blast"]
 	path = Blast
 	url = https://github.com/ProjectBorealis/Blast-UE-Plugin.git
-	branch = main
-[submodule "ALSV4_CPP"]
-	path = ALSV4_CPP
-	url = https://github.com/ProjectBorealis/ALS-Community-UE5.git
 	branch = main
 [submodule "AsyncLoadingScreen"]
 	path = AsyncLoadingScreen
