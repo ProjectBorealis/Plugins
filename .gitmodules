@@ -22,10 +22,6 @@
 	path = Blast
 	url = https://github.com/ProjectBorealis/Blast-UE-Plugin.git
 	branch = main
-[submodule "AsyncLoadingScreen"]
-	path = AsyncLoadingScreen
-	url = https://github.com/ProjectBorealis/AsyncLoadingScreen.git
-	branch = master
 [submodule "UEGitPlugin"]
 	path = UEGitPlugin
 	url = https://github.com/ProjectBorealis/UEGitPlugin.git
