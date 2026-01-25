@@ -670,8 +670,7 @@ void USentrySubsystem::ConfigureOutputDevice()
 	OutputDevice = MakeShareable(new FSentryOutputDevice());
 	if (OutputDevice)
 	{
-		GLog->AddOutputDevice(OutputDevice.Get());
-		GLog->SerializeBacklog(OutputDevice.Get());
+		GLog->AddOutputDevice(OutputDevice.Get()); // automatically serialized backlog
 	}
 }
 

@@ -6,7 +6,7 @@
 
 #if WITH_AUTOMATION_TESTS
 
-BEGIN_DEFINE_SPEC(SentryUserSpec, "Sentry.SentryUser", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+BEGIN_DEFINE_SPEC(SentryUserSpec, "Sentry.SentryUser", EAutomationTestFlags::ProductFilter | EAutomationTestFlags_ApplicationContextMask)
 	USentryUser* SentryUser;
 END_DEFINE_SPEC(SentryUserSpec)
 

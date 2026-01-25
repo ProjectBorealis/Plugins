@@ -6,7 +6,7 @@
 
 #if WITH_AUTOMATION_TESTS
 
-BEGIN_DEFINE_SPEC(SentryBreadcrumbSpec, "Sentry.SentryBreadcrumb", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+BEGIN_DEFINE_SPEC(SentryBreadcrumbSpec, "Sentry.SentryBreadcrumb", EAutomationTestFlags::ProductFilter | EAutomationTestFlags_ApplicationContextMask)
 	USentryBreadcrumb* SentryBreadcrumb;
 END_DEFINE_SPEC(SentryBreadcrumbSpec)
 

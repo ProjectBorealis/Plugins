@@ -6,7 +6,7 @@
 
 #if WITH_AUTOMATION_TESTS
 
-BEGIN_DEFINE_SPEC(SentryEventSpec, "Sentry.SentryEvent", EAutomationTestFlags::ProductFilter | EAutomationTestFlags::ApplicationContextMask)
+BEGIN_DEFINE_SPEC(SentryEventSpec, "Sentry.SentryEvent", EAutomationTestFlags::ProductFilter | EAutomationTestFlags_ApplicationContextMask)
 	USentryEvent* SentryEvent;
 END_DEFINE_SPEC(SentryEventSpec)
 
