@@ -16,7 +16,6 @@
 
 #include "SteamAudioModule.h"
 
-#include "AudioDevice.h"
 #include "AudioDeviceManager.h"
 #include "IAudioParameterTransmitter.h"
 #include "Interfaces/IPluginManager.h"
@@ -103,7 +102,7 @@ void FSteamAudioModule::StartupModule()
 
 	// IMPORTANT: When loading maps, Worlds can get registered to an audio device before they are initialized, which means World->AllowAudioPlayback()
 	// always returns false because it was not set yet. Skip that check for now.
-	FWorldDelegates::OnWorldCleanup.AddLambda([this](const UWorld* World, bool bSessionEnded, bool bCleanupResources)
+    FWorldDelegates::OnWorldCleanup.AddLambda([this](const UWorld* World, bool bSessionEnded, bool bCleanupResources)
 	{
 		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 		{
@@ -113,18 +112,18 @@ void FSteamAudioModule::StartupModule()
 		}
 	});
 
-    FAudioDeviceWorldDelegates::OnWorldRegisteredToAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID DeviceID)
+    FAudioDeviceWorldDelegates::OnWorldRegisteredToAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
     {
-    	if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+	    if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 	    {
 	    	if (WorldsHoldingManager.IsEmpty())
 	    		Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
 	    	WorldsHoldingManager.Add(World);
 	    }
     });
-	FAudioDeviceWorldDelegates::OnWorldUnregisteredWithAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID DeviceID)
+	FAudioDeviceWorldDelegates::OnWorldUnregisteredWithAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
 	{
-		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game || World->WorldType == EWorldType::Editor))
+		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
 		{
 			WorldsHoldingManager.Remove(World);
 			if (WorldsHoldingManager.IsEmpty())

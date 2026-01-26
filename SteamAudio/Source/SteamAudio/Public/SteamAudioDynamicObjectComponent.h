@@ -39,14 +39,18 @@ public:
     UPROPERTY(VisibleAnywhere, Category = ExportSettings, meta = (AllowedClasses = "/Script/SteamAudio.SteamAudioSerializedObject"))
     FSoftObjectPath Asset;
 
+    /** If this variable is set to true when exporting, a new dynamic components will be created for all child actors (if they do not already have one). */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ExportSettings)
+    bool bMakeAllChildActorsTheirOwnDynamicObjects = true;
+
     USteamAudioDynamicObjectComponent();
 
-    /**
-     * Inherited from UActorComponent
-     */
+#if WITH_EDITOR
+    virtual void DestroyComponent(bool bPromoteChildren = false) override;
+    virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
+#endif
 
-    /** Called once every frame. */
-    virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+    void ExportDynamicObjectRuntime();
 
     FSoftObjectPath GetAssetToLoad();
 
@@ -59,7 +63,7 @@ protected:
     virtual void BeginPlay() override;
 
     /** Called when the component is going to be destroyed. */
-    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    virtual void BeginDestroy() override;
 
 private:
     /** Retained reference to the main scene used by the Steam Audio Manager for simulation. */
@@ -67,4 +71,13 @@ private:
 
     /** The Instanced Mesh object. */
     IPLInstancedMesh InstancedMesh;
+
+#if WITH_EDITOR
+    /** Equal true if the asset is not deleted */
+    bool bIsAssetActive = true;
+
+    void CleaupDynamicComponentAsset();
+#endif
+
+    void OnTransformUpdated(USceneComponent* UpdatedComponent, EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport);
 };

@@ -15,9 +15,10 @@
 //
 
 #include "SteamAudioReverb.h"
-
+#include "AudioDevice.h"
 #include "AudioDeviceManager.h"
 #include "Components/AudioComponent.h"
+#include "GameFramework/Actor.h"
 #include "HAL/UnrealMemory.h"
 #include "Sound/SoundSubmix.h"
 #include "SteamAudioCommon.h"
@@ -25,6 +26,7 @@
 #include "SteamAudioReverbSettings.h"
 #include "SteamAudioSettings.h"
 #include "SteamAudioSourceComponent.h"
+#include "SteamAudioUnrealAudioEngineInterface.h"
 
 #include "Misc/AssertionMacros.h"
 
@@ -274,8 +276,13 @@ void FSteamAudioReverbPlugin::OnInitSource(const uint32 SourceId, const FName& A
         }
     }
 
-    if (!Source.InBuffer.data)
+    if (!Source.InBuffer.data || Source.InBuffer.numChannels != NumChannels)
     {
+        if (Source.InBuffer.data)
+        {
+            iplAudioBufferFree(Context, &Source.InBuffer);
+        }
+
         IPLerror Status = iplAudioBufferAllocate(Context, NumChannels, AudioSettings.frameSize, &Source.InBuffer);
         if (Status != IPL_STATUS_SUCCESS)
         {
@@ -306,8 +313,13 @@ void FSteamAudioReverbPlugin::OnInitSource(const uint32 SourceId, const FName& A
         }
     }
 
-    if (!Source.OutBuffer.data)
+    if (!Source.OutBuffer.data || Source.OutBuffer.numChannels != NumChannels)
     {
+        if (Source.OutBuffer.data)
+        {
+            iplAudioBufferFree(Context, &Source.OutBuffer);
+        }
+
         IPLerror Status = iplAudioBufferAllocate(Context, NumChannels, AudioSettings.frameSize, &Source.OutBuffer);
         if (Status != IPL_STATUS_SUCCESS)
         {
@@ -408,6 +420,15 @@ USoundSubmix* FSteamAudioReverbPlugin::GetSubmix()
 
 void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData)
 {
+    if (!FSteamAudioModule::GetManager().IsSteamAudioEnabled())
+    {
+        for (int32 i = 0; i < OutputData.AudioBuffer.Num(); ++i)
+        {
+            OutputData.AudioBuffer[i] = (*InputData.AudioBuffer)[i];
+        }
+        return;
+    }
+
 	FSteamAudioReverbSource& Source = Sources[InputData.SourceId];
     Source.ClearBuffers();
 
@@ -458,11 +479,11 @@ void FSteamAudioReverbPlugin::ProcessSourceAudio(const FAudioPluginSourceInputDa
                 IPLAmbisonicsDecodeEffectParams AmbisonicsDecodeParams{};
                 AmbisonicsDecodeParams.order = SimulationSettings.maxOrder;
                 AmbisonicsDecodeParams.hrtf = Source.HRTF;
-            	AmbisonicsDecodeParams.orientation.origin = ConvertVector(InputData.SpatializationParams->ListenerPosition);
+                AmbisonicsDecodeParams.orientation.origin = ConvertVector(InputData.SpatializationParams->ListenerPosition);
             	AmbisonicsDecodeParams.orientation.ahead = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisX(), false);
             	AmbisonicsDecodeParams.orientation.right = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisY(), false);
             	AmbisonicsDecodeParams.orientation.up = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisZ(), false);
-                AmbisonicsDecodeParams.binaural = bBinaural ? IPL_TRUE : IPL_FALSE;
+                AmbisonicsDecodeParams.binaural = (bBinaural && !FUnrealAudioEngineState::IsHRTFDisabled()) ? IPL_TRUE : IPL_FALSE;
 
                 iplAmbisonicsDecodeEffectApply(Source.AmbisonicsDecodeEffect, &AmbisonicsDecodeParams, &Source.IndirectBuffer, &Source.OutBuffer);
 
@@ -570,6 +591,11 @@ void FSubmixEffectSteamAudioReverbPlugin::LazyInit()
     if (!Context)
     {
         Context = iplContextRetain(SteamAudio::FSteamAudioModule::GetManager().GetContext());
+    }
+
+    if (!ReverbPlugin)
+    {
+        ReverbPlugin = StaticCast<SteamAudio::FSteamAudioReverbPlugin*>(GEngine->GetAudioDeviceManager()->GetMainAudioDeviceRaw()->ReverbPluginInterface.Get());
     }
 
     IPLAudioSettings AudioSettings = ReverbPlugin->GetAudioSettings();
@@ -839,11 +865,11 @@ void FSubmixEffectSteamAudioReverbPlugin::OnProcessAudio(const FSoundEffectSubmi
             IPLAmbisonicsDecodeEffectParams AmbisonicsDecodeParams{};
             AmbisonicsDecodeParams.order = SimulationSettings.maxOrder;
             AmbisonicsDecodeParams.hrtf = HRTF;
-        	AmbisonicsDecodeParams.orientation.origin = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetLocation());
+            AmbisonicsDecodeParams.orientation.origin = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetLocation());
         	AmbisonicsDecodeParams.orientation.ahead = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetUnitAxis(EAxis::X), false);
         	AmbisonicsDecodeParams.orientation.right = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetUnitAxis(EAxis::Y), false);
         	AmbisonicsDecodeParams.orientation.up = SteamAudio::ConvertVector((*InData.ListenerTransforms)[0].GetUnitAxis(EAxis::Z), false);
-            AmbisonicsDecodeParams.binaural = (CurrentPreset && CurrentPreset->Settings.bApplyHRTF) ? IPL_TRUE : IPL_FALSE;
+            AmbisonicsDecodeParams.binaural = (CurrentPreset && CurrentPreset->Settings.bApplyHRTF && !SteamAudio::FUnrealAudioEngineState::IsHRTFDisabled()) ? IPL_TRUE : IPL_FALSE;
 
             iplAmbisonicsDecodeEffectApply(AmbisonicsDecodeEffect, &AmbisonicsDecodeParams, &IndirectBuffer, &OutBuffer);
 

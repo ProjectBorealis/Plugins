@@ -26,6 +26,7 @@ USteamAudioSettings::USteamAudioSettings()
     : AudioEngine(EAudioEngineType::UNREAL)
     , bExportLandscapeGeometry(true)
     , bExportBSPGeometry(true)
+    , MinLODForExport(0)
     , DefaultMeshMaterial("/SteamAudio/Materials/Default.Default")
     , DefaultLandscapeMaterial("/SteamAudio/Materials/Default.Default")
     , DefaultBSPMaterial("/SteamAudio/Materials/Default.Default")
@@ -76,9 +77,11 @@ FSteamAudioSettings USteamAudioSettings::GetSettings() const
     Settings.AudioEngine = AudioEngine;
     Settings.bExportLandscapeGeometry = bExportLandscapeGeometry;
     Settings.bExportBSPGeometry = bExportBSPGeometry;
+    Settings.MinLODForExport = MinLODForExport;
     Settings.DefaultMeshMaterial = GetMaterialForAsset(DefaultMeshMaterial);
     Settings.DefaultLandscapeMaterial = GetMaterialForAsset(DefaultLandscapeMaterial);
     Settings.DefaultBSPMaterial = GetMaterialForAsset(DefaultBSPMaterial);
+    Settings.PhysMatToSteamAudioMatTable = const_cast<PhysMatToSteamAudioMatTableType*>(&PhysMatToSteamAudioMatTable);
     Settings.SceneType = static_cast<IPLSceneType>(SceneType);
     Settings.MaxOcclusionSamples = MaxOcclusionSamples;
     Settings.RealTimeRays = RealTimeRays;

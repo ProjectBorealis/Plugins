@@ -18,6 +18,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
+//#include "StaticMeshResources.h"
+#include "SteamAudioSettings.h"
 
 // ---------------------------------------------------------------------------------------------------------------------
 // USteamAudioGeometryComponent
@@ -33,6 +35,17 @@ USteamAudioGeometryComponent::USteamAudioGeometryComponent()
     PrimaryComponentTick.bCanEverTick = false;
 }
 
+void USteamAudioGeometryComponent::SetExportIndex(int32 NewExportIndex)
+{
+    if (!bWantToChangeMaterialAtRuntime)
+        return;
+
+    ExportIndex = NewExportIndex;
+#if WITH_EDITOR
+    Modify();
+#endif
+}
+
 #if WITH_EDITOR
 void USteamAudioGeometryComponent::OnComponentCreated()
 {
@@ -40,7 +53,9 @@ void USteamAudioGeometryComponent::OnComponentCreated()
 
     UpdateStatistics();
 }
+#endif
 
+#if WITH_EDITOR
 void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
     Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -52,7 +67,9 @@ void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent&
         UpdateStatistics();
     }
 }
+#endif
 
+#if WITH_EDITOR
 void USteamAudioGeometryComponent::UpdateStatistics()
 {
     if (bExportAllChildren)

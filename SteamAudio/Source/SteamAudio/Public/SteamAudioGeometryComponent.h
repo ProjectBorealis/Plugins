@@ -37,8 +37,16 @@ class STEAMAUDIO_API USteamAudioGeometryComponent : public UActorComponent
 
 public:
     /** Reference to the material asset that should be applied to all triangles exported as part of this component. */
-    UPROPERTY(EditAnywhere, Category = MaterialSettings, meta = (AllowedClasses = "/Script/SteamAudio.SteamAudioMaterial"))
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialSettings, meta = (AllowedClasses = "/Script/SteamAudio.SteamAudioMaterial"))
     FSoftObjectPath Material;
+
+    /** Indicates whether we want the ability to change the geometry component's material at runtime. */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MaterialSettings)
+    bool bWantToChangeMaterialAtRuntime = true;
+
+    /** Shows the connection between Static Geometry and material indices. */
+    UPROPERTY(VisibleAnywhere, Category = MaterialSettings)
+    int32 ExportIndex = -1;
 
     /** Whether or not to export all actors attached to this actor. */
     UPROPERTY(EditAnywhere, Category = ExportSettings)
@@ -57,15 +65,19 @@ public:
     /**
      * Inherited from UActorComponent
      */
-
-#if WITH_EDITOR
     /** Called when the component is first created. */
     virtual void OnComponentCreated() override;
+#endif
 
+#if WITH_EDITOR
     /** Called when some property of the component is changed. */
     virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
+    void SetExportIndex(int32 NewExportIndex);
 
 private:
+#if WITH_EDITOR
     /** Recalculates the number of vertices and triangles that are exported as part of this component. */
     void UpdateStatistics();
 

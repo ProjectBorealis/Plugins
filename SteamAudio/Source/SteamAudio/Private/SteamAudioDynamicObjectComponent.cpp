@@ -18,6 +18,11 @@
 #include "GameFramework/Actor.h"
 #include "SteamAudioCommon.h"
 #include "SteamAudioManager.h"
+#include "SteamAudioScene.h"
+
+#if WITH_EDITOR
+#include "Subsystems/EditorAssetSubsystem.h"
+#endif
 
 // ---------------------------------------------------------------------------------------------------------------------
 // USteamAudioDynamicObjectComponent
@@ -28,30 +33,19 @@ USteamAudioDynamicObjectComponent::USteamAudioDynamicObjectComponent()
     , Scene(nullptr)
     , InstancedMesh(nullptr)
 {
-    // Enable ticking.
-    bAutoActivate = true;
-    PrimaryComponentTick.bCanEverTick = true;
+    PrimaryComponentTick.bCanEverTick = false;
 }
 
 FSoftObjectPath USteamAudioDynamicObjectComponent::GetAssetToLoad()
 {
-    FSoftObjectPath AssetToLoad = Asset;
-
-    if (!AssetToLoad.IsAsset())
-    {
-        const USteamAudioDynamicObjectComponent* DefaultObject = GetDefault<USteamAudioDynamicObjectComponent>();
-        if (DefaultObject)
-        {
-            AssetToLoad = DefaultObject->Asset;
-        }
-    }
-
-    return AssetToLoad;
+    return Asset;
 }
 
 void USteamAudioDynamicObjectComponent::BeginPlay()
 {
     Super::BeginPlay();
+
+    GetOwner()->GetRootComponent()->TransformUpdated.AddUObject(this, &USteamAudioDynamicObjectComponent::OnTransformUpdated);
 
     SteamAudio::FSteamAudioManager& Manager = SteamAudio::FSteamAudioModule::GetManager();
 
@@ -78,8 +72,10 @@ void USteamAudioDynamicObjectComponent::BeginPlay()
     iplInstancedMeshAdd(InstancedMesh, Scene);
 }
 
-void USteamAudioDynamicObjectComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+void USteamAudioDynamicObjectComponent::BeginDestroy()
 {
+    Super::BeginDestroy();
+
     SteamAudio::FSteamAudioManager& Manager = SteamAudio::FSteamAudioModule::GetManager();
 
     if (Scene && InstancedMesh)
@@ -89,17 +85,50 @@ void USteamAudioDynamicObjectComponent::EndPlay(const EEndPlayReason::Type EndPl
         iplInstancedMeshRelease(&InstancedMesh);
         iplSceneRelease(&Scene);
     }
-
-    Super::EndPlay(EndPlayReason);
 }
 
-void USteamAudioDynamicObjectComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void USteamAudioDynamicObjectComponent::OnTransformUpdated(USceneComponent* UpdatedComponent, EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)
 {
-    Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
     if (Scene && InstancedMesh)
     {
-        IPLMatrix4x4 Transform = SteamAudio::ConvertTransform(GetOwner()->GetRootComponent()->GetComponentTransform());
+        FTransform RootComponentTransform = GetOwner()->GetRootComponent()->GetComponentTransform();
+        RootComponentTransform.SetTranslation(GetOwner()->GetComponentsBoundingBox().GetCenter());
+        IPLMatrix4x4 Transform = SteamAudio::ConvertTransform(RootComponentTransform);
         iplInstancedMeshUpdateTransform(InstancedMesh, Scene, Transform);
+    }
+}
+
+#if WITH_EDITOR
+void USteamAudioDynamicObjectComponent::CleaupDynamicComponentAsset()
+{
+    if (!Scene && Asset.IsValid() && bIsAssetActive)
+    {
+        auto EditorAssetSubsystem = GEditor ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+        if (EditorAssetSubsystem)
+        {
+            EditorAssetSubsystem->DeleteAsset(Asset.GetAssetPathString());
+            bIsAssetActive = false;
+        }
+    }
+}
+
+void USteamAudioDynamicObjectComponent::DestroyComponent(bool bPromoteChildren)
+{
+    CleaupDynamicComponentAsset();
+    Super::DestroyComponent(bPromoteChildren);
+}
+
+void USteamAudioDynamicObjectComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
+{
+    CleaupDynamicComponentAsset();
+    Super::OnComponentDestroyed(bDestroyingHierarchy);
+}
+#endif
+
+void USteamAudioDynamicObjectComponent::ExportDynamicObjectRuntime()
+{
+    if (!Scene || !InstancedMesh)
+    {
+        SteamAudio::ExportDynamicObjectRuntime(this, Scene, InstancedMesh);
     }
 }
