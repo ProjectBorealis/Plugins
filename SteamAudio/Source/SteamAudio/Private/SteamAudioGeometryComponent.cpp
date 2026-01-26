@@ -53,9 +53,7 @@ void USteamAudioGeometryComponent::OnComponentCreated()
 
     UpdateStatistics();
 }
-#endif
 
-#if WITH_EDITOR
 void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
     Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -67,9 +65,7 @@ void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent&
         UpdateStatistics();
     }
 }
-#endif
 
-#if WITH_EDITOR
 void USteamAudioGeometryComponent::UpdateStatistics()
 {
     if (bExportAllChildren)
