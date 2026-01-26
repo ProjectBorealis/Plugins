@@ -73,7 +73,7 @@ void ASteamAudioProbeVolume::BeginPlay()
 		return;
 
 	// Make sure Steam Audio is initialized.
-	if (!Manager.InitializeSteamAudio(SteamAudio::EManagerInitReason::PLAYING))
+	if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
 		return;
 
     Simulator = iplSimulatorRetain(Manager.GetSimulator());
@@ -163,7 +163,7 @@ bool ASteamAudioProbeVolume::GenerateProbes(ASteamAudioStaticMeshActor* StaticMe
         ProbeGenerationParams.type = static_cast<IPLProbeGenerationType>(GenerationType);
         ProbeGenerationParams.spacing = HorizontalSpacing;
         ProbeGenerationParams.height = HeightAboveFloor;
-        ProbeGenerationParams.transform = SteamAudio::ConvertTransform(Transform, false);
+        ProbeGenerationParams.transform = SteamAudio::ConvertTransform(Transform);
 
         iplProbeArrayGenerateProbes(ProbeArray, Scene, &ProbeGenerationParams);
 

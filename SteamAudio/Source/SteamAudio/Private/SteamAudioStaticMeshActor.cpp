@@ -39,7 +39,7 @@ void ASteamAudioStaticMeshActor::BeginPlay()
     if (!Asset.IsAsset())
         return;
 
-    if (!Manager.InitializeSteamAudio(SteamAudio::EManagerInitReason::PLAYING))
+    if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
         return;
 
     Scene = iplSceneRetain(Manager.GetScene());
@@ -68,6 +68,26 @@ void ASteamAudioStaticMeshActor::EndPlay(const EEndPlayReason::Type EndPlayReaso
     }
 
     Super::EndPlay(EndPlayReason);
+}
+
+void ASteamAudioStaticMeshActor::UpdateStaticMesh()
+{
+    if (Scene && StaticMesh)
+    {
+        UWorld* World = GEngine->GetCurrentPlayWorld();
+        ULevel* Level = World->GetCurrentLevel();
+        SteamAudio::UpdateStaticGeometryForLevel(World, Level, StaticMesh);
+    }
+}
+
+void ASteamAudioStaticMeshActor::UpdateStaticMeshMaterial(AActor* RefreshableActor)
+{
+    if (Scene && StaticMesh)
+    {
+        UWorld* World = GEngine->GetCurrentPlayWorld();
+        ULevel* Level = World->GetCurrentLevel();
+        SteamAudio::UpdateStaticMeshMaterial(World, Level, StaticMesh, RefreshableActor);
+    }
 }
 
 ASteamAudioStaticMeshActor* ASteamAudioStaticMeshActor::FindInLevel(UWorld* World, ULevel* Level)

@@ -24,6 +24,8 @@ namespace SteamAudio {
 // FUnrealAudioEngineState
 // ---------------------------------------------------------------------------------------------------------------------
 
+std::atomic<bool> FUnrealAudioEngineState::bHRTFDisabled = false;
+
 void FUnrealAudioEngineState::Initialize(IPLContext Context, IPLHRTF HRTF, const IPLSimulationSettings& SimulationSettings)
 {}
 
@@ -35,7 +37,7 @@ void FUnrealAudioEngineState::SetHRTF(IPLHRTF HRTF)
 
 void FUnrealAudioEngineState::SetReverbSource(IPLSource Source)
 {
-    FSteamAudioReverbSubmixPlugin::SetReverbSource(Source);
+    FSubmixEffectSteamAudioReverbPlugin::SetReverbSource(Source);
 }
 
 FTransform FUnrealAudioEngineState::GetListenerTransform()
@@ -79,6 +81,16 @@ IPLAudioSettings FUnrealAudioEngineState::GetAudioSettings()
 TSharedPtr<IAudioEngineSource> FUnrealAudioEngineState::CreateAudioEngineSource()
 {
     return MakeShared<FUnrealAudioEngineSource>();
+}
+
+void FUnrealAudioEngineState::SetHRTFDisabled(bool bDisabled)
+{
+    bHRTFDisabled = bDisabled;
+}
+
+bool FUnrealAudioEngineState::IsHRTFDisabled()
+{
+    return bHRTFDisabled;
 }
 
 

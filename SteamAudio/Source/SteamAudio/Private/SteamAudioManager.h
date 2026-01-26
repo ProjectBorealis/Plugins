@@ -21,12 +21,12 @@
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
 #include "Misc/QueuedThreadPool.h"
-#include "SteamAudioCommon.h"
 #include "SteamAudioSettings.h"
 
 class USteamAudioDynamicObjectComponent;
 class USteamAudioListenerComponent;
 class USteamAudioSourceComponent;
+class AStaticMeshActor;
 
 namespace SteamAudio {
 
@@ -40,6 +40,8 @@ namespace SteamAudio {
 class FSteamAudioPluginListener : public IAudioPluginListener
 {
 public:
+	FSteamAudioPluginListener();
+	
     /**
      * Inherited from IAudioPluginListener
      */
@@ -47,7 +49,7 @@ public:
     /** Called to specify the latest listener position and orientation. */
     virtual void OnListenerUpdated(FAudioDevice* AudioDevice, const int32 ViewportIndex, const FTransform& ListenerTransform, const float InDeltaSeconds) override;
 
-    IPLCoordinateSpace3 GetListenerCoordinates() { return ListenerCoordinates; }
+    IPLCoordinateSpace3 GetListenerCoordinates() const { return ListenerCoordinates; }
 
 private:
     /** The current listener position and orientation. */
@@ -61,14 +63,18 @@ private:
 
 class FSimulationThreadRunnable;
 
+UENUM()
 enum class EManagerInitReason : uint8
 {
     NONE,
     EXPORTING_SCENE,
     GENERATING_PROBES,
     BAKING,
-    PLAYING,
+    PLAYING
 };
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSteamAudioInitialized, EManagerInitReason)
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSteamAudioShutDown, EManagerInitReason)
 
 /**
  * Singleton class that contains global Steam Audio state.
@@ -76,6 +82,9 @@ enum class EManagerInitReason : uint8
 class STEAMAUDIO_API FSteamAudioManager : public FTickableGameObject
 {
 public:
+	FOnSteamAudioInitialized OnInitialized;
+	FOnSteamAudioShutDown OnShutDown;
+	
     FSteamAudioManager();
 
     ~FSteamAudioManager();
@@ -90,19 +99,35 @@ public:
     /** Returns the stat id to use for this object. */
     virtual TStatId GetStatId() const override;
 
-    IPLContext GetContext() { return Context; }
-    IPLHRTF GetHRTF() { return HRTF; }
-    IPLScene GetScene() { return Scene; }
-    IPLSimulator GetSimulator() { return Simulator; }
-    IPLCoordinateSpace3 GetListenerCoordinates();
-    FSteamAudioSettings GetSteamAudioSettings() const { return SteamAudioSettings; }
+    IPLContext GetContext() const { return Context; }
+    IPLHRTF GetHRTF() const { return HRTF; }
+    IPLScene GetScene() const { return Scene; }
+    IPLSimulator GetSimulator() const { return Simulator; }
+    IPLCoordinateSpace3 GetListenerCoordinates() const;
+    const FSteamAudioSettings& GetSteamAudioSettings() const { return SteamAudioSettings; }
     bool IsInitialized() const { return bInitializationSucceded; }
+    EManagerInitReason InitializedType() const { return bInitializationSucceded ? InitializationAttempted : EManagerInitReason::NONE; }
+
+    /** Creates empty IPLScene based on active scene settings. */
+    bool CreateEmptyScene(IPLScene& SubScene);
+
+    /** Updates the iplStaticMesh data. */
+    void UpdateStaticMesh();
+
+    /** Updates the iplStaticMesh material data on specified StaticMeshActor. */
+    void UpdateStaticMeshMaterial(AStaticMeshActor* StaticMeshActor);
 
     /** Initializes the HRTF. */
     bool InitHRTF(IPLAudioSettings& AudioSettings);
 
     /** Initializes the global Steam Audio state. */
     bool InitializeSteamAudio(EManagerInitReason Reason);
+
+    /** Sets the Steam Audio enabled mode. */
+    void SetSteamAudioEnabled(bool bNewIsSteamAudioEnabled);
+
+    /** Returns the Steam Audio enabled mode. */
+    bool IsSteamAudioEnabled() { return bIsSteamAudioEnabled; }
 
     /** Shuts down the global Steam Audio state. */
     void ShutDownSteamAudio(bool bResetFlags = true);
@@ -131,6 +156,9 @@ public:
     /** Unregisters a Steam Audio Source component from simulation. */
     void RemoveSource(USteamAudioSourceComponent* Source);
 
+    /** Retrieves a Steam Audio Source component on the given actor if it exists. */
+	USteamAudioSourceComponent* GetSource(uint64_t AudioComponentID) const;
+
     /** Registers a Steam Audio Listener component for simulation. */
     void AddListener(USteamAudioListenerComponent* Listener);
 
@@ -138,6 +166,12 @@ public:
     void RemoveListener(USteamAudioListenerComponent* Listener);
 
 private:
+    /** a cached value indicating whether OpenCL should be initialized */
+    bool bShouldInitOpenCL = false;
+
+    /** If equal false, then Steam Audio plugins do not affect the sound */
+    bool bIsSteamAudioEnabled = true;
+
     /** The scene type we were actually able to initialize. */
     IPLSceneType ActualSceneType;
 
@@ -169,7 +203,7 @@ private:
     IPLSimulator Simulator;
 
     /** True if we've attempted to initialize Steam Audio. */
-    bool bInitializationAttempted;
+    EManagerInitReason InitializationAttempted;
 
     /** True if we successfully initialized Steam Audio. */
     bool bInitializationSucceded;
@@ -187,7 +221,7 @@ private:
     TMap<FString, int> DynamicObjectRefCounts;
 
     /** Steam Audio Source components that are currently registered for simulation. */
-    TSet<USteamAudioSourceComponent*> Sources;
+    TMap<uint32_t, USteamAudioSourceComponent*> Sources;
 
     /** Steam Audio Listener components that are currently registered for simulation. */
     TSet<USteamAudioListenerComponent*> Listeners;

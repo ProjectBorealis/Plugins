@@ -15,6 +15,9 @@
 //
 
 #include "SteamAudioModule.h"
+
+#include "AudioDeviceManager.h"
+#include "IAudioParameterTransmitter.h"
 #include "Interfaces/IPluginManager.h"
 #include "Misc/CoreDelegates.h"
 #include "SteamAudioAudioEngineInterface.h"
@@ -39,9 +42,6 @@ namespace SteamAudio {
 // ---------------------------------------------------------------------------------------------------------------------
 
 static TSharedPtr<IAudioEngineState> GAudioEngineState = nullptr;
-
-TAtomic<int> FSteamAudioModule::PIEInitCount(0);
-FCriticalSection FSteamAudioModule::PIEInitCountMutex;
 
 IAudioEngineState* FSteamAudioModule::GetAudioEngineState()
 {
@@ -100,76 +100,39 @@ void FSteamAudioModule::StartupModule()
     Manager = MakeShared<FSteamAudioManager>();
     check(Manager);
 
-    PIEInitCount = 0;
-#if WITH_EDITOR
-    FEditorDelegates::PostPIEStarted.AddRaw(this, &FSteamAudioModule::OnPIEStarted);
-    FEditorDelegates::EndPIE.AddRaw(this, &FSteamAudioModule::OnEndPIE);
-#else
-    FCoreDelegates::OnFEngineLoopInitComplete.AddRaw(this, &FSteamAudioModule::OnEngineLoopInitComplete);
-    FCoreDelegates::OnEnginePreExit.AddRaw(this, &FSteamAudioModule::OnEnginePreExit);
-#endif
+	// IMPORTANT: When loading maps, Worlds can get registered to an audio device before they are initialized, which means World->AllowAudioPlayback()
+	// always returns false because it was not set yet. Skip that check for now.
+    FWorldDelegates::OnWorldCleanup.AddLambda([this](const UWorld* World, bool bSessionEnded, bool bCleanupResources)
+	{
+		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+		{
+			WorldsHoldingManager.Remove(World);
+			if (WorldsHoldingManager.IsEmpty())
+				Manager->ShutDownSteamAudio();
+		}
+	});
+
+    FAudioDeviceWorldDelegates::OnWorldRegisteredToAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
+    {
+	    if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+	    {
+	    	if (WorldsHoldingManager.IsEmpty())
+	    		Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
+	    	WorldsHoldingManager.Add(World);
+	    }
+    });
+	FAudioDeviceWorldDelegates::OnWorldUnregisteredWithAudioDevice.AddLambda([this](const UWorld* World, Audio::DeviceID Device)
+	{
+		if (/*World->AllowAudioPlayback() &&*/ (World->WorldType == EWorldType::PIE || World->WorldType == EWorldType::Game))
+		{
+			WorldsHoldingManager.Remove(World);
+			if (WorldsHoldingManager.IsEmpty())
+				Manager->ShutDownSteamAudio();
+		}
+	});
 
     UE_LOG(LogSteamAudio, Log, TEXT("Initialized module SteamAudio."));
 }
-
-void FSteamAudioModule::OnEngineLoopInitComplete()
-{
-    if (Manager)
-    {
-        Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
-    }
-
-    PIEInitCount = 1;
-}
-
-void FSteamAudioModule::OnEnginePreExit()
-{
-    FScopeLock Lock(&PIEInitCountMutex);
-
-    PIEInitCount = 0;
-
-    if (Manager)
-    {
-        Manager->ShutDownSteamAudio();
-    }
-}
-
-bool FSteamAudioModule::IsPlaying()
-{
-    FScopeLock Lock(&PIEInitCountMutex);
-    return (PIEInitCount > 0);
-}
-
-#if WITH_EDITOR
-void FSteamAudioModule::OnPIEStarted(bool bSimulating)
-{
-    if (PIEInitCount == 0)
-    {
-        if (Manager)
-        {
-            Manager->InitializeSteamAudio(EManagerInitReason::PLAYING);
-        }
-    }
-
-    PIEInitCount++;
-}
-
-void FSteamAudioModule::OnEndPIE(bool bSimulating)
-{
-    if (PIEInitCount <= 0)
-        return;
-
-    PIEInitCount--;
-
-    if (PIEInitCount == 0)
-    {
-        if (Manager)
-        {
-            Manager->ShutDownSteamAudio();
-        }
-    }
-}
-#endif
 
 void FSteamAudioModule::ShutdownModule()
 {

@@ -31,6 +31,7 @@ enum class EAudioEngineType : uint8
 {
     UNREAL      UMETA(DisplayName = "Unreal"),
     FMODSTUDIO  UMETA(DisplayName = "FMOD Studio"),
+    WWISE       UMETA(DisplayName = "Wwise"),
 };
 
 /**
@@ -84,6 +85,18 @@ enum class EHRTFNormType : uint8
 
 class USOFAFile;
 
+USTRUCT(BlueprintType, meta = (DisplayName = "Physics Material To Steam Audio Material Mapping Value"))
+struct FPhysMatToSteamAudioMatTable_Value
+{
+    GENERATED_USTRUCT_BODY()
+
+public:
+    UPROPERTY(EditAnywhere, Category = SceneExportSettings, meta = (AllowedClasses = "/Script/SteamAudio.SteamAudioMaterial"))
+    FSoftObjectPath SteamAudioMaterial;
+};
+
+using PhysMatToSteamAudioMatTableType = TMap<FSoftObjectPath, FPhysMatToSteamAudioMatTable_Value>;
+
 /**
  * Used to store a copy of the current Steam Audio settings upon initialization, with Unreal plugin types replaced by
  * their corresponding Steam Audio API types.
@@ -93,9 +106,11 @@ struct FSteamAudioSettings
     EAudioEngineType AudioEngine;
     bool bExportLandscapeGeometry;
     bool bExportBSPGeometry;
+    int32 MinLODForExport;
     IPLMaterial DefaultMeshMaterial;
     IPLMaterial DefaultLandscapeMaterial;
     IPLMaterial DefaultBSPMaterial;
+    PhysMatToSteamAudioMatTableType* PhysMatToSteamAudioMatTable;
     IPLSceneType SceneType;
     int MaxOcclusionSamples;
     int RealTimeRays;
@@ -163,6 +178,10 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = SceneExportSettings, meta = (DisplayName = "Export BSP Geometry"))
 	bool bExportBSPGeometry;
 
+    /** Minimum LOD index when exporting a Geometry. */
+    UPROPERTY(GlobalConfig, EditAnywhere, Category = SceneExportSettings, meta = (ClampMin = "0", DisplayName = "Minimum LOD For Export Geometry"))
+    int32 MinLODForExport;
+
     /** Reference to the Steam Audio Material asset to use as the default material for Static Mesh actors. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = SceneExportSettings, meta = (AllowedClasses = "/Script/SteamAudio.SteamAudioMaterial"))
 	FSoftObjectPath DefaultMeshMaterial;
@@ -174,6 +193,9 @@ public:
     /** Reference to the Steam Audio Material asset to use as the default material for BSP geometry. */
     UPROPERTY(GlobalConfig, EditAnywhere, Category = SceneExportSettings, meta = (AllowedClasses = "/Script/SteamAudio.SteamAudioMaterial", DisplayName = "Default BSP Material"))
     FSoftObjectPath DefaultBSPMaterial;
+
+    UPROPERTY(GlobalConfig, EditAnywhere, Category = SteamAudioGeometrySettings, meta = (AllowedClasses = "/Script/PhysicsCore.PhysicalMaterial", DisplayName = "Physics Material To Steam Audio Material Mapping"))
+    TMap<FSoftObjectPath, FPhysMatToSteamAudioMatTable_Value> PhysMatToSteamAudioMatTable;
 
     UPROPERTY(GlobalConfig, EditAnywhere, Category = RayTracerSettings)
     ESceneType SceneType;

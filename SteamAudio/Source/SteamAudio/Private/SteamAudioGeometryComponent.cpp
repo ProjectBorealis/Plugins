@@ -18,7 +18,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
-#include "StaticMeshResources.h"
+//#include "StaticMeshResources.h"
+#include "SteamAudioSettings.h"
 
 // ---------------------------------------------------------------------------------------------------------------------
 // USteamAudioGeometryComponent
@@ -34,14 +35,25 @@ USteamAudioGeometryComponent::USteamAudioGeometryComponent()
     PrimaryComponentTick.bCanEverTick = false;
 }
 
+void USteamAudioGeometryComponent::SetExportIndex(int32 NewExportIndex)
+{
+    if (!bWantToChangeMaterialAtRuntime)
+        return;
+
+    ExportIndex = NewExportIndex;
+#if WITH_EDITOR
+    Modify();
+#endif
+}
+
+#if WITH_EDITOR
 void USteamAudioGeometryComponent::OnComponentCreated()
 {
     Super::OnComponentCreated();
 
-#if WITH_EDITOR
     UpdateStatistics();
-#endif
 }
+#endif
 
 #if WITH_EDITOR
 void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -57,9 +69,9 @@ void USteamAudioGeometryComponent::PostEditChangeProperty(FPropertyChangedEvent&
 }
 #endif
 
+#if WITH_EDITOR
 void USteamAudioGeometryComponent::UpdateStatistics()
 {
-#if WITH_EDITOR
     if (bExportAllChildren)
     {
         GetStatisticsForActorAndChildren(GetOwner(), NumVertices, NumTriangles);
@@ -68,7 +80,6 @@ void USteamAudioGeometryComponent::UpdateStatistics()
     {
         GetStatisticsForStaticMeshActor(Cast<AStaticMeshActor>(GetOwner()), NumVertices, NumTriangles);
     }
-#endif
 }
 
 void USteamAudioGeometryComponent::GetStatisticsForStaticMeshActor(AStaticMeshActor* StaticMeshActor, int& NumVertices, int& NumTriangles)
@@ -123,3 +134,4 @@ void USteamAudioGeometryComponent::GetStatisticsForActorAndChildren(AActor* Acto
         NumTriangles += NumTrianglesForActor;
     }
 }
+#endif

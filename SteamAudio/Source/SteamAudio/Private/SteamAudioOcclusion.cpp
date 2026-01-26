@@ -16,6 +16,7 @@
 
 #include "SteamAudioOcclusion.h"
 #include "Components/AudioComponent.h"
+#include "GameFramework/Actor.h"
 #include "HAL/UnrealMemory.h"
 #include "SteamAudioCommon.h"
 #include "SteamAudioManager.h"
@@ -40,6 +41,7 @@ FSteamAudioOcclusionSource::FSteamAudioOcclusionSource()
     , DirectEffect(nullptr)
     , InBuffer()
     , OutBuffer()
+    , PrevNumChannels(0)
 {}
 
 FSteamAudioOcclusionSource::~FSteamAudioOcclusionSource()
@@ -96,12 +98,6 @@ void FSteamAudioOcclusionPlugin::Initialize(const FAudioPluginInitializationPara
 
 void FSteamAudioOcclusionPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, const uint32 NumChannels, UOcclusionPluginSourceSettingsBase* InSettings)
 {
-    // Make sure we're initialized, so real-time audio can work.
-    SteamAudio::RunInGameThread<void>([&]()
-    {
-        FSteamAudioModule::GetManager().InitializeSteamAudio(EManagerInitReason::PLAYING);
-    });
-
     FSteamAudioOcclusionSource& Source = Sources[SourceId];
 
     // If a settings asset was provided, use that to configure the source. Otherwise, use defaults.
@@ -117,8 +113,13 @@ void FSteamAudioOcclusionPlugin::OnInitSource(const uint32 SourceId, const FName
 
     IPLContext Context = FSteamAudioModule::GetManager().GetContext();
 
-    if (!Source.DirectEffect)
+    if (!Source.DirectEffect || Source.PrevNumChannels != NumChannels)
     {
+        if (Source.DirectEffect)
+        {
+            iplDirectEffectRelease(&Source.DirectEffect);
+        }
+
         IPLDirectEffectSettings DirectSettings{};
         DirectSettings.numChannels = NumChannels;
 
@@ -129,8 +130,13 @@ void FSteamAudioOcclusionPlugin::OnInitSource(const uint32 SourceId, const FName
         }
     }
 
-    if (!Source.InBuffer.data)
+    if (!Source.InBuffer.data || Source.InBuffer.numChannels != NumChannels)
     {
+        if (Source.InBuffer.data)
+        {
+            iplAudioBufferFree(Context, &Source.InBuffer);
+        }
+
         IPLerror Status = iplAudioBufferAllocate(Context, NumChannels, AudioSettings.frameSize, &Source.InBuffer);
         if (Status != IPL_STATUS_SUCCESS)
         {
@@ -138,14 +144,21 @@ void FSteamAudioOcclusionPlugin::OnInitSource(const uint32 SourceId, const FName
         }
     }
 
-    if (!Source.OutBuffer.data)
+    if (!Source.OutBuffer.data || Source.OutBuffer.numChannels != NumChannels)
     {
+        if (Source.OutBuffer.data)
+        {
+            iplAudioBufferFree(Context, &Source.OutBuffer);
+        }
+
         IPLerror Status = iplAudioBufferAllocate(Context, NumChannels, AudioSettings.frameSize, &Source.OutBuffer);
         if (Status != IPL_STATUS_SUCCESS)
         {
             UE_LOG(LogSteamAudio, Error, TEXT("Unable to create output buffer for occlusion effect. [%d]"), Status);
         }
     }
+
+    Source.PrevNumChannels = NumChannels;
 
     Source.Reset();
 }
@@ -158,6 +171,15 @@ void FSteamAudioOcclusionPlugin::OnReleaseSource(const uint32 SourceId)
 
 void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData)
 {
+    if (!FSteamAudioModule::GetManager().IsSteamAudioEnabled())
+    {
+        for (int32 i = 0; i < OutputData.AudioBuffer.Num(); ++i)
+        {
+            OutputData.AudioBuffer[i] = (*InputData.AudioBuffer)[i];
+        }
+        return;
+    }
+
     FSteamAudioOcclusionSource& Source = Sources[InputData.SourceId];
 
     float* InBufferData = InputData.AudioBuffer->GetData();
@@ -173,14 +195,14 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
         iplAudioBufferDeinterleave(Context, InBufferData, &Source.InBuffer);
 
         // We are given the source's position and orientation.
-        IPLCoordinateSpace3 SourceCoordinates{};
-        SourceCoordinates.origin = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldPosition);
-        SourceCoordinates.ahead = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldRotation * FVector::ForwardVector, false);
-        SourceCoordinates.right = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldRotation * FVector::RightVector, false);
-        SourceCoordinates.up = SteamAudio::ConvertVector(InputData.SpatializationParams->EmitterWorldRotation * FVector::UpVector, false);
+        IPLCoordinateSpace3 SourceCoordinates;
+        SourceCoordinates.origin = ConvertVector(InputData.SpatializationParams->EmitterWorldPosition);
+        SourceCoordinates.ahead = ConvertVector(InputData.SpatializationParams->EmitterWorldRotation.GetAxisX(), false);
+        SourceCoordinates.right = ConvertVector(InputData.SpatializationParams->EmitterWorldRotation.GetAxisY(), false);
+        SourceCoordinates.up = ConvertVector(InputData.SpatializationParams->EmitterWorldRotation.GetAxisZ(), false);
 
         // Get the listener's position and orientation from the global audio plugin listener.
-        IPLCoordinateSpace3 ListenerCoordinates = FSteamAudioModule::GetManager().GetListenerCoordinates();
+        const IPLVector3 ListenerPosition = ConvertVector(InputData.SpatializationParams->ListenerPosition);
 
         IPLDirectEffectParams Params{};
 
@@ -202,7 +224,7 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
             IPLDistanceAttenuationModel DistanceAttenuationModel{};
             DistanceAttenuationModel.type = IPL_DISTANCEATTENUATIONTYPE_DEFAULT;
 
-            Params.distanceAttenuation = iplDistanceAttenuationCalculate(Context, SourceCoordinates.origin, ListenerCoordinates.origin, &DistanceAttenuationModel);
+            Params.distanceAttenuation = iplDistanceAttenuationCalculate(Context, SourceCoordinates.origin, ListenerPosition, &DistanceAttenuationModel);
         }
 
         // If enabled, calculate frequency-dependent air absorption using the default model.
@@ -211,7 +233,7 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
             IPLAirAbsorptionModel AirAbsorptionModel{};
             AirAbsorptionModel.type = IPL_AIRABSORPTIONTYPE_DEFAULT;
 
-            iplAirAbsorptionCalculate(Context, SourceCoordinates.origin, ListenerCoordinates.origin, &AirAbsorptionModel, Params.airAbsorption);
+            iplAirAbsorptionCalculate(Context, SourceCoordinates.origin, ListenerPosition, &AirAbsorptionModel, Params.airAbsorption);
         }
 
         // If enabled, calculate directivity using the configured dipole model.
@@ -221,25 +243,24 @@ void FSteamAudioOcclusionPlugin::ProcessAudio(const FAudioPluginSourceInputData&
             DirectivityModel.dipoleWeight = Source.DipoleWeight;
             DirectivityModel.dipolePower = Source.DipolePower;
 
-            Params.directivity = iplDirectivityCalculate(Context, SourceCoordinates, ListenerCoordinates.origin, &DirectivityModel);
+            Params.directivity = iplDirectivityCalculate(Context, SourceCoordinates, ListenerPosition, &DirectivityModel);
         }
 
         // If enabled, retrieve occlusion (and optionally transmission) values from the actor's Steam Audio Source
         // component.
         if (Source.bApplyOcclusion)
         {
-            UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(InputData.AudioComponentId);
-            USteamAudioSourceComponent* SteamAudioSourceComponent = (AudioComponent) ? AudioComponent->GetOwner()->FindComponentByClass<USteamAudioSourceComponent>() : nullptr;
+            const USteamAudioSourceComponent* SteamAudioSourceComponent = FSteamAudioModule::GetManager().GetSource(InputData.AudioComponentId);
 
-            Params.occlusion = (SteamAudioSourceComponent) ? SteamAudioSourceComponent->OcclusionValue : 1.0f;
+            Params.occlusion = SteamAudioSourceComponent ? SteamAudioSourceComponent->OcclusionValue : 1.0f;
 
             if (Source.bApplyTransmission)
             {
                 Params.transmissionType = static_cast<IPLTransmissionType>(Source.TransmissionType);
 
-                Params.transmission[0] = (SteamAudioSourceComponent) ? SteamAudioSourceComponent->TransmissionLowValue : 1.0f;
-                Params.transmission[1] = (SteamAudioSourceComponent) ? SteamAudioSourceComponent->TransmissionMidValue : 1.0f;
-                Params.transmission[2] = (SteamAudioSourceComponent) ? SteamAudioSourceComponent->TransmissionHighValue : 1.0f;
+                Params.transmission[0] = SteamAudioSourceComponent ? SteamAudioSourceComponent->TransmissionLowValue : 1.0f;
+                Params.transmission[1] = SteamAudioSourceComponent ? SteamAudioSourceComponent->TransmissionMidValue : 1.0f;
+                Params.transmission[2] = SteamAudioSourceComponent ? SteamAudioSourceComponent->TransmissionHighValue : 1.0f;
             }
         }
 

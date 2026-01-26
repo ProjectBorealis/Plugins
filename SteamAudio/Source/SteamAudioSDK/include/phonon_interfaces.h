@@ -48,6 +48,9 @@ class IProbeArray;
 class IProbeBatch;
 class ISimulator;
 class ISource;
+class IEnergyField;
+class IImpulseResponse;
+class IReconstructor;
 
 class IContext
 {
@@ -198,6 +201,15 @@ public:
     virtual IPLfloat32 calculateDirectivity(IPLCoordinateSpace3 source,
                                             IPLVector3 listener,
                                             IPLDirectivity* model) = 0;
+
+    virtual IPLerror createEnergyField(const IPLEnergyFieldSettings* settings,
+                                       IEnergyField** energyField) = 0;
+
+    virtual IPLerror createImpulseResponse(const IPLImpulseResponseSettings* settings,
+                                           IImpulseResponse** impulseResponse) = 0;
+
+    virtual IPLerror createReconstructor(const IPLReconstructorSettings* settings,
+                                         IReconstructor** reconstructor) = 0;
 };
 
 class ISerializedObject
@@ -263,6 +275,8 @@ public:
     virtual void release() = 0;
 };
 
+class IStaticMesh;
+
 class IScene
 {
 public:
@@ -286,6 +300,8 @@ public:
 
     virtual IPLerror createInstancedMesh(IPLInstancedMeshSettings* settings,
                                          IInstancedMesh** instancedMesh) = 0;
+
+    virtual void setStaticMeshMaterial(IStaticMesh* staticMesh, IPLMaterial* newMaterial, IPLint32 index) = 0;
 };
 
 class IStaticMesh
@@ -337,6 +353,10 @@ public:
     virtual IPLAudioEffectState apply(IPLPanningEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IBinauralEffect
@@ -351,6 +371,10 @@ public:
     virtual IPLAudioEffectState apply(IPLBinauralEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IVirtualSurroundEffect
@@ -365,6 +389,10 @@ public:
     virtual IPLAudioEffectState apply(IPLVirtualSurroundEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IAmbisonicsEncodeEffect
@@ -379,6 +407,10 @@ public:
     virtual IPLAudioEffectState apply(IPLAmbisonicsEncodeEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IAmbisonicsPanningEffect
@@ -393,6 +425,10 @@ public:
     virtual IPLAudioEffectState apply(IPLAmbisonicsPanningEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IAmbisonicsBinauralEffect
@@ -407,6 +443,10 @@ public:
     virtual IPLAudioEffectState apply(IPLAmbisonicsBinauralEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IAmbisonicsRotationEffect
@@ -421,6 +461,10 @@ public:
     virtual IPLAudioEffectState apply(IPLAmbisonicsRotationEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IAmbisonicsDecodeEffect
@@ -435,6 +479,10 @@ public:
     virtual IPLAudioEffectState apply(IPLAmbisonicsDecodeEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IDirectEffect
@@ -449,6 +497,10 @@ public:
     virtual IPLAudioEffectState apply(IPLDirectEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IReflectionEffect
@@ -464,6 +516,11 @@ public:
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out,
                                       IReflectionMixer* mixer) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out,
+                                        IReflectionMixer* mixer) = 0;
 };
 
 class IReflectionMixer
@@ -491,6 +548,10 @@ public:
     virtual IPLAudioEffectState apply(IPLPathEffectParams* params,
                                       IPLAudioBuffer* in,
                                       IPLAudioBuffer* out) = 0;
+
+    virtual IPLint32 getTailSize() = 0;
+
+    virtual IPLAudioEffectState getTail(IPLAudioBuffer* out) = 0;
 };
 
 class IProbeArray
@@ -530,6 +591,10 @@ public:
     virtual void removeData(IPLBakedDataIdentifier* identifier) = 0;
 
     virtual IPLsize getDataSize(IPLBakedDataIdentifier* identifier) = 0;
+
+    virtual void getEnergyField(IPLBakedDataIdentifier* identifier, int probeIndex, IEnergyField* energyField) = 0;
+
+    virtual void getReverb(IPLBakedDataIdentifier* identifier, int probeIndex, float* reverbTimes) = 0;
 };
 
 class ISimulator
@@ -576,6 +641,75 @@ public:
 
     virtual void getOutputs(IPLSimulationFlags flags,
                             IPLSimulationOutputs* outputs) = 0;
+};
+
+class IEnergyField
+{
+public:
+    virtual IEnergyField* retain() = 0;
+
+    virtual void release() = 0;
+
+    virtual int getNumChannels() = 0;
+
+    virtual int getNumBins() = 0;
+
+    virtual float* getData() = 0;
+
+    virtual float* getChannel(int channelIndex) = 0;
+
+    virtual float* getBand(int channelIndex, int bandIndex) = 0;
+
+    virtual void reset() = 0;
+
+    virtual void copy(IEnergyField* src) = 0;
+
+    virtual void swap(IEnergyField* other) = 0;
+
+    virtual void add(IEnergyField* in1, IEnergyField* in2) = 0;
+
+    virtual void scale(IEnergyField* in, float scalar) = 0;
+
+    virtual void scaleAccum(IEnergyField* in, float scalar) = 0;
+};
+
+class IImpulseResponse
+{
+public:
+    virtual IImpulseResponse* retain() = 0;
+
+    virtual void release() = 0;
+
+    virtual int getNumChannels() = 0;
+
+    virtual int getNumSamples() = 0;
+
+    virtual float* getData() = 0;
+
+    virtual float* getChannel(int channelIndex) = 0;
+
+    virtual void reset() = 0;
+
+    virtual void copy(IImpulseResponse* src) = 0;
+
+    virtual void swap(IImpulseResponse* other) = 0;
+
+    virtual void add(IImpulseResponse* in1, IImpulseResponse* in2) = 0;
+
+    virtual void scale(IImpulseResponse* in, float scalar) = 0;
+
+    virtual void scaleAccum(IImpulseResponse* in, float scalar) = 0;
+};
+
+class IReconstructor
+{
+public:
+    virtual IReconstructor* retain() = 0;
+
+    virtual void release() = 0;
+
+    virtual void reconstruct(IPLint32 numInputs, const IPLReconstructorInputs* inputs,
+                             const IPLReconstructorSharedInputs* sharedInputs, IPLReconstructorOutputs* outputs) = 0;
 };
 
 }
@@ -962,6 +1096,14 @@ void IPLCALL iplStaticMeshAdd(IPLStaticMesh staticMesh, IPLScene scene)
     reinterpret_cast<api::IStaticMesh*>(staticMesh)->add(reinterpret_cast<api::IScene*>(scene));
 }
 
+void IPLCALL iplStaticMeshSetMaterial(IPLStaticMesh staticMesh, IPLScene scene, IPLMaterial* newMaterial, IPLint32 index)
+{
+    if (!staticMesh || !scene)
+        return;
+    
+    reinterpret_cast<api::IScene*>(scene)->setStaticMeshMaterial(reinterpret_cast<api::IStaticMesh*>(staticMesh), newMaterial, index);
+}
+
 void IPLCALL iplStaticMeshRemove(IPLStaticMesh staticMesh, IPLScene scene)
 {
     if (!staticMesh)
@@ -1171,6 +1313,26 @@ IPLAudioEffectState IPLCALL iplPanningEffectApply(IPLPanningEffect effect,
     return reinterpret_cast<api::IPanningEffect*>(effect)->apply(params, in, out);
 }
 
+IPLint32 IPLCALL iplPanningEffectGetTailSize(IPLPanningEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IPanningEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplPanningEffectGetTail(IPLPanningEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IPanningEffect*>(effect);
+
+    return _effect->getTail(out);
+}
+
 IPLerror IPLCALL iplBinauralEffectCreate(IPLContext context,
                                  IPLAudioSettings* audioSettings,
                                  IPLBinauralEffectSettings* effectSettings,
@@ -1217,6 +1379,26 @@ IPLAudioEffectState IPLCALL iplBinauralEffectApply(IPLBinauralEffect effect,
         return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
 
     return reinterpret_cast<api::IBinauralEffect*>(effect)->apply(params, in, out);
+}
+
+IPLint32 IPLCALL iplBinauralEffectGetTailSize(IPLBinauralEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IBinauralEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplBinauralEffectGetTail(IPLBinauralEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IBinauralEffect*>(effect);
+
+    return _effect->getTail(out);
 }
 
 IPLerror IPLCALL iplVirtualSurroundEffectCreate(IPLContext context,
@@ -1267,6 +1449,26 @@ IPLAudioEffectState IPLCALL iplVirtualSurroundEffectApply(IPLVirtualSurroundEffe
     return reinterpret_cast<api::IVirtualSurroundEffect*>(effect)->apply(params, in, out);
 }
 
+IPLint32 IPLCALL iplVirtualSurroundEffectGetTailSize(IPLVirtualSurroundEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IVirtualSurroundEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplVirtualSurroundEffectGetTail(IPLVirtualSurroundEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IVirtualSurroundEffect*>(effect);
+
+    return _effect->getTail(out);
+}
+
 IPLerror IPLCALL iplAmbisonicsEncodeEffectCreate(IPLContext context,
                                          IPLAudioSettings* audioSettings,
                                          IPLAmbisonicsEncodeEffectSettings* effectSettings,
@@ -1313,6 +1515,26 @@ IPLAudioEffectState IPLCALL iplAmbisonicsEncodeEffectApply(IPLAmbisonicsEncodeEf
         return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
 
     return reinterpret_cast<api::IAmbisonicsEncodeEffect*>(effect)->apply(params, in, out);
+}
+
+IPLint32 IPLCALL iplAmbisonicsEncodeEffectGetTailSize(IPLAmbisonicsEncodeEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsEncodeEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplAmbisonicsEncodeEffectGetTail(IPLAmbisonicsEncodeEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsEncodeEffect*>(effect);
+
+    return _effect->getTail(out);
 }
 
 IPLerror IPLCALL iplAmbisonicsPanningEffectCreate(IPLContext context,
@@ -1363,6 +1585,26 @@ IPLAudioEffectState IPLCALL iplAmbisonicsPanningEffectApply(IPLAmbisonicsPanning
     return reinterpret_cast<api::IAmbisonicsPanningEffect*>(effect)->apply(params, in, out);
 }
 
+IPLint32 IPLCALL iplAmbisonicsPanningEffectGetTailSize(IPLAmbisonicsPanningEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsPanningEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplAmbisonicsPanningEffectGetTail(IPLAmbisonicsPanningEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsPanningEffect*>(effect);
+
+    return _effect->getTail(out);
+}
+
 IPLerror IPLCALL iplAmbisonicsBinauralEffectCreate(IPLContext context,
                                            IPLAudioSettings* audioSettings,
                                            IPLAmbisonicsBinauralEffectSettings* effectSettings,
@@ -1409,6 +1651,26 @@ IPLAudioEffectState IPLCALL iplAmbisonicsBinauralEffectApply(IPLAmbisonicsBinaur
         return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
 
     return reinterpret_cast<api::IAmbisonicsBinauralEffect*>(effect)->apply(params, in, out);
+}
+
+IPLint32 IPLCALL iplAmbisonicsBinauralEffectGetTailSize(IPLAmbisonicsBinauralEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsBinauralEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplAmbisonicsBinauralEffectGetTail(IPLAmbisonicsBinauralEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsBinauralEffect*>(effect);
+
+    return _effect->getTail(out);
 }
 
 IPLerror IPLCALL iplAmbisonicsRotationEffectCreate(IPLContext context,
@@ -1459,6 +1721,26 @@ IPLAudioEffectState IPLCALL iplAmbisonicsRotationEffectApply(IPLAmbisonicsRotati
     return reinterpret_cast<api::IAmbisonicsRotationEffect*>(effect)->apply(params, in, out);
 }
 
+IPLint32 IPLCALL iplAmbisonicsRotationEffectGetTailSize(IPLAmbisonicsRotationEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsRotationEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplAmbisonicsRotationEffectGetTail(IPLAmbisonicsRotationEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsRotationEffect*>(effect);
+
+    return _effect->getTail(out);
+}
+
 IPLerror IPLCALL iplAmbisonicsDecodeEffectCreate(IPLContext context,
                                          IPLAudioSettings* audioSettings,
                                          IPLAmbisonicsDecodeEffectSettings* effectSettings,
@@ -1505,6 +1787,26 @@ IPLAudioEffectState IPLCALL iplAmbisonicsDecodeEffectApply(IPLAmbisonicsDecodeEf
         return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
 
     return reinterpret_cast<api::IAmbisonicsDecodeEffect*>(effect)->apply(params, in, out);
+}
+
+IPLint32 IPLCALL iplAmbisonicsDecodeEffectGetTailSize(IPLAmbisonicsDecodeEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsDecodeEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplAmbisonicsDecodeEffectGetTail(IPLAmbisonicsDecodeEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IAmbisonicsDecodeEffect*>(effect);
+
+    return _effect->getTail(out);
 }
 
 IPLerror IPLCALL iplDirectEffectCreate(IPLContext context,
@@ -1555,6 +1857,26 @@ IPLAudioEffectState IPLCALL iplDirectEffectApply(IPLDirectEffect effect,
     return reinterpret_cast<api::IDirectEffect*>(effect)->apply(params, in, out);
 }
 
+IPLint32 IPLCALL iplDirectEffectGetTailSize(IPLDirectEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IDirectEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplDirectEffectGetTail(IPLDirectEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IDirectEffect*>(effect);
+
+    return _effect->getTail(out);
+}
+
 IPLerror IPLCALL iplReflectionEffectCreate(IPLContext context,
                                    IPLAudioSettings* audioSettings,
                                    IPLReflectionEffectSettings* effectSettings,
@@ -1602,6 +1924,27 @@ IPLAudioEffectState IPLCALL iplReflectionEffectApply(IPLReflectionEffect effect,
         return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
 
     return reinterpret_cast<api::IReflectionEffect*>(effect)->apply(params, in, out, reinterpret_cast<api::IReflectionMixer*>(mixer));
+}
+
+IPLint32 IPLCALL iplReflectionEffectGetTailSize(IPLReflectionEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IReflectionEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplReflectionEffectGetTail(IPLReflectionEffect effect, IPLAudioBuffer* out, IPLReflectionMixer mixer)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IReflectionEffect*>(effect);
+    auto _mixer = reinterpret_cast<api::IReflectionMixer*>(mixer);
+
+    return _effect->getTail(out, _mixer);
 }
 
 IPLerror IPLCALL iplReflectionMixerCreate(IPLContext context,
@@ -1697,6 +2040,26 @@ IPLAudioEffectState IPLCALL iplPathEffectApply(IPLPathEffect effect,
         return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
 
     return reinterpret_cast<api::IPathEffect*>(effect)->apply(params, in, out);
+}
+
+IPLint32 IPLCALL iplPathEffectGetTailSize(IPLPathEffect effect)
+{
+    if (!effect)
+        return 0;
+
+    auto _effect = reinterpret_cast<api::IPathEffect*>(effect);
+
+    return _effect->getTailSize();
+}
+
+IPLAudioEffectState IPLCALL iplPathEffectGetTail(IPLPathEffect effect, IPLAudioBuffer* out)
+{
+    if (!effect)
+        return IPL_AUDIOEFFECTSTATE_TAILCOMPLETE;
+
+    auto _effect = reinterpret_cast<api::IPathEffect*>(effect);
+
+    return _effect->getTail(out);
 }
 
 IPLerror IPLCALL iplProbeArrayCreate(IPLContext context,
@@ -1856,6 +2219,22 @@ IPLsize IPLCALL iplProbeBatchGetDataSize(IPLProbeBatch probeBatch,
         return 0;
 
     return reinterpret_cast<api::IProbeBatch*>(probeBatch)->getDataSize(identifier);
+}
+
+void IPLCALL iplProbeBatchGetEnergyField(IPLProbeBatch probeBatch, IPLBakedDataIdentifier* identifier, IPLint32 probeIndex, IPLEnergyField energyField)
+{
+    if (!probeBatch)
+        return;
+
+    reinterpret_cast<api::IProbeBatch*>(probeBatch)->getEnergyField(identifier, probeIndex, reinterpret_cast<api::IEnergyField*>(energyField));
+}
+
+void IPLCALL iplProbeBatchGetReverb(IPLProbeBatch probeBatch, IPLBakedDataIdentifier* identifier, IPLint32 probeIndex, IPLfloat32* reverbTimes)
+{
+    if (!probeBatch)
+        return;
+
+    reinterpret_cast<api::IProbeBatch*>(probeBatch)->getReverb(identifier, probeIndex, reverbTimes);
 }
 
 void IPLCALL iplReflectionsBakerBake(IPLContext context,
@@ -2089,6 +2468,256 @@ IPLfloat32 IPLCALL iplDirectivityCalculate(IPLContext context,
     return reinterpret_cast<api::IContext*>(context)->calculateDirectivity(source, listener, model);
 }
 
+IPLerror IPLCALL iplEnergyFieldCreate(IPLContext context, IPLEnergyFieldSettings* settings, IPLEnergyField* energyField)
+{
+    if (!context)
+        return IPL_STATUS_FAILURE;
+
+    return reinterpret_cast<api::IContext*>(context)->createEnergyField(settings, reinterpret_cast<api::IEnergyField**>(energyField));
+}
+
+IPLEnergyField IPLCALL iplEnergyFieldRetain(IPLEnergyField energyField)
+{
+    if (!energyField)
+        return nullptr;
+
+    return reinterpret_cast<IPLEnergyField>(reinterpret_cast<api::IEnergyField*>(energyField)->retain());
+}
+
+void IPLCALL iplEnergyFieldRelease(IPLEnergyField* energyField)
+{
+    if (!energyField || !*energyField)
+        return;
+
+    reinterpret_cast<api::IEnergyField*>(*energyField)->release();
+    *energyField = nullptr;
+}
+
+IPLint32 IPLCALL iplEnergyFieldGetNumChannels(IPLEnergyField energyField)
+{
+    if (!energyField)
+        return 0;
+
+    return reinterpret_cast<api::IEnergyField*>(energyField)->getNumChannels();
+}
+
+IPLint32 IPLCALL iplEnergyFieldGetNumBins(IPLEnergyField energyField)
+{
+    if (!energyField)
+        return 0;
+
+    return reinterpret_cast<api::IEnergyField*>(energyField)->getNumBins();
+}
+
+IPLfloat32* IPLCALL iplEnergyFieldGetData(IPLEnergyField energyField)
+{
+    if (!energyField)
+        return nullptr;
+
+    return reinterpret_cast<api::IEnergyField*>(energyField)->getData();
+}
+
+IPLfloat32* IPLCALL iplEnergyFieldGetChannel(IPLEnergyField energyField, IPLint32 channelIndex)
+{
+    if (!energyField)
+        return nullptr;
+
+    return reinterpret_cast<api::IEnergyField*>(energyField)->getChannel(channelIndex);
+}
+
+IPLfloat32* IPLCALL iplEnergyFieldGetBand(IPLEnergyField energyField, IPLint32 channelIndex, IPLint32 bandIndex)
+{
+    if (!energyField)
+        return nullptr;
+
+    return reinterpret_cast<api::IEnergyField*>(energyField)->getBand(channelIndex, bandIndex);
+}
+
+void IPLCALL iplEnergyFieldReset(IPLEnergyField energyField)
+{
+    if (!energyField)
+        return;
+
+    reinterpret_cast<api::IEnergyField*>(energyField)->reset();
+}
+
+void IPLCALL iplEnergyFieldCopy(IPLEnergyField src, IPLEnergyField dst)
+{
+    if (!src || !dst)
+        return;
+
+    reinterpret_cast<api::IEnergyField*>(dst)->copy(reinterpret_cast<api::IEnergyField*>(src));
+}
+
+void IPLCALL iplEnergyFieldSwap(IPLEnergyField a, IPLEnergyField b)
+{
+    if (!a || !b)
+        return;
+
+    reinterpret_cast<api::IEnergyField*>(b)->swap(reinterpret_cast<api::IEnergyField*>(a));
+}
+
+void IPLCALL iplEnergyFieldAdd(IPLEnergyField in1, IPLEnergyField in2, IPLEnergyField out)
+{
+    if (!in1 || !in2 || !out)
+        return;
+
+    reinterpret_cast<api::IEnergyField*>(out)->add(reinterpret_cast<api::IEnergyField*>(in1), reinterpret_cast<api::IEnergyField*>(in2));
+}
+
+void IPLCALL iplEnergyFieldScale(IPLEnergyField in, IPLfloat32 scalar, IPLEnergyField out)
+{
+    if (!in || !out)
+        return;
+
+    reinterpret_cast<api::IEnergyField*>(out)->scale(reinterpret_cast<api::IEnergyField*>(in), scalar);
+}
+
+void IPLCALL iplEnergyFieldScaleAccum(IPLEnergyField in, IPLfloat32 scalar, IPLEnergyField out)
+{
+    if (!in || !out)
+        return;
+
+    reinterpret_cast<api::IEnergyField*>(out)->scaleAccum(reinterpret_cast<api::IEnergyField*>(in), scalar);
+}
+
+IPLerror IPLCALL iplImpulseResponseCreate(IPLContext context, IPLImpulseResponseSettings* settings, IPLImpulseResponse* impulseResponse)
+{
+    if (!context)
+        return IPL_STATUS_FAILURE;
+
+    return reinterpret_cast<api::IContext*>(context)->createImpulseResponse(settings, reinterpret_cast<api::IImpulseResponse**>(impulseResponse));
+}
+
+IPLImpulseResponse IPLCALL iplImpulseResponseRetain(IPLImpulseResponse impulseResponse)
+{
+    if (!impulseResponse)
+        return nullptr;
+
+    return reinterpret_cast<IPLImpulseResponse>(reinterpret_cast<api::IImpulseResponse*>(impulseResponse)->retain());
+}
+
+void IPLCALL iplImpulseResponseRelease(IPLImpulseResponse* impulseResponse)
+{
+    if (!impulseResponse || !*impulseResponse)
+        return;
+
+    reinterpret_cast<api::IImpulseResponse*>(*impulseResponse)->release();
+    *impulseResponse = nullptr;
+}
+
+IPLint32 IPLCALL iplImpulseResponseGetNumChannels(IPLImpulseResponse impulseResponse)
+{
+    if (!impulseResponse)
+        return 0;
+
+    return reinterpret_cast<api::IImpulseResponse*>(impulseResponse)->getNumChannels();
+}
+
+IPLint32 IPLCALL iplImpulseResponseGetNumSamples(IPLImpulseResponse impulseResponse)
+{
+    if (!impulseResponse)
+        return 0;
+
+    return reinterpret_cast<api::IImpulseResponse*>(impulseResponse)->getNumSamples();
+}
+
+IPLfloat32* IPLCALL iplImpulseResponseGetData(IPLImpulseResponse impulseResponse)
+{
+    if (!impulseResponse)
+        return nullptr;
+
+    return reinterpret_cast<api::IImpulseResponse*>(impulseResponse)->getData();
+}
+
+IPLfloat32* IPLCALL iplImpulseResponseGetChannel(IPLImpulseResponse impulseResponse, int channelIndex)
+{
+    if (!impulseResponse)
+        return nullptr;
+
+    return reinterpret_cast<api::IImpulseResponse*>(impulseResponse)->getChannel(channelIndex);
+}
+
+void IPLCALL iplImpulseResponseReset(IPLImpulseResponse impulseResponse)
+{
+    if (!impulseResponse)
+        return;
+
+    reinterpret_cast<api::IImpulseResponse*>(impulseResponse)->reset();
+}
+
+void IPLCALL iplImpulseResponseCopy(IPLImpulseResponse src, IPLImpulseResponse dst)
+{
+    if (!src || !dst)
+        return;
+
+    reinterpret_cast<api::IImpulseResponse*>(dst)->copy(reinterpret_cast<api::IImpulseResponse*>(src));
+}
+
+void IPLCALL iplImpulseResponseSwap(IPLImpulseResponse ir1, IPLImpulseResponse ir2)
+{
+    if (!ir1 || !ir2)
+        return;
+
+    reinterpret_cast<api::IImpulseResponse*>(ir2)->swap(reinterpret_cast<api::IImpulseResponse*>(ir1));
+}
+
+void IPLCALL iplImpulseResponseAdd(IPLImpulseResponse in1, IPLImpulseResponse in2, IPLImpulseResponse out)
+{
+    if (!in1 || !in2 || !out)
+        return;
+
+    reinterpret_cast<api::IImpulseResponse*>(out)->add(reinterpret_cast<api::IImpulseResponse*>(in1), reinterpret_cast<api::IImpulseResponse*>(in2));
+}
+
+void IPLCALL iplImpulseResponseScale(IPLImpulseResponse in, IPLfloat32 scalar, IPLImpulseResponse out)
+{
+    if (!in || !out)
+        return;
+
+    reinterpret_cast<api::IImpulseResponse*>(out)->scale(reinterpret_cast<api::IImpulseResponse*>(in), scalar);
+}
+
+void IPLCALL iplImpulseResponseScaleAccum(IPLImpulseResponse in, IPLfloat32 scalar, IPLImpulseResponse out)
+{
+    if (!in || !out)
+        return;
+
+    reinterpret_cast<api::IImpulseResponse*>(out)->scaleAccum(reinterpret_cast<api::IImpulseResponse*>(in), scalar);
+}
+
+IPLerror IPLCALL iplReconstructorCreate(IPLContext context, IPLReconstructorSettings* settings, IPLReconstructor* reconstructor)
+{
+    if (!context)
+        return IPL_STATUS_FAILURE;
+
+    return reinterpret_cast<api::IContext*>(context)->createReconstructor(settings, reinterpret_cast<api::IReconstructor**>(reconstructor));
+}
+
+IPLReconstructor IPLCALL iplReconstructorRetain(IPLReconstructor reconstructor)
+{
+    if (!reconstructor)
+        return nullptr;
+
+    return reinterpret_cast<IPLReconstructor>(reinterpret_cast<api::IReconstructor*>(reconstructor)->retain());
+}
+
+void IPLCALL iplReconstructorRelease(IPLReconstructor* reconstructor)
+{
+    if (!reconstructor || !*reconstructor)
+        return;
+
+    reinterpret_cast<api::IReconstructor*>(*reconstructor)->release();
+    *reconstructor = nullptr;
+}
+
+void IPLCALL iplReconstructorReconstruct(IPLReconstructor reconstructor, IPLint32 numInputs, IPLReconstructorInputs* inputs, IPLReconstructorSharedInputs* sharedInputs, IPLReconstructorOutputs* outputs)
+{
+    if (!reconstructor)
+        return;
+
+    reinterpret_cast<api::IReconstructor*>(reconstructor)->reconstruct(numInputs, inputs, sharedInputs, outputs);
+}
 #endif
 
 #endif

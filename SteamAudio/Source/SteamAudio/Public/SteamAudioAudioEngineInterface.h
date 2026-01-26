@@ -34,7 +34,7 @@ class IAudioEngineSource;
 class IAudioEngineState
 {
 public:
-    /** Initializes the audio engine part of the plugin. Call after the Steam Audio Manager is initialized. */
+     /** Initializes the audio engine part of the plugin. Call after the Steam Audio Manager is initialized. */
     virtual void Initialize(IPLContext Context, IPLHRTF HRTF, const IPLSimulationSettings& SimulationSettings) = 0;
 
     /** Shuts down the audio engine part of the plugin. Call before shutting down the Steam Audio Manager. */
@@ -54,6 +54,9 @@ public:
 
     /** Creates an interface object for communicating with a spatializer effect instance in the audio engine plugin. */
     virtual TSharedPtr<IAudioEngineSource> CreateAudioEngineSource() = 0;
+
+    /** Disables HRTF processing globally. */
+    virtual void SetHRTFDisabled(bool bDisabled) = 0;
 };
 
 

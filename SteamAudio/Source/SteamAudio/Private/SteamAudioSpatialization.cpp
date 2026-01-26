@@ -16,11 +16,13 @@
 
 #include "SteamAudioSpatialization.h"
 #include "Components/AudioComponent.h"
+#include "GameFramework/Actor.h"
 #include "HAL/UnrealMemory.h"
 #include "SteamAudioCommon.h"
 #include "SteamAudioManager.h"
 #include "SteamAudioSourceComponent.h"
 #include "SteamAudioSpatializationSettings.h"
+#include "SteamAudioUnrealAudioEngineInterface.h"
 
 namespace SteamAudio {
 
@@ -34,6 +36,7 @@ FSteamAudioSpatializationSource::FSteamAudioSpatializationSource()
     , bApplyPathing(false)
     , bApplyHRTFToPathing(false)
     , PathingMixLevel(1.0f)
+    , bNormalizePathingEQ(false)
     , HRTF(nullptr)
     , PanningEffect(nullptr)
     , BinauralEffect(nullptr)
@@ -44,7 +47,9 @@ FSteamAudioSpatializationSource::FSteamAudioSpatializationSource()
     , SpatializedPathingBuffer()
     , OutBuffer()
     , PrevOrder(-1)
-{}
+{
+    PathingCoeffs.Reserve(16);
+}
 
 FSteamAudioSpatializationSource::~FSteamAudioSpatializationSource()
 {
@@ -142,12 +147,6 @@ bool FSteamAudioSpatializationPlugin::IsSpatializationEffectInitialized() const
 
 void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, USpatializationPluginSourceSettingsBase* InSettings)
 {
-    // Make sure we're initialized, so real-time audio can work.
-    SteamAudio::RunInGameThread<void>([&]()
-    {
-        FSteamAudioModule::GetManager().InitializeSteamAudio(EManagerInitReason::PLAYING);
-    });
-
     FSteamAudioSpatializationSource& Source = Sources[SourceId];
 
     // If a settings asset was provided, use that to configure the source. Otherwise, use defaults.
@@ -157,6 +156,7 @@ void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const 
     Source.bApplyPathing = (Settings) ? Settings->bApplyPathing : false;
     Source.bApplyHRTFToPathing = (Settings) ? Settings->bApplyHRTFToPathing : false;
     Source.PathingMixLevel = (Settings) ? Settings->PathingMixLevel : 1.0f;
+    Source.bNormalizePathingEQ = (Settings) ? Settings->bNormalizePathingEQ : false;
 
     IPLContext Context = FSteamAudioModule::GetManager().GetContext();
 
@@ -212,6 +212,8 @@ void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const 
         {
             UE_LOG(LogSteamAudio, Error, TEXT("Unable to create pathing effect. [%d]"), Status);
         }
+
+        Source.PathingCoeffs.SetNumZeroed(CalcNumChannelsForAmbisonicOrder(PathingSettings.maxOrder));
     }
 
     if ((!Source.AmbisonicsDecodeEffect || Source.PrevOrder != SimulationSettings.maxOrder) && Source.HRTF)
@@ -287,14 +289,29 @@ void FSteamAudioSpatializationPlugin::OnReleaseSource(const uint32 SourceId)
 
 void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData)
 {
+    if (!FSteamAudioModule::GetManager().IsSteamAudioEnabled())
+    {
+        for (int32 i = 0; i < OutputData.AudioBuffer.Num(); ++i)
+        {
+            OutputData.AudioBuffer[i] = (*InputData.AudioBuffer)[i];
+        }
+        return;
+    }
+
     FSteamAudioSpatializationSource& Source = Sources[InputData.SourceId];
 
     float* InBufferData = InputData.AudioBuffer->GetData();
     float* OutBufferData = OutputData.AudioBuffer.GetData();
 
-    IPLContext Context = FSteamAudioModule::GetManager().GetContext();
+    FSteamAudioManager& Manager = FSteamAudioModule::GetManager();
+    IPLContext Context = Manager.GetContext();
 
     Source.ClearBuffers();
+
+	if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
+    {
+        return;
+    }
 
     // The input buffer is always mono, so we don't need to deinterleave it into a temporary buffer.
     IPLAudioBuffer InBuffer{};
@@ -313,7 +330,7 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
         RelativeDirection.z = InputData.SpatializationParams->EmitterPosition.Z;
 
         // Apply panning or binaural effect to the input, storing the result in OutBuffer.
-        if (Source.bBinaural)
+        if (Source.bBinaural && !FUnrealAudioEngineState::IsHRTFDisabled())
         {
             IPLBinauralEffectParams Params{};
             Params.direction = RelativeDirection;
@@ -338,14 +355,18 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
     {
         // FIXME: Unreal 4.27 does not pass the audio component id correctly to the spatializer plugin. It does this
         // correctly for the occlusion and reverb plugins.
-        UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(InputData.AudioComponentId);
-        USteamAudioSourceComponent* SteamAudioSourceComponent = (AudioComponent) ? AudioComponent->GetOwner()->FindComponentByClass<USteamAudioSourceComponent>() : nullptr;
+        USteamAudioSourceComponent* SteamAudioSourceComponent = Manager.GetSource(InputData.AudioComponentId);
 
-        if (SteamAudioSourceComponent && FSteamAudioModule::IsPlaying())
+        if (SteamAudioSourceComponent)
         {
-            IPLSimulationSettings SimulationSettings = FSteamAudioModule::GetManager().GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
+            IPLSimulationSettings SimulationSettings = Manager.GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
             IPLSimulationOutputs Outputs = SteamAudioSourceComponent->GetOutputs(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
+
+            if (Outputs.pathing.shCoeffs)
+            {
+                FMemory::Memcpy(Source.PathingCoeffs.GetData(), Outputs.pathing.shCoeffs, Source.PathingCoeffs.Num() * sizeof(float));
+            }
 
             for (int i = 0; i < InBuffer.numSamples; ++i)
             {
@@ -354,9 +375,19 @@ void FSteamAudioSpatializationPlugin::ProcessAudio(const FAudioPluginSourceInput
 
             IPLPathEffectParams PathingParams = Outputs.pathing;
             PathingParams.order = SimulationSettings.maxOrder;
-            PathingParams.binaural = Source.bApplyHRTFToPathing ? IPL_TRUE : IPL_FALSE;
+            PathingParams.binaural = (Source.bApplyHRTFToPathing && !FUnrealAudioEngineState::IsHRTFDisabled()) ? IPL_TRUE : IPL_FALSE;
             PathingParams.hrtf = Source.HRTF;
-            PathingParams.listener = FSteamAudioModule::GetManager().GetListenerCoordinates();
+            PathingParams.listener.origin = ConvertVector(InputData.SpatializationParams->ListenerPosition);
+        	PathingParams.listener.ahead = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisX(), false);
+        	PathingParams.listener.right = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisY(), false);
+        	PathingParams.listener.up = ConvertVector(InputData.SpatializationParams->ListenerOrientation.GetAxisZ(), false);
+            PathingParams.normalizeEQ = Source.bNormalizePathingEQ ? IPL_TRUE : IPL_FALSE;
+
+            PathingParams.shCoeffs = Source.PathingCoeffs.GetData();
+            for (int i = 0; i < 3; i++)
+            {
+                PathingParams.eqCoeffs[i] = FMath::Max(PathingParams.eqCoeffs[i], 0.1f);
+            }
 
             iplPathEffectApply(Source.PathEffect, &PathingParams, &Source.PathingInputBuffer, &Source.SpatializedPathingBuffer);
 
