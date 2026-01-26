@@ -62,14 +62,13 @@ public:
 
     USteamAudioGeometryComponent();
 
+#if WITH_EDITOR
     /**
      * Inherited from UActorComponent
      */
     /** Called when the component is first created. */
     virtual void OnComponentCreated() override;
-#endif
 
-#if WITH_EDITOR
     /** Called when some property of the component is changed. */
     virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif

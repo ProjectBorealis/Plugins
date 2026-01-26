@@ -61,11 +61,7 @@ void FSteamAudioModule::StartupModule()
     // Construct the path to the DLL. This works for in-editor and standalone cases.
     FString BaseDir = Plugin->GetBaseDir();
 #if PLATFORM_WINDOWS
-#if PLATFORM_64BITS
     FString LibraryPath = BaseDir + TEXT("/Source/SteamAudioSDK/lib/windows-x64/phonon.dll");
-#else
-    FString LibraryPath = BaseDir + TEXT("/Source/SteamAudioSDK/lib/windows-x86/phonon.dll");
-#endif
 #elif PLATFORM_LINUX
     FString LibraryPath = BaseDir + TEXT("/Source/SteamAudioSDK/lib/linux-x64/libphonon.so");
 #elif PLATFORM_MAC

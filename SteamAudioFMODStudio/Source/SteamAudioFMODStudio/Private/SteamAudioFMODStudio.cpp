@@ -47,11 +47,7 @@ void FSteamAudioFMODStudioModule::StartupModule()
 {
 	FString BaseDir = IPluginManager::Get().FindPlugin("FMODStudio")->GetBaseDir();
 #if PLATFORM_WINDOWS
-#if PLATFORM_64BITS
 	FString LibraryPath = BaseDir + TEXT("/Binaries/Win64/phonon_fmod.dll");
-#else
-	FString LibraryPath = BaseDir + TEXT("/Binaries/Win32/phonon_fmod.dll");
-#endif
 #elif PLATFORM_LINUX
 	FString LibraryPath = BaseDir + TEXT("/Binaries/Linux/libphonon_fmod.so");
 #elif PLATFORM_MAC

@@ -63,7 +63,6 @@ private:
 
 class FSimulationThreadRunnable;
 
-UENUM()
 enum class EManagerInitReason : uint8
 {
     NONE,
