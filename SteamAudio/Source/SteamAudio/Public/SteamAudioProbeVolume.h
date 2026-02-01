@@ -119,7 +119,7 @@ public:
 
     /** Component containing probe data for in-editor visualization. */
     UPROPERTY()
-    USteamAudioProbeComponent* ProbeComponent;
+    TObjectPtr<USteamAudioProbeComponent> ProbeComponent;
 
     ASteamAudioProbeVolume();
 
