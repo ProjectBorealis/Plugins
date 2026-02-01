@@ -147,6 +147,12 @@ bool FSteamAudioSpatializationPlugin::IsSpatializationEffectInitialized() const
 
 void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const FName& AudioComponentUserId, USpatializationPluginSourceSettingsBase* InSettings)
 {
+	FSteamAudioManager& Manager = FSteamAudioModule::GetManager();
+	if (Manager.InitializedType() != SteamAudio::EManagerInitReason::PLAYING)
+	{
+		return;
+	}
+	
     FSteamAudioSpatializationSource& Source = Sources[SourceId];
 
     // If a settings asset was provided, use that to configure the source. Otherwise, use defaults.
@@ -158,13 +164,13 @@ void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const 
     Source.PathingMixLevel = (Settings) ? Settings->PathingMixLevel : 1.0f;
     Source.bNormalizePathingEQ = (Settings) ? Settings->bNormalizePathingEQ : false;
 
-    IPLContext Context = FSteamAudioModule::GetManager().GetContext();
+    IPLContext Context = Manager.GetContext();
 
     if (!Source.HRTF)
     {
-        if (FSteamAudioModule::GetManager().InitHRTF(AudioSettings))
+        if (Manager.InitHRTF(AudioSettings))
         {
-            Source.HRTF = iplHRTFRetain(FSteamAudioModule::GetManager().GetHRTF());
+            Source.HRTF = iplHRTFRetain(Manager.GetHRTF());
         }
     }
 
@@ -192,7 +198,7 @@ void FSteamAudioSpatializationPlugin::OnInitSource(const uint32 SourceId, const 
         }
     }
 
-    IPLSimulationSettings SimulationSettings = FSteamAudioModule::GetManager().GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
+    IPLSimulationSettings SimulationSettings = Manager.GetRealTimeSettings(static_cast<IPLSimulationFlags>(IPL_SIMULATIONFLAGS_REFLECTIONS | IPL_SIMULATIONFLAGS_PATHING));
 
     if (!Source.PathEffect || Source.PrevOrder != SimulationSettings.maxOrder)
     {
