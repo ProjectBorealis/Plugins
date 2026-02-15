@@ -40,12 +40,8 @@ public class SteamAudioSDK : ModuleRules
             PublicAdditionalLibraries.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-x64/phonon.lib");
 
             PublicDelayLoadDLLs.Add("phonon.dll");
-            PublicDelayLoadDLLs.Add("TrueAudioNext.dll");
-            PublicDelayLoadDLLs.Add("GPUUtilities.dll");
 
             RuntimeDependencies.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-x64/phonon.dll");
-            RuntimeDependencies.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-x64/TrueAudioNext.dll");
-            RuntimeDependencies.Add("$(PluginDir)/Source/SteamAudioSDK/lib/windows-x64/GPUUtilities.dll");
         }
         if (Target.Platform == UnrealTargetPlatform.Linux)
         {
