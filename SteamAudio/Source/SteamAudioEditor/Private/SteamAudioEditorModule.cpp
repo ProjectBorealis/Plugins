@@ -53,6 +53,8 @@
 #include "SteamAudioSpatializationSettingsFactory.h"
 #include "SteamAudioStaticMeshActor.h"
 #include "TickableNotification.h"
+#include "UObject/UObjectIterator.h"
+#include "PropertyEditorModule.h"
 #if ((ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 0) || (ENGINE_MAJOR_VERSION > 5))
 #include <LevelInstance/LevelInstanceSubsystem.h>
 #endif
