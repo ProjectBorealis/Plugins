@@ -45,7 +45,9 @@
 #include "SteamAudioSourceComponent.h"
 #include "SteamAudioStaticMeshActor.h"
 #include "TickableNotification.h"
-
+#include "UObject/UObjectIterator.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Views/SListView.h"
 
 namespace SteamAudio {
 

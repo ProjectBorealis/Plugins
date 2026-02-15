@@ -18,7 +18,9 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
-//#include "StaticMeshResources.h"
+#if WITH_EDITOR
+#include "StaticMeshResources.h"
+#endif
 #include "SteamAudioSettings.h"
 
 // ---------------------------------------------------------------------------------------------------------------------
