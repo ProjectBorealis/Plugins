@@ -4,7 +4,7 @@
 	"VersionName": "0.20.1",
 	"FriendlyName": "Sentry",
 	"Description": "Sentry catches all your errors and performance issues, and shows you how to fix them before they bring down the player experience.",
-	"Category": "Code Plugins",
+	"Category": "Programming",
 	"CreatedBy": "Sentry",
 	"CreatedByURL": "https://sentry.io/",
 	"DocsURL": "https://docs.sentry.io/",
