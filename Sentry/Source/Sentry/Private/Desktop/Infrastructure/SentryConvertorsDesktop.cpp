@@ -184,12 +184,12 @@ TMap<FString, FString> SentryConvertorsDesktop::StringMapToUnreal(sentry_value_t
 		return unrealMap;
 	}
 
-	TArray<FString> keysArr;
+	TArray<UE::FSharedString> keysArr;
 	jsonObject->Values.GetKeys(keysArr);
 
 	for (auto it = keysArr.CreateConstIterator(); it; ++it)
 	{
-		unrealMap.Add(*it, jsonObject->GetStringField(*it));
+		unrealMap.Add(FString(*it), jsonObject->GetStringField(*it));
 	}
 
 	return unrealMap;
