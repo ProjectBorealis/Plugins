@@ -461,7 +461,7 @@ bool FSteamAudioManager::InitializeSteamAudio(EManagerInitReason Reason)
 	OnInitialized.Broadcast(InitializationAttempted);
 
     bInitializationSucceded = true;
-	UE_LOG(LogSteamAudio, Warning, TEXT("Steam audio initialized for state %d"), InitializationAttempted);
+	UE_LOG(LogSteamAudio, Warning, TEXT("Steam audio initialized for state %u"), static_cast<uint8>(InitializationAttempted));
     return true;
 }
 
@@ -502,7 +502,7 @@ void FSteamAudioManager::ShutDownSteamAudio(bool bResetFlags /* = true */)
 
     if (bResetFlags)
     {
-    	UE_LOG(LogSteamAudio, Warning, TEXT("Steam audio shut down from state %d"), InitializationAttempted);
+    	UE_LOG(LogSteamAudio, Warning, TEXT("Steam audio shut down from state %u"), static_cast<uint8>(InitializationAttempted));
         InitializationAttempted = EManagerInitReason::NONE;
         bInitializationSucceded = false;
         bSettingsLoaded = false;
