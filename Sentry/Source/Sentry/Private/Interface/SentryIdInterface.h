@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #pragma once
 
@@ -10,4 +10,5 @@ public:
 	virtual ~ISentryId() = default;
 
 	virtual FString ToString() const = 0;
+	virtual bool IsValid() const = 0;
 };

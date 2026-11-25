@@ -1,83 +1,102 @@
-﻿// Copyright (c) 2023 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #include "SentrySpan.h"
+#include "SentryDefines.h"
 
-#include "Interface/SentrySpanInterface.h"
+#include "HAL/PlatformSentrySpan.h"
 
-#if PLATFORM_ANDROID
-#include "Android/SentrySpanAndroid.h"
-#elif PLATFORM_IOS || PLATFORM_MAC
-#include "Apple/SentrySpanApple.h"
-#elif PLATFORM_WINDOWS || PLATFORM_LINUX
-#include "Desktop/SentrySpanDesktop.h"
-#endif
-
-USentrySpan::USentrySpan()
+USentrySpan* USentrySpan::StartChild(const FString& Operation, const FString& Description, bool BindToScope)
 {
+	if (!NativeImpl || NativeImpl->IsFinished())
+		return nullptr;
+
+	if (TSharedPtr<ISentrySpan> ChildSpan = NativeImpl->StartChild(Operation, Description, BindToScope))
+	{
+		return USentrySpan::Create(ChildSpan);
+	}
+	else
+	{
+		UE_LOG(LogSentrySdk, Error, TEXT("Received invalid span after attempting to start child on span"));
+		return nullptr;
+	}
+}
+
+USentrySpan* USentrySpan::StartChildWithTimestamp(const FString& Operation, const FString& Description, int64 Timestamp, bool BindToScope)
+{
+	if (!NativeImpl || NativeImpl->IsFinished())
+		return nullptr;
+
+	if (TSharedPtr<ISentrySpan> ChildSpan = NativeImpl->StartChildWithTimestamp(Operation, Description, Timestamp, BindToScope))
+	{
+		return USentrySpan::Create(ChildSpan);
+	}
+	else
+	{
+		UE_LOG(LogSentrySdk, Error, TEXT("Received invalid span after attempting to start child with timestamp on span"));
+		return nullptr;
+	}
 }
 
 void USentrySpan::Finish()
 {
-	if (!SentrySpanNativeImpl)
+	if (!NativeImpl)
 		return;
 
-	SentrySpanNativeImpl->Finish();
+	NativeImpl->Finish();
+}
+
+void USentrySpan::FinishWithTimestamp(int64 Timestamp)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->FinishWithTimestamp(Timestamp);
 }
 
 bool USentrySpan::IsFinished() const
 {
-	if (!SentrySpanNativeImpl)
+	if (!NativeImpl)
 		return false;
 
-	return SentrySpanNativeImpl->IsFinished();
+	return NativeImpl->IsFinished();
 }
 
 void USentrySpan::SetTag(const FString& key, const FString& value)
 {
-	if (!SentrySpanNativeImpl || SentrySpanNativeImpl->IsFinished())
+	if (!NativeImpl || NativeImpl->IsFinished())
 		return;
 
-	SentrySpanNativeImpl->SetTag(key, value);
+	NativeImpl->SetTag(key, value);
 }
 
 void USentrySpan::RemoveTag(const FString& key)
 {
-	if (!SentrySpanNativeImpl || SentrySpanNativeImpl->IsFinished())
+	if (!NativeImpl || NativeImpl->IsFinished())
 		return;
 
-	SentrySpanNativeImpl->RemoveTag(key);
+	NativeImpl->RemoveTag(key);
 }
 
-void USentrySpan::SetData(const FString& key, const TMap<FString, FString>& values)
+void USentrySpan::SetData(const FString& key, const TMap<FString, FSentryVariant>& values)
 {
-	if (!SentrySpanNativeImpl || SentrySpanNativeImpl->IsFinished())
+	if (!NativeImpl || NativeImpl->IsFinished())
 		return;
 
-	SentrySpanNativeImpl->SetData(key, values);
+	NativeImpl->SetData(key, values);
 }
 
 void USentrySpan::RemoveData(const FString& key)
 {
-	if (!SentrySpanNativeImpl || SentrySpanNativeImpl->IsFinished())
+	if (!NativeImpl || NativeImpl->IsFinished())
 		return;
 
-	SentrySpanNativeImpl->RemoveData(key);
+	NativeImpl->RemoveData(key);
 }
 
 void USentrySpan::GetTrace(FString& name, FString& value)
 {
-	if (!SentrySpanNativeImpl || SentrySpanNativeImpl->IsFinished())
+	if (!NativeImpl || NativeImpl->IsFinished())
 		return;
 
-	SentrySpanNativeImpl->GetTrace(name, value);
-}
-
-void USentrySpan::InitWithNativeImpl(TSharedPtr<ISentrySpan> spanImpl)
-{
-	SentrySpanNativeImpl = spanImpl;
-}
-
-TSharedPtr<ISentrySpan> USentrySpan::GetNativeImpl()
-{
-	return SentrySpanNativeImpl;
+	NativeImpl->GetTrace(name, value);
 }

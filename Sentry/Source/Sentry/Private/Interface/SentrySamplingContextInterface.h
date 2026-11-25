@@ -1,16 +1,18 @@
-﻿// Copyright (c) 2024 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 
-class USentryTransactionContext;
+#include "SentryVariant.h"
+
+class ISentryTransactionContext;
 
 class ISentrySamplingContext
 {
 public:
 	virtual ~ISentrySamplingContext() = default;
 
-	virtual USentryTransactionContext* GetTransactionContext() const = 0;
-	virtual TMap<FString, FString> GetCustomSamplingContext() const = 0;
+	virtual TSharedPtr<ISentryTransactionContext> GetTransactionContext() const = 0;
+	virtual TMap<FString, FSentryVariant> GetCustomSamplingContext() const = 0;
 };

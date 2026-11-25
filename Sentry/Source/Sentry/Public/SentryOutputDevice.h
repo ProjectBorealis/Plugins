@@ -1,19 +1,34 @@
-﻿// Copyright (c) 2024 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #pragma once
 
+#include "Misc/EngineVersionComparison.h"
 #include "Misc/OutputDevice.h"
-#include "Runtime/Launch/Resources/Version.h"
+
+#include "SentryDataTypes.h"
 
 class FSentryOutputDevice : public FOutputDevice
 {
 public:
-	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override;
+	FSentryOutputDevice();
+
+	static bool IsSerializing();
+
+	virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category) override;
 
 	virtual bool CanBeUsedOnAnyThread() const override;
 	virtual bool CanBeUsedOnMultipleThreads() const override;
 
-#if ENGINE_MAJOR_VERSION >= 5
+#if !UE_VERSION_OLDER_THAN(5, 1, 0)
 	virtual bool CanBeUsedOnPanicThread() const override;
 #endif
+
+private:
+	TMap<ESentryLevel, bool> BreadcrumbFlags;
+	TMap<ESentryLevel, bool> StructuredLoggingFlags;
+
+	TArray<FString> StructuredLoggingCategories;
+	bool bSendBreadcrumbsWithStructuredLogging;
+
+	bool ShouldForwardToStructuredLogging(const FString& Category, ESentryLevel Level) const;
 };

@@ -1,37 +1,35 @@
-// Copyright (c) 2023 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #include "SentryHint.h"
 
-#include "Interface/SentryHintInterface.h"
+#include "HAL/PlatformSentryHint.h"
+#include "SentryAttachment.h"
 
-#if PLATFORM_ANDROID
-#include "Android/SentryHintAndroid.h"
-#endif
-
-USentryHint::USentryHint()
+void USentryHint::Initialize()
 {
-	if (USentryHint::StaticClass()->GetDefaultObject() != this)
-	{
-#if PLATFORM_ANDROID
-		SentryHintNativeImpl = MakeShareable(new SentryHintAndroid());
-#endif
-	}
+	NativeImpl = CreateSharedSentryHint();
 }
 
 void USentryHint::AddAttachment(USentryAttachment* Attachment)
 {
-	if(!SentryHintNativeImpl)
+	if (!NativeImpl)
 		return;
 
-	SentryHintNativeImpl->AddAttachment(Attachment);
+	NativeImpl->AddAttachment(Attachment->GetNativeObject());
 }
 
-void USentryHint::InitWithNativeImpl(TSharedPtr<ISentryHint> hintImpl)
+int32 USentryHint::RemoveAttachments(const FString& FilenamePattern)
 {
-	SentryHintNativeImpl = hintImpl;
+	if (!NativeImpl)
+		return 0;
+
+	return NativeImpl->RemoveAttachments(FilenamePattern);
 }
 
-TSharedPtr<ISentryHint> USentryHint::GetNativeImpl()
+void USentryHint::ClearAttachments()
 {
-	return SentryHintNativeImpl;
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->ClearAttachments();
 }

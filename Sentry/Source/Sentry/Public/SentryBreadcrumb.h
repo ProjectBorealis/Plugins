@@ -1,8 +1,10 @@
-// Copyright (c) 2022 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #pragma once
 
 #include "SentryDataTypes.h"
+#include "SentryImplWrapper.h"
+#include "SentryVariant.h"
 
 #include "SentryBreadcrumb.generated.h"
 
@@ -11,13 +13,15 @@ class ISentryBreadcrumb;
 /**
  * Information to create a trail of events that happened prior to an issue.
  */
-UCLASS(BlueprintType)
-class SENTRY_API USentryBreadcrumb : public UObject
+UCLASS(BlueprintType, NotBlueprintable, HideDropdown)
+class SENTRY_API USentryBreadcrumb : public UObject, public TSentryImplWrapper<ISentryBreadcrumb, USentryBreadcrumb>
 {
 	GENERATED_BODY()
 
 public:
-	USentryBreadcrumb();
+	/** Initializes the breadcrumb. */
+	UFUNCTION(BlueprintCallable, Category = "Sentry")
+	void Initialize();
 
 	/** Sets message of the breadcrumb. */
 	UFUNCTION(BlueprintCallable, Category = "Sentry")
@@ -45,11 +49,11 @@ public:
 
 	/** Sets data associated with the breadcrumb. */
 	UFUNCTION(BlueprintCallable, Category = "Sentry")
-	void SetData(const TMap<FString, FString>& Data);
+	void SetData(const TMap<FString, FSentryVariant>& Data);
 
 	/** Gets data associated with the breadcrumb. */
 	UFUNCTION(BlueprintPure, Category = "Sentry")
-	TMap<FString, FString> GetData() const;
+	TMap<FString, FSentryVariant> GetData() const;
 
 	/** Sets the level of the breadcrumb. */
 	UFUNCTION(BlueprintCallable, Category = "Sentry")
@@ -58,10 +62,4 @@ public:
 	/** Gets the level of the breadcrumb. */
 	UFUNCTION(BlueprintPure, Category = "Sentry")
 	ESentryLevel GetLevel() const;
-
-	void InitWithNativeImpl(TSharedPtr<ISentryBreadcrumb> breadcrumbImpl);
-	TSharedPtr<ISentryBreadcrumb> GetNativeImpl();
-
-private:
-	TSharedPtr<ISentryBreadcrumb> BreadcrumbNativeImpl;
 };

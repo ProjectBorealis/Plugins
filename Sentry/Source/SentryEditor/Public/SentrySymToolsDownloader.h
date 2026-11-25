@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2023 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #pragma once
 
@@ -26,6 +26,9 @@ private:
 	FString GetSentryCliPath() const;
 	FString GetSentryCliVersion() const;
 	FString GetSymUploadScriptPath() const;
+
+	bool HasExecutePermission(const FString& FilePath) const;
+	bool SetExecutePermission(const FString& FilePath) const;
 
 	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> SentryCliDownloadRequest;
 	TSharedPtr<IHttpRequest, ESPMode::ThreadSafe> SentryScriptDownloadRequest;

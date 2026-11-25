@@ -1,4 +1,4 @@
-// Copyright (c) 2022 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #pragma once
 
@@ -36,7 +36,8 @@ public:
 
 private:
 	void DrawGeneralNotice(IDetailLayoutBuilder& DetailBuilder);
-	void DrawCrashReporterNotice(IDetailLayoutBuilder& DetailBuilder);
+	void DrawSentryCrashReporterSection(IDetailLayoutBuilder& DetailBuilder);
+	void DrawUnrealCrashReporterNotice(IDetailLayoutBuilder& DetailBuilder);
 	void DrawDebugSymbolsNotice(IDetailLayoutBuilder& DetailBuilder);
 
 	void SetPropertiesUpdateHandler(IDetailLayoutBuilder& DetailBuilder);

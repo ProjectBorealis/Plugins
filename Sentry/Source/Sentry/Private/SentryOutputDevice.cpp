@@ -1,68 +1,102 @@
-﻿// Copyright (c) 2024 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #include "SentryOutputDevice.h"
 
-#include "SentryBreadcrumb.h"
 #include "SentryModule.h"
 #include "SentrySettings.h"
 #include "SentrySubsystem.h"
 
 #include "Engine/Engine.h"
+#include "Templates/UnrealTemplate.h"
+#include "Utils/SentryLogUtils.h"
+
+static thread_local bool bIsSerializing = false;
+
+FSentryOutputDevice::FSentryOutputDevice()
+{
+	const USentrySettings* Settings = FSentryModule::Get().GetSettings();
+
+	BreadcrumbFlags.Add(ESentryLevel::Fatal, Settings->AutomaticBreadcrumbsForLogs.bOnFatalLog);
+	BreadcrumbFlags.Add(ESentryLevel::Error, Settings->AutomaticBreadcrumbsForLogs.bOnErrorLog);
+	BreadcrumbFlags.Add(ESentryLevel::Warning, Settings->AutomaticBreadcrumbsForLogs.bOnWarningLog);
+	BreadcrumbFlags.Add(ESentryLevel::Info, Settings->AutomaticBreadcrumbsForLogs.bOnInfoLog);
+	BreadcrumbFlags.Add(ESentryLevel::Debug, Settings->AutomaticBreadcrumbsForLogs.bOnDebugLog);
+
+	StructuredLoggingFlags.Add(ESentryLevel::Fatal, Settings->StructuredLoggingLevels.bOnFatalLog);
+	StructuredLoggingFlags.Add(ESentryLevel::Error, Settings->StructuredLoggingLevels.bOnErrorLog);
+	StructuredLoggingFlags.Add(ESentryLevel::Warning, Settings->StructuredLoggingLevels.bOnWarningLog);
+	StructuredLoggingFlags.Add(ESentryLevel::Info, Settings->StructuredLoggingLevels.bOnInfoLog);
+	StructuredLoggingFlags.Add(ESentryLevel::Debug, Settings->StructuredLoggingLevels.bOnDebugLog);
+
+	StructuredLoggingCategories = Settings->StructuredLoggingCategories;
+	bSendBreadcrumbsWithStructuredLogging = Settings->bSendBreadcrumbsWithStructuredLogging;
+}
+
+bool FSentryOutputDevice::IsSerializing()
+{
+	return bIsSerializing;
+}
 
 void FSentryOutputDevice::Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category)
 {
+	TGuardValue<bool> IsSerializingGuard(bIsSerializing, true);
+
+	USentrySubsystem* SentrySubsystem = GEngine ? GEngine->GetEngineSubsystem<USentrySubsystem>() : nullptr;
+	if (!SentrySubsystem || !SentrySubsystem->IsEnabled() || SentrySubsystem->IsCrashing())
+	{
+		return;
+	}
+
+	// Filter internal log messages coming from the underlying platform-specific Sentry SDKs
+	if (Category.IsEqual(TEXT("LogSentryInternal")))
+	{
+		return;
+	}
+
 	const FString Message = FString(V).TrimStartAndEnd();
-	if (Message.IsEmpty())
+	if (Message.IsEmpty() || Message.Contains(TEXT("[Callstack]")))
 	{
 		return;
 	}
 
-	const USentrySettings* Settings = FSentryModule::Get().GetSettings();
+	ESentryLevel Level = SentryLogUtils::ConvertLogVerbosityToSentryLevel(Verbosity);
+	const FString CategoryString = Category.ToString();
 
-	bool bAddBreadcrumb;
-
-	ESentryLevel BreadcrumbLevel = ESentryLevel::Debug;
-
-	switch (Verbosity)
+	if (ShouldForwardToStructuredLogging(CategoryString, Level))
 	{
-	case ELogVerbosity::Fatal:
-		bAddBreadcrumb = Settings->AutomaticBreadcrumbsForLogs.bOnFatalLog;
-		BreadcrumbLevel = ESentryLevel::Fatal;
-		break;
-	case ELogVerbosity::Error:
-		bAddBreadcrumb = Settings->AutomaticBreadcrumbsForLogs.bOnErrorLog;
-		BreadcrumbLevel = ESentryLevel::Error;
-		break;
-	case ELogVerbosity::Warning:
-		bAddBreadcrumb = Settings->AutomaticBreadcrumbsForLogs.bOnWarningLog;
-		BreadcrumbLevel = ESentryLevel::Warning;
-		break;
-	case ELogVerbosity::Display:
-	case ELogVerbosity::Log:
-		bAddBreadcrumb = Settings->AutomaticBreadcrumbsForLogs.bOnInfoLog;
-		BreadcrumbLevel = ESentryLevel::Info;
-		break;
-	case ELogVerbosity::Verbose:
-	case ELogVerbosity::VeryVerbose:
-		bAddBreadcrumb = Settings->AutomaticBreadcrumbsForLogs.bOnDebugLog;
-		BreadcrumbLevel = ESentryLevel::Debug;
-		break;
-	default:
-		bAddBreadcrumb = false;
+		// Use level-specific logging methods
+		switch (Level)
+		{
+		case ESentryLevel::Info:
+			SentrySubsystem->LogInfo(Message, CategoryString);
+			break;
+		case ESentryLevel::Warning:
+			SentrySubsystem->LogWarning(Message, CategoryString);
+			break;
+		case ESentryLevel::Error:
+			SentrySubsystem->LogError(Message, CategoryString);
+			break;
+		case ESentryLevel::Fatal:
+			SentrySubsystem->LogFatal(Message, CategoryString);
+			break;
+		case ESentryLevel::Debug:
+		default:
+			SentrySubsystem->LogDebug(Message, CategoryString);
+			break;
+		}
+
+		// If we don't want to also send breadcrumbs when structured logging is enabled, return early
+		if (!bSendBreadcrumbsWithStructuredLogging)
+		{
+			return;
+		}
 	}
 
-	if(!bAddBreadcrumb)
+	// Send breadcrumb if not sent to structured logging, or if forced to send both
+	if (BreadcrumbFlags.Contains(Level) && BreadcrumbFlags[Level])
 	{
-		return;
+		SentrySubsystem->AddBreadcrumbWithParams(Message, CategoryString, FString(), TMap<FString, FSentryVariant>(), Level);
 	}
-
-	USentrySubsystem* SentrySubsystem = GEngine->GetEngineSubsystem<USentrySubsystem>();
-	if(!SentrySubsystem || !SentrySubsystem->IsEnabled())
-	{
-		return;
-	}
-
-	SentrySubsystem->AddBreadcrumbWithParams(Message, Category.ToString(), FString(), TMap<FString, FString>(), BreadcrumbLevel);
 }
 
 bool FSentryOutputDevice::CanBeUsedOnAnyThread() const
@@ -75,9 +109,35 @@ bool FSentryOutputDevice::CanBeUsedOnMultipleThreads() const
 	return true;
 }
 
-#if ENGINE_MAJOR_VERSION >= 5
+#if !UE_VERSION_OLDER_THAN(5, 1, 0)
 bool FSentryOutputDevice::CanBeUsedOnPanicThread() const
 {
 	return true;
 }
 #endif
+
+bool FSentryOutputDevice::ShouldForwardToStructuredLogging(const FString& Category, ESentryLevel Level) const
+{
+	// Check if this log level should be forwarded
+	if (!StructuredLoggingFlags.Contains(Level) || !StructuredLoggingFlags[Level])
+	{
+		return false;
+	}
+
+	// Check category filter
+	if (StructuredLoggingCategories.Num() > 0)
+	{
+		for (const FString& CategoryFilter : StructuredLoggingCategories)
+		{
+			if (Category.Equals(CategoryFilter, ESearchCase::IgnoreCase))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	// No category filter, forward all logs that passed the level check
+	return true;
+}

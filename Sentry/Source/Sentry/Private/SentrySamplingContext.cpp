@@ -1,41 +1,24 @@
-﻿// Copyright (c) 2024 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #include "SentrySamplingContext.h"
+#include "SentryTransactionContext.h"
 
-#include "Interface/SentrySamplingContextInterface.h"
-
-#if PLATFORM_ANDROID
-#include "Android/SentrySamplingContextAndroid.h"
-#elif PLATFORM_IOS || PLATFORM_MAC
-#include "Apple/SentrySamplingContextApple.h"
-#endif
-
-USentrySamplingContext::USentrySamplingContext()
-{
-}
+#include "HAL/PlatformSentrySamplingContext.h"
 
 USentryTransactionContext* USentrySamplingContext::GetTransactionContext() const
 {
-	if (!SentrySamplingContextNativeImpl)
+	if (!NativeImpl)
 		return nullptr;
 
-	return SentrySamplingContextNativeImpl->GetTransactionContext();
+	TSharedPtr<ISentryTransactionContext> transactionContextNativeImpl = NativeImpl->GetTransactionContext();
+
+	return USentryTransactionContext::Create(transactionContextNativeImpl);
 }
 
-TMap<FString, FString> USentrySamplingContext::GetCustomSamplingContext() const
+TMap<FString, FSentryVariant> USentrySamplingContext::GetCustomSamplingContext() const
 {
-	if (!SentrySamplingContextNativeImpl)
-		return TMap<FString, FString>();
+	if (!NativeImpl)
+		return TMap<FString, FSentryVariant>();
 
-	return SentrySamplingContextNativeImpl->GetCustomSamplingContext();
-}
-
-void USentrySamplingContext::InitWithNativeImpl(TSharedPtr<ISentrySamplingContext> samplingContextImpl)
-{
-	SentrySamplingContextNativeImpl = samplingContextImpl;
-}
-
-TSharedPtr<ISentrySamplingContext> USentrySamplingContext::GetNativeImpl()
-{
-	return SentrySamplingContextNativeImpl;
+	return NativeImpl->GetCustomSamplingContext();
 }

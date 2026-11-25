@@ -1,8 +1,8 @@
-// Copyright (c) 2022 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #include "SentrySettingsCustomization.h"
-#include "SentrySettings.h"
 #include "SentryModule.h"
+#include "SentrySettings.h"
 #include "SentrySubsystem.h"
 #include "SentrySymToolsDownloader.h"
 
@@ -12,27 +12,34 @@
 #include "IUATHelperModule.h"
 
 #include "Engine/Engine.h"
-#include "Misc/Paths.h"
-#include "Misc/ConfigCacheIni.h"
-#include "PropertyHandle.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "HAL/FileManager.h"
-#include "HAL/PlatformFileManager.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/EngineVersionComparison.h"
+#include "Misc/Paths.h"
+#include "PropertyHandle.h"
+
 #include "Interfaces/IPluginManager.h"
 #include "Runtime/Launch/Resources/Version.h"
 
-#include "Widgets/Text/SRichTextBlock.h"
-#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Input/SButton.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
-#include "Widgets/Input/SButton.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Text/STextBlock.h"
 
-#if ENGINE_MAJOR_VERSION >= 5
-#include "Styling/AppStyle.h"
-#else
+#if UE_VERSION_OLDER_THAN(5, 0, 0)
 #include "EditorStyleSet.h"
+#else
+#include "Styling/AppStyle.h"
+#endif
+
+#if UE_VERSION_OLDER_THAN(5, 0, 0)
+#include "HAL/PlatformFilemanager.h"
+#else
+#include "HAL/PlatformFileManager.h"
 #endif
 
 const FString FSentrySettingsCustomization::DefaultCrcEndpoint = TEXT("https://datarouter.ol.epicgames.com/datarouter/api/v1/public/data");
@@ -58,7 +65,8 @@ void FSentrySettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& Detail
 {
 	DrawGeneralNotice(DetailBuilder);
 	DrawDebugSymbolsNotice(DetailBuilder);
-	DrawCrashReporterNotice(DetailBuilder);
+	DrawSentryCrashReporterSection(DetailBuilder);
+	DrawUnrealCrashReporterNotice(DetailBuilder);
 
 	SetPropertiesUpdateHandler(DetailBuilder);
 }
@@ -68,7 +76,7 @@ void FSentrySettingsCustomization::DrawGeneralNotice(IDetailLayoutBuilder& Detai
 	IDetailCategoryBuilder& GeneralCategory = DetailBuilder.EditCategory(TEXT("General"));
 
 	TSharedRef<SWidget> GeneralMissingDsnWidget = MakeGeneralSettingsStatusRow(FName(TEXT("SettingsEditor.WarningIcon")),
-	FText::FromString(TEXT("Sentry DSN is not configured.")), FText());
+		FText::FromString(TEXT("Sentry DSN is not configured.")), FText());
 
 	TSharedRef<SWidget> GeneralModifiedWidget = MakeGeneralSettingsStatusRow(FName(TEXT("SettingsEditor.WarningIcon")),
 		FText::FromString(TEXT("Sentry settings were modified.")), FText::FromString(TEXT("Apply")));
@@ -76,12 +84,7 @@ void FSentrySettingsCustomization::DrawGeneralNotice(IDetailLayoutBuilder& Detai
 	TSharedRef<SWidget> GeneralConfiguredWidget = MakeGeneralSettingsStatusRow(FName(TEXT("SettingsEditor.GoodIcon")),
 		FText::FromString(TEXT("Sentry is configured.")), FText());
 
-#if ENGINE_MAJOR_VERSION >= 5
-	const ISlateStyle& Style = FAppStyle::Get();
-#else
-	const ISlateStyle& Style = FEditorStyle::Get();
-#endif
-
+	// clang-format off
 	GeneralCategory.AddCustomRow(FText::FromString(TEXT("General")), false)
 		.WholeRowWidget
 		[
@@ -104,19 +107,21 @@ void FSentrySettingsCustomization::DrawGeneralNotice(IDetailLayoutBuilder& Detai
 				]
 			]
 		];
+	// clang-format on
 
 #if PLATFORM_WINDOWS
 	if (FSentryModule::Get().IsMarketplaceVersion())
 	{
 		TSharedRef<SWidget> LinuxBinariesMissingWidget = MakeLinuxBinariesStatusRow(FName(TEXT("SettingsEditor.WarningIcon")),
-		FText::FromString(TEXT("Sentry Linux pre-compiled binaries are missing.")), FText::FromString(TEXT("Compile")));
+			FText::FromString(TEXT("Sentry Linux pre-compiled binaries are missing.")), FText::FromString(TEXT("Compile")));
 
 		TSharedRef<SWidget> LinuxBinariesCompilingWidget = MakeLinuxBinariesStatusRow(FName(TEXT("SettingsEditor.WarningIcon")),
-		FText::FromString(TEXT("Compiling Sentry for Linux...")), FText());
+			FText::FromString(TEXT("Compiling Sentry for Linux...")), FText());
 
 		TSharedRef<SWidget> LinuxBinariesConfiguredWidget = MakeLinuxBinariesStatusRow(FName(TEXT("SettingsEditor.GoodIcon")),
-		FText::FromString(TEXT("Sentry Linux pre-compiled binaries are ready.")), FText());
+			FText::FromString(TEXT("Sentry Linux pre-compiled binaries are ready.")), FText());
 
+		// clang-format off
 		GeneralCategory.AddCustomRow(FText::FromString(TEXT("General")), false)
 			.WholeRowWidget
 			[
@@ -139,22 +144,76 @@ void FSentrySettingsCustomization::DrawGeneralNotice(IDetailLayoutBuilder& Detai
 					]
 				]
 			];
+		// clang-format on
 	}
 #endif
 }
 
-void FSentrySettingsCustomization::DrawCrashReporterNotice(IDetailLayoutBuilder& DetailBuilder)
+void FSentrySettingsCustomization::DrawSentryCrashReporterSection(IDetailLayoutBuilder& DetailBuilder)
 {
-	IDetailCategoryBuilder& CrashReporterCategory = DetailBuilder.EditCategory(TEXT("Crash Reporter"));
+	IDetailCategoryBuilder& SentryCrashReporterCategory = DetailBuilder.EditCategory(TEXT("Sentry Crash Reporter"));
+
+#if UE_VERSION_OLDER_THAN(5, 0, 0)
+	const ISlateStyle& Style = FEditorStyle::Get();
+#else
+	const ISlateStyle& Style = FAppStyle::Get();
+#endif
+
+	// clang-format off
+	SentryCrashReporterCategory.AddCustomRow(FText::FromString(TEXT("SentryCrashReporter")), false)
+		.WholeRowWidget
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.Padding(1)
+			.AutoHeight()
+			[
+				SNew(SBorder)
+				.Padding(1)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(10, 10, 10, 10))
+					.FillWidth(1.0f)
+					[
+						SNew(SRichTextBlock)
+							.Text(FText::FromString(TEXT("Sentry Crash Reporter is a standalone application that can be used instead of the default Unreal Crash Reporter. "
+								"It lets users review crash details (tags, context, stacktrace) and submit feedback before the report is sent to Sentry. "
+								"Supported on all desktop platforms (on macOS the <RichTextBlock.TextHighlight>native crash backend</> must be enabled). "
+								"For symbolicated stacktraces in Shipping builds, enable \"Include Debug Files in Shipping Builds\" in packaging settings.")))
+							.TextStyle(Style, "MessageLog")
+							.DecoratorStyleSet(&Style)
+							.AutoWrapText(true)
+					]
+				]
+			]
+			+ SVerticalBox::Slot()
+			.Padding(FMargin(0, 10, 0, 10))
+			.VAlign(VAlign_Top)
+			[
+				SNew(SRichTextBlock)
+				.Text(FText::FromString(TEXT("<a id=\"browser\" href=\"https://docs.sentry.io/platforms/unreal/configuration/crash-reporter/sentry-crash-reporter/#sentry-crash-reporter\">View the Sentry Crash Reporter setup documentation -></>")))
+				.AutoWrapText(true)
+				.DecoratorStyleSet(&FCoreStyle::Get())
+				+ SRichTextBlock::HyperlinkDecorator(TEXT("browser"), FSlateHyperlinkRun::FOnClick::CreateStatic(&OnDocumentationLinkClicked))
+			]
+		];
+	// clang-format on
+}
+
+void FSentrySettingsCustomization::DrawUnrealCrashReporterNotice(IDetailLayoutBuilder& DetailBuilder)
+{
+	IDetailCategoryBuilder& CrashReporterCategory = DetailBuilder.EditCategory(TEXT("Unreal Crash Reporter"));
 
 	TSharedPtr<IPropertyHandle> CrashReporterUrlHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(USentrySettings, CrashReporterUrl));
 
-#if ENGINE_MAJOR_VERSION >= 5
-	const ISlateStyle& Style = FAppStyle::Get();
-#else
+#if UE_VERSION_OLDER_THAN(5, 0, 0)
 	const ISlateStyle& Style = FEditorStyle::Get();
+#else
+	const ISlateStyle& Style = FAppStyle::Get();
 #endif
 
+	// clang-format off
 	CrashReporterCategory.AddCustomRow(FText::FromString(TEXT("CrashReporter")), false)
 		.WholeRowWidget
 		[
@@ -172,7 +231,7 @@ void FSentrySettingsCustomization::DrawCrashReporterNotice(IDetailLayoutBuilder&
 					.FillWidth(1.0f)
 					[
 						SNew(SRichTextBlock)
-							.Text(FText::FromString(TEXT("In order to configure Crash Reporter use Sentry's Unreal Engine Endpoint from the Client Keys settings page. "
+							.Text(FText::FromString(TEXT("In order to configure Unreal Crash Reporter use Sentry's Unreal Engine Endpoint from the Client Keys settings page. "
 								"This will include which project within Sentry you want to see the crashes arriving in real time. "
 								"Note that it's accomplished by modifying the `CrashReportClient` section in the global <RichTextBlock.TextHighlight>DefaultEngine.ini</> file. "
 								"Changing the engine is necessary for this to work!")))
@@ -187,7 +246,7 @@ void FSentrySettingsCustomization::DrawCrashReporterNotice(IDetailLayoutBuilder&
 			.VAlign(VAlign_Top)
 			[
 				SNew(SRichTextBlock)
-				.Text(FText::FromString(TEXT("<a id=\"browser\" href=\"https://docs.sentry.io/platforms/unreal/setup-crashreporter/\">View the Crash Reporter setup documentation -></>")))
+				.Text(FText::FromString(TEXT("<a id=\"browser\" href=\"https://docs.sentry.io/platforms/unreal/configuration/crash-reporter/crash-reporter-client/\">View the Unreal Crash Reporter setup documentation -></>")))
 				.AutoWrapText(true)
 				.DecoratorStyleSet(&FCoreStyle::Get())
 				+ SRichTextBlock::HyperlinkDecorator(TEXT("browser"), FSlateHyperlinkRun::FOnClick::CreateStatic(&OnDocumentationLinkClicked))
@@ -233,6 +292,7 @@ void FSentrySettingsCustomization::DrawCrashReporterNotice(IDetailLayoutBuilder&
 				]
 			]
 		];
+	// clang-format on
 }
 
 void FSentrySettingsCustomization::DrawDebugSymbolsNotice(IDetailLayoutBuilder& DetailBuilder)
@@ -248,12 +308,13 @@ void FSentrySettingsCustomization::DrawDebugSymbolsNotice(IDetailLayoutBuilder& 
 	TSharedRef<SWidget> CliConfiguredWidget = MakeSentryCliStatusRow(FName(TEXT("SettingsEditor.GoodIcon")),
 		FText::FromString(TEXT("Sentry symbol upload tools are configured.")), FText::FromString(TEXT("Reload")));
 
-#if ENGINE_MAJOR_VERSION >= 5
-	const ISlateStyle& Style = FAppStyle::Get();
-#else
+#if UE_VERSION_OLDER_THAN(5, 0, 0)
 	const ISlateStyle& Style = FEditorStyle::Get();
+#else
+	const ISlateStyle& Style = FAppStyle::Get();
 #endif
 
+	// clang-format off
 	DebugSymbolsCategory.AddCustomRow(FText::FromString(TEXT("DebugSymbols")), false)
 		.WholeRowWidget
 		[
@@ -276,27 +337,35 @@ void FSentrySettingsCustomization::DrawDebugSymbolsNotice(IDetailLayoutBuilder& 
 				]
 			]
 		];
+	// clang-format on
 
+	// clang-format off
 	DebugSymbolsCategory.AddCustomRow(FText::FromString(TEXT("DebugSymbols")), false)
 		.WholeRowWidget
 		[
 			SNew(SBorder)
 			.Padding(1)
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(FMargin(10, 10, 10, 10))
-				.FillWidth(1.0f)
+				SNew(SBorder)
+				.Padding(1)
 				[
-					SNew(SRichTextBlock)
-						.Text(FText::FromString(TEXT("Note that the Sentry SDK creates a <RichTextBlock.TextHighlight>sentry.properties</> file at project root to store the configuration, "
-							"that should <RichTextBlock.TextHighlight>NOT</> be made publicly available.")))
-						.TextStyle(Style, "MessageLog")
-						.DecoratorStyleSet(&Style)
-						.AutoWrapText(true)
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(10, 10, 10, 10))
+					.FillWidth(1.0f)
+					[
+						SNew(SRichTextBlock)
+							.Text(FText::FromString(TEXT("Note that the Sentry SDK automatically creates a <RichTextBlock.TextHighlight>sentry.properties</> file at project root to store the configuration, "
+								"that should <RichTextBlock.TextHighlight>NOT</> be made publicly available. Alternatively, set up the environment variables "
+								"'SENTRY_PROJECT', 'SENTRY_ORG' and 'SENTRY_AUTH_TOKEN' with the necessary information to upload debug symbols on the build agent.")))
+							.TextStyle(Style, "MessageLog")
+							.DecoratorStyleSet(&Style)
+							.AutoWrapText(true)
+					]
 				]
 			]
 		];
+	// clang-format on
 }
 
 void FSentrySettingsCustomization::SetPropertiesUpdateHandler(IDetailLayoutBuilder& DetailBuilder)
@@ -316,16 +385,17 @@ void FSentrySettingsCustomization::SetPropertiesUpdateHandler(IDetailLayoutBuild
 
 TSharedRef<SWidget> FSentrySettingsCustomization::MakeGeneralSettingsStatusRow(FName IconName, FText Message, FText ButtonMessage)
 {
+	// clang-format off
 	TSharedRef<SHorizontalBox> Result = SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		[
 			SNew(SImage)
-	#if ENGINE_MAJOR_VERSION >= 5
-			.Image(FAppStyle::Get().GetBrush(IconName))
-	#else
+	#if UE_VERSION_OLDER_THAN(5, 0, 0)
 			.Image(FEditorStyle::Get().GetBrush(IconName))
+	#else
+			.Image(FAppStyle::Get().GetBrush(IconName))
 	#endif
 		]
 
@@ -340,9 +410,11 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeGeneralSettingsStatusRow(F
 			.ShadowOffset(FVector2D::UnitVector)
 			.Text(Message)
 		];
+	// clang-format on
 
 	if (!ButtonMessage.IsEmpty())
 	{
+		// clang-format off
 		Result->AddSlot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -361,6 +433,7 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeGeneralSettingsStatusRow(F
 				})
 				.Text(ButtonMessage)
 			];
+		// clang-format on
 	}
 
 	return Result;
@@ -368,16 +441,17 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeGeneralSettingsStatusRow(F
 
 TSharedRef<SWidget> FSentrySettingsCustomization::MakeLinuxBinariesStatusRow(FName IconName, FText Message, FText ButtonMessage)
 {
+	// clang-format off
 	TSharedRef<SHorizontalBox> Result = SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		[
 			SNew(SImage)
-	#if ENGINE_MAJOR_VERSION >= 5
-			.Image(FAppStyle::Get().GetBrush(IconName))
-	#else
+	#if UE_VERSION_OLDER_THAN(5, 0, 0)
 			.Image(FEditorStyle::Get().GetBrush(IconName))
+	#else
+			.Image(FAppStyle::Get().GetBrush(IconName))
 	#endif
 		]
 
@@ -392,9 +466,11 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeLinuxBinariesStatusRow(FNa
 			.ShadowOffset(FVector2D::UnitVector)
 			.Text(Message)
 		];
+	// clang-format on
 
 	if (!ButtonMessage.IsEmpty())
 	{
+		// clang-format off
 		Result->AddSlot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -405,7 +481,7 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeLinuxBinariesStatusRow(FNa
 					IsCompilingLinuxBinaries = true;
 
 					// In case the plugin installed via Epic Games launcher it's supposed to be <EngineDir>/Plugins/Marketplace/Sentry
-					const FString PluginPath = IPluginManager::Get().FindPlugin(TEXT("Sentry"))->GetBaseDir();
+					const FString PluginPath = FPaths::ConvertRelativePathToFull(IPluginManager::Get().FindPlugin(TEXT("Sentry"))->GetBaseDir());
 
 					const FString TempLinuxBinariesPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::ProjectDir(), TEXT("Intermediate"), TEXT("SentryLinuxBinaries")));
 
@@ -414,11 +490,11 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeLinuxBinariesStatusRow(FNa
 					IUATHelperModule::Get().CreateUatTask(CommandLine, FText::FromString("Windows"),
 						FText::FromString("Compiling Sentry for Linux"),
 						FText::FromString("Compile Sentry Linux"),
-					#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1
+					#if UE_VERSION_OLDER_THAN(5, 1, 0)
+						FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")),
+					#else
 						FAppStyle::GetBrush(TEXT("MainFrame.CookContent")),
 						nullptr,
-					#else
-						FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")),
 					#endif
 						[this, TempLinuxBinariesPath](FString result, double X)
 						{
@@ -435,6 +511,7 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeLinuxBinariesStatusRow(FNa
 				})
 				.Text(ButtonMessage)
 			];
+		// clang-format on
 	}
 
 	return Result;
@@ -442,16 +519,17 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeLinuxBinariesStatusRow(FNa
 
 TSharedRef<SWidget> FSentrySettingsCustomization::MakeSentryCliStatusRow(FName IconName, FText Message, FText ButtonMessage)
 {
+	// clang-format off
 	TSharedRef<SHorizontalBox> Result = SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()
 		.VAlign(VAlign_Center)
 		[
 			SNew(SImage)
-#if ENGINE_MAJOR_VERSION >= 5
-			.Image(FAppStyle::Get().GetBrush(IconName))
-#else
+#if UE_VERSION_OLDER_THAN(5, 0, 0)
 			.Image(FEditorStyle::Get().GetBrush(IconName))
+#else
+			.Image(FAppStyle::Get().GetBrush(IconName))
 #endif
 		]
 
@@ -466,9 +544,11 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeSentryCliStatusRow(FName I
 			.ShadowOffset(FVector2D::UnitVector)
 			.Text(Message)
 		];
+	// clang-format on
 
 	if (!ButtonMessage.IsEmpty())
 	{
+		// clang-format off
 		Result->AddSlot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -495,6 +575,7 @@ TSharedRef<SWidget> FSentrySettingsCustomization::MakeSentryCliStatusRow(FName I
 				})
 				.Text(ButtonMessage)
 			];
+		// clang-format on
 	}
 
 	return Result;
@@ -577,8 +658,6 @@ FString FSentrySettingsCustomization::GetLinuxBinariesDirPath() const
 
 int32 FSentrySettingsCustomization::GetGeneralSettingsStatusAsInt() const
 {
-	USentrySubsystem* SentrySubsystem = GEngine->GetEngineSubsystem<USentrySubsystem>();
-
 	USentrySettings* Settings = FSentryModule::Get().GetSettings();
 
 	if (Settings->Dsn.IsEmpty())
@@ -586,7 +665,7 @@ int32 FSentrySettingsCustomization::GetGeneralSettingsStatusAsInt() const
 		return static_cast<int32>(ESentrySettingsStatus::DsnMissing);
 	}
 
-	if (Settings->IsDirty() && SentrySubsystem->IsEnabled())
+	if (Settings->IsDirty())
 	{
 		return static_cast<int32>(ESentrySettingsStatus::Modified);
 	}

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2022 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -27,7 +27,8 @@ public class SentryEditor : ModuleRules
                 "PropertyEditor",
                 "Projects",
                 "HTTP",
-                "UATHelper"
+                "UATHelper",
+                "SharedSettingsWidgets"
             }
         );
     }

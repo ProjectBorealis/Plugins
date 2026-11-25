@@ -1,53 +1,105 @@
-// Copyright (c) 2022 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #include "SentrySettings.h"
-#include "SentryDefines.h"
 #include "SentryBeforeSendHandler.h"
+#include "SentryDefines.h"
 #include "SentryTraceSampler.h"
 
-#include "Misc/Paths.h"
-#include "Misc/ConfigCacheIni.h"
 #include "Misc/App.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/Paths.h"
 
 USentrySettings::USentrySettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, InitAutomatically(true)
 	, Dsn()
 	, Debug(true)
-	, Environment(GetDefaultEnvironmentName())
+	, Environment()
+	, Dist()
 	, SampleRate(1.0f)
 	, EnableAutoLogAttachment(false)
 	, AttachStacktrace(true)
 	, SendDefaultPii(false)
 	, AttachScreenshot(false)
-	, MaxBreadcrumbs(100) 
+	, EnableOutOfProcessScreenshots(false)
+	, AttachGpuDump(true)
+	, MaxAttachmentSize(20 * 1024 * 1024)
+	, EnableLargeAttachments(false)
+	, EnableStructuredLogging(true)
+	, StructuredLoggingCategories()
+	, StructuredLoggingLevels()
+	, bSendBreadcrumbsWithStructuredLogging(false)
+	, EnableMetrics(true)
+	, EnableAutoFrameTimeMetrics(false)
+	, FrameTimeSampleInterval(1.0f)
+	, EnableAutoGameStatsMetrics(false)
+	, GameStatsSampleInterval(60)
+	, EnableAutoGCMetrics(false)
+	, EnableAutoNetworkMetrics(false)
+	, NetworkMetricsSampleInterval(10)
+	, MaxBreadcrumbs(100)
+	, AutomaticBreadcrumbs()
+	, AutomaticBreadcrumbsForLogs()
 	, EnableAutoSessionTracking(true)
 	, SessionTimeout(30000)
 	, OverrideReleaseName(false)
+	, Release()
+	, BeforeSendHandler(nullptr)
+	, BeforeBreadcrumbHandler(nullptr)
+	, BeforeLogHandler(nullptr)
+	, EnableAutoCrashCapturing(true)
 	, UseProxy(false)
 	, ProxyUrl()
-	, BeforeSendHandler(USentryBeforeSendHandler::StaticClass())
-	, EnableAutoCrashCapturing(true)
 	, DatabaseLocation(ESentryDatabaseLocation::ProjectUserDirectory)
-	, EnableAppNotRespondingTracking(false)
+	, UseNativeBackend(false)
+	, MinidumpMode(ESentryMinidumpMode::Smart)
+	, CrashReportingMode(ESentryCrashReportingMode::NativeStackwalkingWithMinidump)
+	, ThreadStackwalkMode(ESentryThreadStackwalkMode::AllThreads)
+	, CrashUploadMode(ESentryCrashUploadMode::Sync)
+	, CrashpadWaitForUpload(false)
+	, EnableOnCrashLogging(false)
+	, ShutdownTimeout(5000)
+	, EnableExternalCrashReporter(false)
+	, EnableHangTracking(false)
+	, HangTimeoutDuration(5.0f)
+	, UseNativeHangTracking(false)
+	, AttachSessionReplay(false)
+	, SessionReplayDurationMs(5000)
+	, EnableOfflineCaching(false)
+	, CacheMaxItems(30)
+	, CacheMaxSize(0)
+	, CacheMaxAge(0)
+	, InAppInclude()
+	, InAppExclude()
+	, EnableAppNotRespondingTracking(true)
+	, AppNotRespondingTimeout(5.0f)
+	, AndroidCrashBackend(ESentryAndroidCrashBackend::TombstoneMergedWithNdk)
 	, EnableTracing(false)
 	, SamplingType(ESentryTracesSamplingType::UniformSampleRate)
 	, TracesSampleRate(0.0f)
-	, TracesSampler(USentryTraceSampler::StaticClass())
+	, TracesSampler(nullptr)
+	, EditorDsn()
+	, TagsPromotion()
+	, EnableBuildConfigurations()
+	, EnableBuildTargets()
 	, EnableForPromotedBuildsOnly(false)
-	, UploadSymbolsAutomatically(false)	
+	, UploadSymbolsAutomatically(false)
+	, ProjectName()
+	, OrgName()
+	, AuthToken()
 	, IncludeSources(false)
 	, DiagnosticLevel(ESentryCliLogLevel::Info)
 	, UseLegacyGradlePlugin(false)
 	, CrashReporterUrl()
+	, EnableCrashReporterContextPropagation(true)
+	, bRequireUserConsent(false)
+	, bDefaultUserConsentGiven(true)
 	, bIsDirty(false)
 {
 	if (GIsEditor)
 	{
 		LoadDebugSymbolsProperties();
 	}
-
-	CheckLegacySettings();
 }
 
 #if WITH_EDITOR
@@ -62,6 +114,7 @@ void USentrySettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	}
 
 	if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, InitAutomatically) ||
+		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, UseNativeBackend) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, UploadSymbolsAutomatically) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, ProjectName) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, OrgName) ||
@@ -69,7 +122,8 @@ void USentrySettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, IncludeSources) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, UseLegacyGradlePlugin) ||
 		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, DiagnosticLevel) ||
-		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, CrashReporterUrl))
+		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, CrashReporterUrl) ||
+		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USentrySettings, EnableCrashReporterContextPropagation))
 	{
 		return;
 	}
@@ -79,13 +133,90 @@ void USentrySettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 
 #endif
 
-FString USentrySettings::GetFormattedReleaseName()
+FString USentrySettings::GetEffectiveDsn() const
+{
+	if (GIsEditor && !EditorDsn.IsEmpty())
+	{
+		return EditorDsn;
+	}
+
+	if (!Dsn.IsEmpty())
+	{
+		return Dsn;
+	}
+
+	const FString& EnvVarDsn = FPlatformMisc::GetEnvironmentVariable(TEXT("SENTRY_DSN"));
+	if (!EnvVarDsn.IsEmpty())
+	{
+		UE_LOG(LogSentrySdk, Log, TEXT("DSN is not set in plugin settings - using SENTRY_DSN environment variable instead."));
+		return EnvVarDsn;
+	}
+
+	UE_LOG(LogSentrySdk, Log, TEXT("DSN is not configured."));
+	return FString();
+}
+
+FString USentrySettings::GetEffectiveEnvironment() const
+{
+	if (!Environment.IsEmpty())
+	{
+		UE_LOG(LogSentrySdk, Verbose, TEXT("Using the value from plugin settings as Sentry environment."));
+		return Environment;
+	}
+
+	const FString& EnvVarEnvironment = FPlatformMisc::GetEnvironmentVariable(TEXT("SENTRY_ENVIRONMENT"));
+	if (!EnvVarEnvironment.IsEmpty())
+	{
+		UE_LOG(LogSentrySdk, Log, TEXT("Using SENTRY_ENVIRONMENT variable as Sentry environment."));
+		return EnvVarEnvironment;
+	}
+
+	UE_LOG(LogSentrySdk, Log, TEXT("Using current build configuration as Sentry environment."));
+	return GetEnvironmentFromBuildConfig();
+}
+
+FString USentrySettings::GetEnvironmentFromBuildConfig() const
+{
+	if (GIsEditor)
+	{
+		return TEXT("Editor");
+	}
+
+	// Check Shipping configuration separately for backward compatibility
+	if (FApp::GetBuildConfiguration() == EBuildConfiguration::Shipping)
+	{
+		return TEXT("Release");
+	}
+
+	return LexToString(FApp::GetBuildConfiguration());
+}
+
+FString USentrySettings::GetEffectiveRelease() const
+{
+	if (OverrideReleaseName)
+	{
+		UE_LOG(LogSentrySdk, Verbose, TEXT("Using the value from plugin settings as Sentry release."));
+		return Release;
+	}
+
+	const FString& EnvVarRelease = FPlatformMisc::GetEnvironmentVariable(TEXT("SENTRY_RELEASE"));
+	if (!EnvVarRelease.IsEmpty())
+	{
+		UE_LOG(LogSentrySdk, Log, TEXT("Using SENTRY_RELEASE variable as Sentry release."));
+		return EnvVarRelease;
+	}
+
+	UE_LOG(LogSentrySdk, Log, TEXT("Using current project name and version as Sentry release."));
+	return GetReleaseFromProjectSettings();
+}
+
+FString USentrySettings::GetReleaseFromProjectSettings() const
 {
 	FString FormattedReleaseName = FApp::GetProjectName();
 
 	FString Version = TEXT("");
 	GConfig->GetString(TEXT("/Script/EngineSettings.GeneralProjectSettings"), TEXT("ProjectVersion"), Version, GGameIni);
-	if(!Version.IsEmpty())
+	if (!Version.IsEmpty())
 	{
 		FormattedReleaseName = FString::Printf(TEXT("%s@%s"), *FormattedReleaseName, *Version);
 	}
@@ -101,22 +232,6 @@ bool USentrySettings::IsDirty() const
 void USentrySettings::ClearDirtyFlag()
 {
 	bIsDirty = false;
-}
-
-FString USentrySettings::GetDefaultEnvironmentName()
-{
-	if (GIsEditor)
-	{
-		return TEXT("Editor");
-	}
-
-	// Check Shipping configuration separately for backward compatibility
-	if(FApp::GetBuildConfiguration() == EBuildConfiguration::Shipping)
-	{
-		return TEXT("Release");
-	}
-
-	return LexToString(FApp::GetBuildConfiguration());
 }
 
 void USentrySettings::LoadDebugSymbolsProperties()
@@ -140,53 +255,5 @@ void USentrySettings::LoadDebugSymbolsProperties()
 		{
 			UE_LOG(LogSentrySdk, Warning, TEXT("Sentry plugin can't find sentry.properties file"));
 		}
-	}
-}
-
-void USentrySettings::CheckLegacySettings()
-{
-	bool IsSettingsDirty = false;
-
-	const FString SentrySection = TEXT("/Script/Sentry.SentrySettings");
-	const FString ConfigFilename = GetDefaultConfigFilename();
-
-	// Settings renamed in 0.9.0
-
-	const FString DsnLegacyKey = TEXT("DsnUrl");
-	FString DsnLegacyValue = TEXT("");
-	if(GConfig->GetString(*SentrySection, *DsnLegacyKey, DsnLegacyValue, *ConfigFilename))
-	{
-		Dsn = DsnLegacyValue;
-		GConfig->SetString(*SentrySection, TEXT("Dsn"), *Dsn, *ConfigFilename);
-		GConfig->RemoveKey(*SentrySection, *DsnLegacyKey, *ConfigFilename);
-		IsSettingsDirty = true;
-	}
-
-	const FString DebugLegacyKey = TEXT("EnableVerboseLogging");
-	bool DebugLegacyValue;
-	if(GConfig->GetBool(*SentrySection, *DebugLegacyKey, DebugLegacyValue, *ConfigFilename))
-	{
-		Debug = DebugLegacyValue;
-		GConfig->SetBool(*SentrySection, TEXT("Debug"), Debug, *ConfigFilename);
-		GConfig->RemoveKey(*SentrySection, *DebugLegacyKey, *ConfigFilename);
-		IsSettingsDirty = true;
-	}
-
-	const FString AttachStacktraceLegacyKey = TEXT("EnableStackTrace");
-	bool AttachStacktraceLegacyValue;
-	if(GConfig->GetBool(*SentrySection, *AttachStacktraceLegacyKey, AttachStacktraceLegacyValue, *ConfigFilename))
-	{
-		AttachStacktrace = AttachStacktraceLegacyValue;
-		GConfig->SetBool(*SentrySection, TEXT("AttachStacktrace"), AttachStacktrace, *ConfigFilename);
-		GConfig->RemoveKey(*SentrySection, *AttachStacktraceLegacyKey, *ConfigFilename);
-		IsSettingsDirty = true;
-	}
-
-	// Place newly renamed settings here specifying the release for which changes take place
-
-	if (IsSettingsDirty)
-	{
-		UE_LOG(LogSentrySdk, Warning, TEXT("Sentry settings were marked as dirty (if not checked out in Perforce these need to be updated manually)"));
-		GConfig->Flush(false, *ConfigFilename);
 	}
 }

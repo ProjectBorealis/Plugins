@@ -1,102 +1,229 @@
-// Copyright (c) 2022 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #include "SentryEvent.h"
+#include "SentryFeedback.h"
 
-#include "Interface/SentryEventInterface.h"
+#include "HAL/PlatformSentryEvent.h"
+#include "Interface/SentryFeedbackInterface.h"
+#include "Interface/SentryIdInterface.h"
 
-#if PLATFORM_ANDROID
-#include "Android/SentryEventAndroid.h"
-#elif PLATFORM_IOS || PLATFORM_MAC
-#include "Apple/SentryEventApple.h"
-#elif PLATFORM_WINDOWS || PLATFORM_LINUX
-#include "Desktop/SentryEventDesktop.h"
-#endif
-
-USentryEvent::USentryEvent()
+void USentryEvent::Initialize()
 {
-	if (USentryEvent::StaticClass()->GetDefaultObject() != this)
-	{
-#if PLATFORM_ANDROID
-		EventNativeImpl = MakeShareable(new SentryEventAndroid());
-#elif PLATFORM_IOS || PLATFORM_MAC
-		EventNativeImpl = MakeShareable(new SentryEventApple());
-#elif (PLATFORM_WINDOWS || PLATFORM_LINUX) && USE_SENTRY_NATIVE
-		EventNativeImpl = MakeShareable(new SentryEventDesktop());
-#endif
-	}
+	NativeImpl = CreateSharedSentryEvent();
 }
 
-USentryEvent* USentryEvent::CreateEventWithMessageAndLevel(const FString& Message, ESentryLevel Level)
+FString USentryEvent::GetId() const
 {
-	USentryEvent* Event = NewObject<USentryEvent>();
+	if (!NativeImpl)
+		return FString();
 
-	if(!Message.IsEmpty())
-	{
-		Event->SetMessage(Message);
-	}
+	TSharedPtr<ISentryId> idNativeImpl = NativeImpl->GetId();
+	if (!idNativeImpl)
+		return FString();
 
-	Event->SetLevel(Level);
+	return idNativeImpl->ToString();
+}
 
-	return Event;
+USentryFeedback* USentryEvent::GetFeedback() const
+{
+	if (!NativeImpl)
+		return nullptr;
+
+	TSharedPtr<ISentryFeedback> feedbackNativeImpl = NativeImpl->GetFeedback();
+	if (!feedbackNativeImpl)
+		return nullptr;
+
+	return USentryFeedback::Create(feedbackNativeImpl);
 }
 
 void USentryEvent::SetMessage(const FString& Message)
 {
-	if (!EventNativeImpl)
+	if (!NativeImpl)
 		return;
 
-	EventNativeImpl->SetMessage(Message);
+	NativeImpl->SetMessage(Message);
 }
 
 FString USentryEvent::GetMessage() const
 {
-	if(!EventNativeImpl)
+	if (!NativeImpl)
 		return FString();
 
-	return EventNativeImpl->GetMessage();
+	return NativeImpl->GetMessage();
 }
 
 void USentryEvent::SetLevel(ESentryLevel Level)
 {
-	if (!EventNativeImpl)
+	if (!NativeImpl)
 		return;
 
-	EventNativeImpl->SetLevel(Level);
+	NativeImpl->SetLevel(Level);
 }
 
 ESentryLevel USentryEvent::GetLevel() const
 {
-	if(!EventNativeImpl)
+	if (!NativeImpl)
 		return ESentryLevel::Debug;
 
-	return EventNativeImpl->GetLevel();
+	return NativeImpl->GetLevel();
+}
+
+void USentryEvent::SetFingerprint(const TArray<FString>& Fingerprint)
+{
+	if (!NativeImpl)
+		return;
+
+	return NativeImpl->SetFingerprint(Fingerprint);
+}
+
+TArray<FString> USentryEvent::GetFingerprint() const
+{
+	if (!NativeImpl)
+		return TArray<FString>();
+
+	return NativeImpl->GetFingerprint();
+}
+
+void USentryEvent::SetTag(const FString& Key, const FString& Value)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->SetTag(Key, Value);
+}
+
+FString USentryEvent::GetTag(const FString& Key) const
+{
+	if (!NativeImpl)
+		return FString();
+
+	return NativeImpl->GetTag(Key);
+}
+
+bool USentryEvent::TryGetTag(const FString& Key, FString& Value) const
+{
+	if (!NativeImpl)
+		return false;
+
+	return NativeImpl->TryGetTag(Key, Value);
+}
+
+void USentryEvent::RemoveTag(const FString& Key)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->RemoveTag(Key);
+}
+
+void USentryEvent::SetTags(const TMap<FString, FString>& Tags)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->SetTags(Tags);
+}
+
+TMap<FString, FString> USentryEvent::GetTags() const
+{
+	if (!NativeImpl)
+		return TMap<FString, FString>();
+
+	return NativeImpl->GetTags();
+}
+
+void USentryEvent::SetContext(const FString& Key, const TMap<FString, FSentryVariant>& Values)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->SetContext(Key, Values);
+}
+
+TMap<FString, FSentryVariant> USentryEvent::GetContext(const FString& Key) const
+{
+	if (!NativeImpl)
+		return TMap<FString, FSentryVariant>();
+
+	return NativeImpl->GetContext(Key);
+}
+
+bool USentryEvent::TryGetContext(const FString& Key, TMap<FString, FSentryVariant>& Value) const
+{
+	if (!NativeImpl)
+		return false;
+
+	return NativeImpl->TryGetContext(Key, Value);
+}
+
+void USentryEvent::RemoveContext(const FString& Key)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->RemoveContext(Key);
+}
+
+void USentryEvent::SetExtra(const FString& Key, const FSentryVariant& Value)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->SetExtra(Key, Value);
+}
+
+FSentryVariant USentryEvent::GetExtra(const FString& Key) const
+{
+	if (!NativeImpl)
+		return FSentryVariant();
+
+	return NativeImpl->GetExtra(Key);
+}
+
+bool USentryEvent::TryGetExtra(const FString& Key, FSentryVariant& Value) const
+{
+	if (!NativeImpl)
+		return false;
+
+	return NativeImpl->TryGetExtra(Key, Value);
+}
+
+void USentryEvent::RemoveExtra(const FString& Key)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->RemoveExtra(Key);
+}
+
+void USentryEvent::SetExtras(const TMap<FString, FSentryVariant>& Extras)
+{
+	if (!NativeImpl)
+		return;
+
+	NativeImpl->SetExtras(Extras);
+}
+
+TMap<FString, FSentryVariant> USentryEvent::GetExtras() const
+{
+	if (!NativeImpl)
+		return TMap<FString, FSentryVariant>();
+
+	return NativeImpl->GetExtras();
 }
 
 bool USentryEvent::IsCrash() const
 {
-	if(!EventNativeImpl)
+	if (!NativeImpl)
 		return false;
 
-	return EventNativeImpl->IsCrash();
+	return NativeImpl->IsCrash();
 }
 
 bool USentryEvent::IsAnr() const
 {
-	if(!EventNativeImpl)
+	if (!NativeImpl)
 		return false;
 
-	return EventNativeImpl->IsAnr();
-}
-
-void USentryEvent::InitWithNativeImpl(TSharedPtr<ISentryEvent> eventImpl)
-{
-	if (!EventNativeImpl)
-		return;
-
-	EventNativeImpl = eventImpl;
-}
-
-TSharedPtr<ISentryEvent> USentryEvent::GetNativeImpl()
-{
-	return EventNativeImpl;
+	return NativeImpl->IsAnr();
 }

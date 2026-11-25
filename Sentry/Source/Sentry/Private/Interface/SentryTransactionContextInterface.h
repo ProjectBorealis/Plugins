@@ -1,8 +1,10 @@
-// Copyright (c) 2024 Sentry. All Rights Reserved.
+// Copyright (c) 2025 Sentry. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
+
+class ISentryTransaction;
 
 class ISentryTransactionContext
 {
